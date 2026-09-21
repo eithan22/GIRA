@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/GIRA-API/">
+    <Project Path="GIRA.Api/GIRA.Api.csproj" />
+  </Folder>
+  <Folder Name="/GIRA-CORE/" />
+  <Folder Name="/GIRA-CORE/GIRA-Application/">
+    <Project Path="GIRA.Application/GIRA.Application.csproj" />
+  </Folder>
+  <Folder Name="/GIRA-CORE/GIRA-Domain/">
+    <Project Path="GIRA.Domain/GIRA.Domain.csproj" />
+  </Folder>
+  <Folder Name="/GIRA-Infrastructure/">
+    <Project Path="GIRA.Infrastructure/GIRA.Infrastructure.csproj" />
+  </Folder>
+</Solution>
