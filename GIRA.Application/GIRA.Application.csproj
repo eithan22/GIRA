@@ -10,13 +10,4 @@
     <ProjectReference Include="..\GIRA.Domain\GIRA.Domain.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="DTOs\" />
-    <Folder Include="Interfaces\Services\" />
-    <Folder Include="Interfaces\Repository\" />
-    <Folder Include="Mappers\" />
-    <Folder Include="Validations\" />
-    <Folder Include="Services\" />
-  </ItemGroup>
-
 </Project>
