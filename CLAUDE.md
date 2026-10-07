@@ -22,6 +22,8 @@ GIRA (solución)
 **Dependencias permitidas:** API → Infrastructure → Application → Domain. Domain no depende de nada.
 Dentro de cada capa, el código se organiza por módulo (carpeta por módulo).
 
+Los casos de uso viven en servicios por módulo (Application/Services/<Modulo>, con su interfaz en Application/Interfaces/Services/<Modulo>). MediatR se usa SOLO para eventos entre módulos (Application/Events/<Modulo> y Application/EventHandlers/<Modulo>). El paquete MediatR se instala únicamente en GIRA.Application.
+
 ## 3. Módulos y responsables
 | Módulo | Responsable(s) |
 |---|---|
@@ -84,8 +86,9 @@ Una base en la nube se usará **solo** para la demo final, desplegando desde `ma
 ## 6. Convenciones de código
 - C# con comentarios XML en clases y métodos públicos; nombres de dominio en español (`Reserva`, `Mesa`, `Empleado`), nombres técnicos en inglés cuando sean estándar.
 - Todas las entidades heredan de `BaseEntity` (Id Guid, auditoría, soft delete, RowVersion).
-- Casos de uso con MediatR (Commands/Queries) + FluentValidation. Errores con `ProblemDetails`.
-- Comunicación entre módulos mediante eventos de dominio MediatR, publicados tras `SaveChanges`. Prohibido que un módulo use directamente las entidades internas de otro.
+- Casos de uso en servicios por módulo (interfaz en Application/Interfaces/Services/<Modulo>), con FluentValidation invocado desde el servicio. Errores con `ProblemDetails`. NO usar Commands/Queries de MediatR.
+- MediatR se usa SOLO para eventos entre módulos (`INotification`), publicados tras `SaveChanges`, nunca antes. Eventos en Application/Events/<Modulo> (ejemplo: ReservaCompletadaEvent) y handlers en Application/EventHandlers/<Modulo> (ejemplo: DescontarInsumosHandler). Los handlers deben ser cortos y no fallar en silencio. Prohibido que un módulo use directamente las entidades internas de otro; la comunicación entre módulos es por eventos.
+- Mapeo manual o con Mapperly. No usar AutoMapper (licencia comercial).
 - Logging con Serilog. Notificaciones en tiempo real con SignalR. Rate limiting en login.
 - **Reservas:** estados `Confirmada → EnCurso → Completada`, `Cancelada`, `NoAsistio`; transiciones como métodos de la entidad `Reserva`; índice único filtrado en `(MesaId, Fecha, FranjaHorariaId)` contra doble reserva.
 - **Analítica:** ML.NET (SSA) entrenado en `BackgroundService`; datos sintéticos para el arranque en frío.
