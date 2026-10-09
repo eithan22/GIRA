@@ -21,6 +21,10 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
             .IsFixedLength()
             .IsRequired();
 
+        builder.Property(rt => rt.IpCreacion)
+            .HasMaxLength(45)
+            .IsRequired();
+
         builder.HasIndex(rt => rt.TokenHash)
             .IsUnique();
     }

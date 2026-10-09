@@ -4,6 +4,7 @@ using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GIRA.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(GiraDbContext))]
-    partial class GiraDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261009171415_Seguridad_IndicesYLongitudes")]
+    partial class Seguridad_IndicesYLongitudes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

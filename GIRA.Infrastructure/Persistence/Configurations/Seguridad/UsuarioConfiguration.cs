@@ -10,7 +10,10 @@ namespace GIRA.Infrastructure.Persistence.Configurations.Seguridad;
 /// </summary>
 public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
 {
-    /// <summary>Hace obligatorio el nombre completo y crea el índice único filtrado de EmpleadoId.</summary>
+    /// <summary>
+    /// Hace obligatorio el nombre completo, crea el índice único filtrado de EmpleadoId
+    /// y hace único el índice de correo que Identity crea por defecto.
+    /// </summary>
     public void Configure(EntityTypeBuilder<Usuario> builder)
     {
         builder.Property(u => u.NombreCompleto)
@@ -22,5 +25,12 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
         builder.HasIndex(u => u.EmpleadoId)
             .IsUnique()
             .HasFilter("[EmpleadoId] IS NOT NULL");
+
+        // Identity crea "EmailIndex" sobre NormalizedEmail sin unicidad, aunque las
+        // opciones de Identity exijan RequireUniqueEmail = true. Sin esto, la unicidad
+        // del correo solo se valida en código (UserManager), no en la base de datos.
+        builder.HasIndex(u => u.NormalizedEmail)
+            .IsUnique()
+            .HasFilter("[NormalizedEmail] IS NOT NULL");
     }
 }

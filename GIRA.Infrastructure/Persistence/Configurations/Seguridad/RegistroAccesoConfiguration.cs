@@ -16,6 +16,19 @@ public class RegistroAccesoConfiguration : IEntityTypeConfiguration<RegistroAcce
 
         builder.HasKey(r => r.Id);
 
+        // Se escribe en cada intento de login, incluso de usuarios no autenticados;
+        // sin límite de longitud es un vector para llenar la tabla de auditoría a propósito.
+        builder.Property(r => r.CorreoIntentado)
+            .HasMaxLength(256)
+            .IsRequired();
+
+        builder.Property(r => r.Ip)
+            .HasMaxLength(45)
+            .IsRequired();
+
+        builder.Property(r => r.Motivo)
+            .HasMaxLength(200);
+
         builder.HasIndex(r => new { r.UsuarioId, r.Fecha });
     }
 }
