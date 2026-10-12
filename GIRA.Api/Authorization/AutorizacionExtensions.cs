@@ -1,5 +1,5 @@
 ﻿using GIRA.Domain.Constants;
-using GIRA.Domain.Constants;
+
 using Microsoft.AspNetCore.Authorization;   
 
 namespace GIRA.Api.Authorization
@@ -45,7 +45,7 @@ namespace GIRA.Api.Authorization
 
             });
 
-            services.AddSingleton<IAuthorizationMiddlewareResultHandler, RespuestaAutorizacionHandler>();   // <- agregar
+            services.AddSingleton<IAuthorizationMiddlewareResultHandler, RespuestaAutorizacionHandler>();  
 
             return services;
         }
