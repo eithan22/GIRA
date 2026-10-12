@@ -1,3 +1,4 @@
+using GIRA.Application;
 using GIRA.Infrastructure;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
@@ -13,6 +14,8 @@ builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+// Servicios de Application e Infrastructure.
+builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
