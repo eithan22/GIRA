@@ -1,5 +1,7 @@
+using GIRA.Application.Interfaces.Services.Seguridad;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
+using GIRA.Infrastructure.Services.Seguridad;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -14,8 +16,9 @@ namespace GIRA.Infrastructure;
 public static class DependencyInjection
 {
     /// <summary>
-    /// Registra <see cref="GiraDbContext"/> contra SQL Server y configura ASP.NET Core
-    /// Identity con las políticas de contraseña y bloqueo del proyecto.
+    /// Registra <see cref="GiraDbContext"/> contra SQL Server, configura ASP.NET Core
+    /// Identity con las políticas de contraseña y bloqueo del proyecto y registra los
+    /// servicios de autenticación.
     /// </summary>
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
@@ -42,6 +45,11 @@ public static class DependencyInjection
             .AddRoles<Rol>()
             .AddEntityFrameworkStores<GiraDbContext>()
             .AddSignInManager();
+
+        // Tokens de sesión e inicio de sesión (GI-95).
+        services.AddSingleton(JwtSettings.Leer(configuration));
+        services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<IAuthService, AuthService>();
 
         return services;
     }
