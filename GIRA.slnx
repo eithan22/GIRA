@@ -12,4 +12,7 @@
   <Folder Name="/GIRA-Infrastructure/">
     <Project Path="GIRA.Infrastructure/GIRA.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/GIRA-Tests/">
+    <Project Path="GIRA.Tests/GIRA.Tests.csproj" />
+  </Folder>
 </Solution>
