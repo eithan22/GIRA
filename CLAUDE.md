@@ -79,6 +79,8 @@ Una base en la nube se usará **solo** para la demo final, desplegando desde `ma
 
 ## 5. Seguridad
 - ASP.NET Core Identity + JWT: access token de 30 min; refresh token de 7 días con rotación, guardado hasheado.
+- Los claims del token usan nombres cortos (`sub`, `email`, `name`, `role`), definidos en `TiposClaim`. El usuario autenticado se obtiene con `User.FindFirst(TiposClaim.UsuarioId)`.
+- `ITokenService` emite los tokens y calcula el hash SHA-256 del refresh token; reutilizarlo en vez de generar tokens por otro lado.
 - Roles: Administrador, Gerente, Supervisor, Mesero, Cocina. Autorizar con políticas (constantes en `Politicas`), nunca con nombres de rol sueltos.
 - Bloqueo: 5 intentos fallidos, 15 minutos. Contraseña: mínimo 8, mayúscula, minúscula, dígito y símbolo.
 - Los clientes NO tienen cuenta: usan código de reserva + teléfono.
@@ -102,7 +104,13 @@ Una base en la nube se usará **solo** para la demo final, desplegando desde `ma
 2. Clonar el repositorio.
 3. Copiar `.env.example` a `.env` y definir tu propia contraseña (`SA_PASSWORD`).
 4. `docker compose up -d`.
-5. Configurar User Secrets con `ConnectionStrings:GiraDb`.
+5. Configurar User Secrets en `GIRA.Api` (la API no arranca si falta alguno):
+   - `ConnectionStrings:GiraDb`: la cadena de conexión de la sección 4.
+   - `Seed:AdminEmail` y `Seed:AdminPassword`: el administrador inicial que crea el seeder.
+   - `Jwt:Key`: clave para firmar los tokens, de al menos 32 caracteres.
+   ```bash
+   dotnet user-secrets set "Jwt:Key" "<clave-larga-y-aleatoria>" --project GIRA.Api
+   ```
 6. Ejecutar la API (aplica migraciones y seeder automáticamente).
 7. Verificar con Swagger.
 
