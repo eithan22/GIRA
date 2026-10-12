@@ -1,3 +1,4 @@
+using GIRA.Api.Authorization;
 using GIRA.Application;
 using GIRA.Infrastructure;
 using GIRA.Infrastructure.Identity;
@@ -17,6 +18,7 @@ builder.Services.AddOpenApi();
 // Servicios de Application e Infrastructure.
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddAutorizacionGira();
 
 var app = builder.Build();
 
