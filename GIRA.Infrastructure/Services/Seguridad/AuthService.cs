@@ -23,18 +23,21 @@ public class AuthService : IAuthService
     private readonly SignInManager<Usuario> _signInManager;
     private readonly ITokenService _tokenService;
     private readonly IValidator<LoginRequest> _validator;
+    private readonly IRegistroAccesoService _registroAcceso;
 
-    /// <summary>Crea el servicio con sus dependencias de Identity, tokens y validación.</summary>
+    /// <summary>Crea el servicio con sus dependencias de Identity, tokens, validación y auditoría de accesos.</summary>
     public AuthService(
         UserManager<Usuario> userManager,
         SignInManager<Usuario> signInManager,
         ITokenService tokenService,
-        IValidator<LoginRequest> validator)
+        IValidator<LoginRequest> validator,
+        IRegistroAccesoService registroAcceso)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _tokenService = tokenService;
         _validator = validator;
+        _registroAcceso = registroAcceso;
     }
 
     /// <inheritdoc />
@@ -47,12 +50,16 @@ public class AuthService : IAuthService
                 ErrorType.Validation, string.Join(" ", validacion.Errors.Select(e => e.ErrorMessage)));
         }
 
-        // Pendiente GI-102: registrar cada intento (exitoso o no, con su motivo) en
-        // RegistroAcceso cuando Ismael publique la interfaz RegistrarAsync.
-
         var usuario = await _userManager.FindByEmailAsync(request.Email);
-        if (usuario is null || !usuario.Activo)
+        if (usuario is null)
         {
+            await _registroAcceso.RegistrarAsync(null, request.Email, ip, false, "Correo no registrado", cancellationToken);
+            return CredencialesInvalidas();
+        }
+
+        if (!usuario.Activo)
+        {
+            await _registroAcceso.RegistrarAsync(usuario.Id, request.Email, ip, false, "Usuario inactivo", cancellationToken);
             return CredencialesInvalidas();
         }
 
@@ -62,6 +69,8 @@ public class AuthService : IAuthService
         var resultado = await _signInManager.CheckPasswordSignInAsync(usuario, request.Password, lockoutOnFailure: true);
         if (!resultado.Succeeded)
         {
+            await _registroAcceso.RegistrarAsync(usuario.Id, request.Email, ip, false,
+                resultado.IsLockedOut ? "Cuenta bloqueada" : "Contraseña incorrecta", cancellationToken);
             return CredencialesInvalidas();
         }
 
@@ -73,6 +82,8 @@ public class AuthService : IAuthService
         // UltimoAcceso es informativo: si la actualización falla, el inicio de sesión sigue siendo válido.
         usuario.UltimoAcceso = DateTime.UtcNow;
         await _userManager.UpdateAsync(usuario);
+
+        await _registroAcceso.RegistrarAsync(usuario.Id, request.Email, ip, true, null, cancellationToken);
 
         return OperationResult.Success(new LoginResponse
         {
