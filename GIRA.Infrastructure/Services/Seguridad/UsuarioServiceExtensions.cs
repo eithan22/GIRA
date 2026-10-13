@@ -1,7 +1,7 @@
-﻿using GIRA.Application.Interfaces;
+﻿using GIRA.Application.Interfaces.Services.Seguridad;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace GIRA.Infrastructure.ExternalServices.Seguridad;
+namespace GIRA.Infrastructure.Services.Seguridad;
 
 public static class UsuarioServiceExtensions
 {

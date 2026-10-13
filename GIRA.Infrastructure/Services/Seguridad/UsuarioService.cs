@@ -2,13 +2,13 @@
 using FluentValidation;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad;
-using GIRA.Application.Interfaces;
+using GIRA.Application.Interfaces.Services.Seguridad;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
-namespace GIRA.Infrastructure.ExternalServices.Seguridad;
+namespace GIRA.Infrastructure.Services.Seguridad;
 
 /// <summary>Implementación de la gestión de usuarios sobre ASP.NET Core Identity.</summary>
 public class UsuarioService : IUsuarioService

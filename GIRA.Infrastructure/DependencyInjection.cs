@@ -1,4 +1,4 @@
-using GIRA.Infrastructure.ExternalServices.Seguridad;
+using GIRA.Infrastructure.Services.Seguridad;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.AspNetCore.Identity;
