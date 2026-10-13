@@ -4,3 +4,14 @@ GET {{GIRA.Api_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+# Iniciar sesión (GI-95). Usa el correo y la contraseña de tu admin (Seed:AdminEmail y Seed:AdminPassword en User Secrets).
+POST {{GIRA.Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@gira.local",
+  "password": "<tu-contraseña>"
+}
+
+###

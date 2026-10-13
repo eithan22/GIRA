@@ -1,3 +1,4 @@
+using GIRA.Api.Common;
 using GIRA.Application;
 using GIRA.Infrastructure;
 using GIRA.Infrastructure.Identity;
@@ -18,6 +19,10 @@ builder.Services.AddOpenApi();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// Autenticación JWT y límite de intentos del login (GI-95).
+builder.Services.AddAutenticacionJwt(builder.Configuration);
+builder.Services.AddLimiteLogin();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -37,6 +42,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseRateLimiter();
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
