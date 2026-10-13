@@ -1,9 +1,11 @@
+using GIRA.Infrastructure.ExternalServices.Seguridad;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+
 
 namespace GIRA.Infrastructure;
 
@@ -42,6 +44,7 @@ public static class DependencyInjection
             .AddRoles<Rol>()
             .AddEntityFrameworkStores<GiraDbContext>()
             .AddSignInManager();
+            services.AddUsuarioService();
 
         return services;
     }
