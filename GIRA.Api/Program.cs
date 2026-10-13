@@ -1,3 +1,4 @@
+using GIRA.Api.Authorization;
 using GIRA.Api.Common;
 using GIRA.Application;
 using GIRA.Infrastructure;
@@ -22,6 +23,10 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // Autenticación JWT y límite de intentos del login (GI-95).
 builder.Services.AddAutenticacionJwt(builder.Configuration);
 builder.Services.AddLimiteLogin();
+
+//servicios de autorización con políticas y roles.
+builder.Services.AddAutorizacionGira();
+
 
 var app = builder.Build();
 
