@@ -1,4 +1,5 @@
 using GIRA.Application.Interfaces.Services.Seguridad;
+using GIRA.Application.Services.Seguridad;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
 using GIRA.Infrastructure.Services.Seguridad;
@@ -51,6 +52,7 @@ public static class DependencyInjection
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IRegistroAccesoService, RegistroAccesoService>();
+        services.AddScoped<IHistorialAccesosService, HistorialAccesosService>();
 
         return services;
     }

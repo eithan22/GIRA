@@ -8,6 +8,7 @@ namespace GIRA.Api.Authorization
     {
         private readonly AuthorizationMiddlewareResultHandler _predeterminado = new();
 
+        /// <inheritdoc />
         public async Task HandleAsync(
             RequestDelegate next,
             HttpContext context,
@@ -48,4 +49,5 @@ namespace GIRA.Api.Authorization
             await _predeterminado.HandleAsync(next, context, policy, authorizeResult);
         }
     }
+
 }
