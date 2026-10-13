@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddSingleton(JwtSettings.Leer(configuration));
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IRegistroAccesoService, RegistroAccesoService>();
 
         return services;
     }

@@ -2,6 +2,7 @@ using FluentValidation;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad;
 using GIRA.Application.Interfaces.Services.Seguridad;
+using GIRA.Domain.Constants;
 using GIRA.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 
@@ -53,13 +54,13 @@ public class AuthService : IAuthService
         var usuario = await _userManager.FindByEmailAsync(request.Email);
         if (usuario is null)
         {
-            await _registroAcceso.RegistrarAsync(null, request.Email, ip, false, "Correo no registrado", cancellationToken);
+            await _registroAcceso.RegistrarAsync(null, request.Email, ip, false, MotivosAcceso.UsuarioNoExiste, cancellationToken);
             return CredencialesInvalidas();
         }
 
         if (!usuario.Activo)
         {
-            await _registroAcceso.RegistrarAsync(usuario.Id, request.Email, ip, false, "Usuario inactivo", cancellationToken);
+            await _registroAcceso.RegistrarAsync(usuario.Id, request.Email, ip, false, MotivosAcceso.Inactivo, cancellationToken);
             return CredencialesInvalidas();
         }
 
@@ -69,8 +70,8 @@ public class AuthService : IAuthService
         var resultado = await _signInManager.CheckPasswordSignInAsync(usuario, request.Password, lockoutOnFailure: true);
         if (!resultado.Succeeded)
         {
-            await _registroAcceso.RegistrarAsync(usuario.Id, request.Email, ip, false,
-                resultado.IsLockedOut ? "Cuenta bloqueada" : "Contraseña incorrecta", cancellationToken);
+            var motivo = resultado.IsLockedOut ? MotivosAcceso.Bloqueado : MotivosAcceso.PasswordIncorrecta;
+            await _registroAcceso.RegistrarAsync(usuario.Id, request.Email, ip, false, motivo, cancellationToken);
             return CredencialesInvalidas();
         }
 
