@@ -7,6 +7,7 @@ using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using GIRA.Domain.Constants;
 
 namespace GIRA.Infrastructure.Services.Seguridad;
 
@@ -156,6 +157,54 @@ public class UsuarioService : IUsuarioService
         return OperationResult.Success(ADto(usuario, roles.ToList()));
     }
 
+    public async Task<OperationResult> CambiarEstadoAsync(Guid id, bool activo, CancellationToken ct = default)
+    {
+        var usuario = await _userManager.FindByIdAsync(id.ToString());
+        if (usuario is null)
+            return OperationResult.Failure(ErrorType.NotFound, "El usuario no existe.");
+
+        if (usuario.Activo == activo)
+            return OperationResult.Success();
+
+        // GI-132: no se puede desactivar al último Administrador activo.
+        if (!activo && await EsUltimoAdministradorActivoAsync(id, ct))
+            return OperationResult.Failure(ErrorType.Conflict,
+                "No se puede desactivar al último Administrador activo.");
+
+        usuario.Activo = activo;
+        var resultado = await _userManager.UpdateAsync(usuario);
+        if (!resultado.Succeeded)
+            return OperationResult.Failure(ErrorType.Validation, Mensaje(resultado));
+
+        // GI-131: al desactivar se revocan todos sus refresh tokens vigentes.
+        if (!activo)
+        {
+            var ahora = DateTime.UtcNow;
+            var tokens = await _db.RefreshTokens
+                .Where(t => t.UsuarioId == id && t.FechaRevocacion == null && t.FechaExpiracion > ahora)
+                .ToListAsync(ct);
+
+            foreach (var token in tokens)
+                token.FechaRevocacion = ahora;
+
+            await _db.SaveChangesAsync(ct);
+        }
+
+        return OperationResult.Success();
+    }
+
+    public async Task<bool> EsUltimoAdministradorActivoAsync(Guid usuarioId, CancellationToken ct = default)
+    {
+        var admins = await (
+            from ur in _db.UserRoles
+            join r in _db.Roles on ur.RoleId equals r.Id
+            join u in _db.Users on ur.UserId equals u.Id
+            where r.Name == Roles.Administrador && u.Activo
+            select u.Id)
+            .ToListAsync(ct);
+
+        return admins.Count == 1 && admins[0] == usuarioId;
+    }
     private static UsuarioDto ADto(Usuario u, IReadOnlyList<string> roles) =>
         new(u.Id, u.Email ?? string.Empty, u.NombreCompleto, u.Activo, u.EmpleadoId, u.UltimoAcceso, roles);
 
