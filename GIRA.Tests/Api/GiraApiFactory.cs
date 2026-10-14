@@ -37,8 +37,8 @@ public class GiraApiFactory : WebApplicationFactory<Program>
         });
     }
 
-    /// <summary>Crea los roles fijos y un usuario con la contraseña y los roles indicados.</summary>
-    public async Task CrearUsuarioAsync(string correo, string password, bool activo, params string[] roles)
+    /// <summary>Crea los roles fijos y un usuario con la contraseña y los roles indicados; devuelve su Id.</summary>
+    public async Task<Guid> CrearUsuarioAsync(string correo, string password, bool activo, params string[] roles)
     {
         using var scope = Services.CreateScope();
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<Rol>>();
@@ -60,5 +60,6 @@ public class GiraApiFactory : WebApplicationFactory<Program>
         }
 
         await userManager.AddToRolesAsync(usuario, roles);
+        return usuario.Id;
     }
 }

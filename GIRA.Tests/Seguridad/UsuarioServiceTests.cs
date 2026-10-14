@@ -42,7 +42,8 @@ public class UsuarioServiceTests
             um, db,
             new CrearUsuarioRequestValidator(),
             new ActualizarUsuarioRequestValidator(),
-            new UsuarioFiltroRequestValidator());
+            new UsuarioFiltroRequestValidator(),
+            new AsignarRolesRequestValidator());
 
         return (servicio, db, um);
     }

@@ -10,7 +10,7 @@ namespace GIRA.Api.Controllers;
 /// <summary>Gestión de las cuentas de usuario del personal (GI-98). Solo Administrador.</summary>
 [ApiController]
 [Route("api/usuarios")]
-[Authorize(Roles = Roles.Administrador)]
+[Authorize(Policy = Politicas.GestionarUsuarios)]
 public class UsuariosController : ControllerBase
 {
     private readonly IUsuarioService _usuarios;
@@ -39,4 +39,9 @@ public class UsuariosController : ControllerBase
     [HttpPatch("{id:guid}/estado")]
     public async Task<IActionResult> CambiarEstado(Guid id, [FromBody] CambiarEstadoRequest request, CancellationToken ct)
         => (await _usuarios.CambiarEstadoAsync(id, request.Activo, ct)).ToActionResult();
+
+    /// <summary>Reemplaza los roles del usuario (GI-99); el cambio se refleja en su siguiente token.</summary>
+    [HttpPut("{id:guid}/roles")]
+    public async Task<IActionResult> AsignarRoles(Guid id, [FromBody] AsignarRolesRequest request, CancellationToken ct)
+        => (await _usuarios.AsignarRolesAsync(id, request, ct)).ToActionResult();
 }
