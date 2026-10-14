@@ -8,6 +8,7 @@ public static class UsuarioServiceExtensions
     public static IServiceCollection AddUsuarioService(this IServiceCollection services)
     {
         services.AddScoped<IUsuarioService, UsuarioService>();
+        services.AddScoped<IRolService, RolService>();
         return services;
     }
 }

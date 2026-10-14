@@ -15,5 +15,11 @@ public interface IUsuarioService
 
     /// <summary>Indica si el usuario es el único Administrador activo (GI-132). Reutilizable por GI-99.</summary>
     Task<bool> EsUltimoAdministradorActivoAsync(Guid usuarioId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Reemplaza los roles del usuario por los indicados (GI-99). Solo acepta roles existentes,
+    /// exige al menos uno y no quita el rol Administrador al último Administrador activo.
+    /// </summary>
+    Task<OperationResult<UsuarioDto>> AsignarRolesAsync(Guid id, AsignarRolesRequest request, CancellationToken ct = default);
 }
 

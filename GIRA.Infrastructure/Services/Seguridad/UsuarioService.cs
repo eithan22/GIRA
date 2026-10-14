@@ -19,19 +19,22 @@ public class UsuarioService : IUsuarioService
     private readonly IValidator<CrearUsuarioRequest> _crearValidator;
     private readonly IValidator<ActualizarUsuarioRequest> _actualizarValidator;
     private readonly IValidator<UsuarioFiltroRequest> _filtroValidator;
+    private readonly IValidator<AsignarRolesRequest> _asignarRolesValidator;
 
     public UsuarioService(
         UserManager<Usuario> userManager,
         GiraDbContext db,
         IValidator<CrearUsuarioRequest> crearValidator,
         IValidator<ActualizarUsuarioRequest> actualizarValidator,
-        IValidator<UsuarioFiltroRequest> filtroValidator)
+        IValidator<UsuarioFiltroRequest> filtroValidator,
+        IValidator<AsignarRolesRequest> asignarRolesValidator)
     {
         _userManager = userManager;
         _db = db;
         _crearValidator = crearValidator;
         _actualizarValidator = actualizarValidator;
         _filtroValidator = filtroValidator;
+        _asignarRolesValidator = asignarRolesValidator;
     }
 
     public async Task<OperationResult<PagedResult<UsuarioDto>>> ListarAsync(UsuarioFiltroRequest filtro, CancellationToken ct = default)
@@ -204,6 +207,50 @@ public class UsuarioService : IUsuarioService
             .ToListAsync(ct);
 
         return admins.Count == 1 && admins[0] == usuarioId;
+    }
+
+    public async Task<OperationResult<UsuarioDto>> AsignarRolesAsync(Guid id, AsignarRolesRequest request, CancellationToken ct = default)
+    {
+        var validacion = await _asignarRolesValidator.ValidateAsync(request, ct);
+        if (!validacion.IsValid)
+            return OperationResult.Failure<UsuarioDto>(ErrorType.Validation, Mensaje(validacion));
+
+        var usuario = await _userManager.FindByIdAsync(id.ToString());
+        if (usuario is null)
+            return OperationResult.Failure<UsuarioDto>(ErrorType.NotFound, "El usuario no existe.");
+
+        // Solo se aceptan roles existentes; los nombres se comparan sin distinguir mayúsculas.
+        var pedidos = request.Roles.Select(r => r.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var normalizados = pedidos.Select(r => r.ToUpperInvariant()).ToList();
+        var rolesDestino = await _db.Roles
+            .Where(r => normalizados.Contains(r.NormalizedName!))
+            .ToListAsync(ct);
+
+        var inexistentes = pedidos
+            .Where(p => rolesDestino.All(r => r.NormalizedName != p.ToUpperInvariant()))
+            .ToList();
+        if (inexistentes.Count > 0)
+            return OperationResult.Failure<UsuarioDto>(ErrorType.Validation,
+                $"Estos roles no existen: {string.Join(", ", inexistentes)}.");
+
+        // RN-SEG-06: no se puede quitar el rol Administrador al último Administrador activo.
+        var rolesActuales = await _userManager.GetRolesAsync(usuario);
+        var quitaAdministrador = rolesActuales.Contains(Roles.Administrador)
+            && rolesDestino.All(r => r.Name != Roles.Administrador);
+        if (quitaAdministrador && await EsUltimoAdministradorActivoAsync(id, ct))
+            return OperationResult.Failure<UsuarioDto>(ErrorType.Conflict,
+                "No se puede quitar el rol Administrador al último Administrador activo.");
+
+        // Quitar y agregar en un solo SaveChanges para que el reemplazo sea atómico.
+        var idsDestino = rolesDestino.Select(r => r.Id).ToHashSet();
+        var asignaciones = await _db.UserRoles.Where(ur => ur.UserId == id).ToListAsync(ct);
+        _db.UserRoles.RemoveRange(asignaciones.Where(ur => !idsDestino.Contains(ur.RoleId)));
+        _db.UserRoles.AddRange(idsDestino
+            .Where(rolId => asignaciones.All(ur => ur.RoleId != rolId))
+            .Select(rolId => new IdentityUserRole<Guid> { UserId = id, RoleId = rolId }));
+        await _db.SaveChangesAsync(ct);
+
+        return OperationResult.Success(ADto(usuario, rolesDestino.Select(r => r.Name!).Order().ToList()));
     }
 
     public async Task<OperationResult<UsuarioActualDto>> ObtenerActualAsync(Guid usuarioId, CancellationToken ct = default)
