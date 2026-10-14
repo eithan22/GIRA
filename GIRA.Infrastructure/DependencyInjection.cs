@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
+
 namespace GIRA.Infrastructure;
 
 /// <summary>
@@ -46,6 +47,7 @@ public static class DependencyInjection
             .AddRoles<Rol>()
             .AddEntityFrameworkStores<GiraDbContext>()
             .AddSignInManager();
+            
 
         // Tokens de sesión e inicio de sesión (GI-95).
         services.AddSingleton(JwtSettings.Leer(configuration));
@@ -53,6 +55,8 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IRegistroAccesoService, RegistroAccesoService>();
         services.AddScoped<IHistorialAccesosService, HistorialAccesosService>();
+
+            services.AddUsuarioService();
 
         return services;
     }
