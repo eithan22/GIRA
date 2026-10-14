@@ -11,6 +11,7 @@ public interface IUsuarioService
     Task<OperationResult<UsuarioCreadoDto>> CrearAsync(CrearUsuarioRequest request, CancellationToken ct = default);
     Task<OperationResult<UsuarioDto>> ActualizarAsync(Guid id, ActualizarUsuarioRequest request, CancellationToken ct = default);
     Task<OperationResult> CambiarEstadoAsync(Guid id, bool activo, CancellationToken ct = default);
+    Task<OperationResult<UsuarioActualDto>> ObtenerActualAsync(Guid usuarioId, CancellationToken ct = default);
 
     /// <summary>Indica si el usuario es el único Administrador activo (GI-132). Reutilizable por GI-99.</summary>
     Task<bool> EsUltimoAdministradorActivoAsync(Guid usuarioId, CancellationToken ct = default);

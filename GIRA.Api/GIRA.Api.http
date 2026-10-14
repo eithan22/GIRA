@@ -17,3 +17,18 @@ Content-Type: application/json
 ###
 ### Usuarios sin token (debe dar 401)
 GET https://localhost:7177/api/usuarios
+
+### Login
+POST https://localhost:7177/api/auth/login
+Content-Type: application/json
+
+{ "email": "admin@gira.com", "password": "Admin123!*" }
+
+
+### Listar usuarios
+GET https://localhost:7177/api/usuarios
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+### Mis datos
+GET https://localhost:7177/api/auth/me
+Authorization: Bearer Bearer PEGA_AQUI_EL_TOKEN

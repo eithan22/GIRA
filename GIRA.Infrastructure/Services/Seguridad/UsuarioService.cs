@@ -205,6 +205,22 @@ public class UsuarioService : IUsuarioService
 
         return admins.Count == 1 && admins[0] == usuarioId;
     }
+
+    public async Task<OperationResult<UsuarioActualDto>> ObtenerActualAsync(Guid usuarioId, CancellationToken ct = default)
+    {
+        var usuario = await _userManager.FindByIdAsync(usuarioId.ToString());
+        if (usuario is null || !usuario.Activo)
+            return OperationResult.Failure<UsuarioActualDto>(ErrorType.Unauthorized, "Usuario no autorizado.");
+
+        var roles = await _userManager.GetRolesAsync(usuario);
+
+        return OperationResult.Success(new UsuarioActualDto(
+            usuario.Id,
+            usuario.Email ?? string.Empty,
+            usuario.NombreCompleto,
+            roles.ToList(),
+            usuario.EmpleadoId));
+    }
     private static UsuarioDto ADto(Usuario u, IReadOnlyList<string> roles) =>
         new(u.Id, u.Email ?? string.Empty, u.NombreCompleto, u.Activo, u.EmpleadoId, u.UltimoAcceso, roles);
 
