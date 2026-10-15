@@ -378,6 +378,75 @@ public class RefreshTokenIntegrationTests
         Assert.InRange(exitos, 0, 1);
     }
 
+
+    [Fact]
+    public async Task LogoutAsync_DosVeces_DevuelveExito()
+    {
+        var configuracion = new ConfigurationBuilder()
+            .AddUserSecrets<RefreshTokenIntegrationTests>()
+            .Build();
+
+        var conexion = configuracion.GetConnectionString("GiraGi96Test");
+
+        Assert.False(string.IsNullOrWhiteSpace(conexion));
+
+        // CrearProveedorPruebas valida la base aislada.
+        using var proveedor = CrearProveedorPruebas(conexion);
+
+        using var scope = proveedor.CreateScope();
+
+        var userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<Usuario>>();
+
+        var tokenService = scope.ServiceProvider
+            .GetRequiredService<ITokenService>();
+
+        var authService = scope.ServiceProvider
+            .GetRequiredService<IAuthService>();
+
+        var db = scope.ServiceProvider
+            .GetRequiredService<GiraDbContext>();
+
+        var correo = $"gi96-logout-{Guid.NewGuid():N}@gira.local";
+
+        var usuario = new Usuario
+        {
+            UserName = correo,
+            Email = correo,
+            NombreCompleto = "Prueba Logout",
+            Activo = true
+        };
+
+        var creacion = await userManager.CreateAsync(
+            usuario, "Prueba-Segura123!");
+
+        Assert.True(creacion.Succeeded);
+
+        var token = await tokenService.CrearRefreshTokenAsync(
+            usuario.Id, "127.0.0.1");
+
+        // Primer logout.
+        var primero = await authService.LogoutAsync(
+            usuario.Id, token.Token);
+
+        Assert.True(primero.IsSuccess);
+
+        // Segundo logout con el mismo token.
+        var segundo = await authService.LogoutAsync(
+            usuario.Id, token.Token);
+
+        Assert.True(segundo.IsSuccess);
+
+        // Comprobar que continúa revocado en SQL Server.
+        var hash = tokenService.CalcularHash(token.Token);
+
+        var registro = await db.RefreshTokens
+            .AsNoTracking()
+            .SingleAsync(t => t.TokenHash == hash);
+
+        Assert.NotNull(registro.FechaRevocacion);
+    }
+
     private static ServiceProvider CrearProveedorPruebas(
         string conexion)
     {

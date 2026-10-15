@@ -2,6 +2,7 @@ using FluentValidation;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad;
 using GIRA.Application.Interfaces.Services.Seguridad;
+using GIRA.Domain.Constants;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.AspNetCore.Identity;
@@ -27,20 +28,30 @@ public class AuthService : IAuthService
     private readonly SignInManager<Usuario> _signInManager;
     private readonly ITokenService _tokenService;
     private readonly IValidator<LoginRequest> _validator;
+
     private readonly GiraDbContext _dbContext;
-    /// <summary>Crea el servicio con sus dependencias de Identity, tokens y validación.</summary>
+    private readonly IRegistroAccesoService _registroAcceso;
+
+    /// <summary>
+    /// Crea el servicio con las dependencias de autenticación y auditoría.
+    /// </summary>
     public AuthService(
-    UserManager<Usuario> userManager,
-    SignInManager<Usuario> signInManager,
-    ITokenService tokenService,
-    IValidator<LoginRequest> validator,
-    GiraDbContext dbContext)
+        UserManager<Usuario> userManager,
+        SignInManager<Usuario> signInManager,
+        ITokenService tokenService,
+        IValidator<LoginRequest> validator,
+        GiraDbContext dbContext,
+        IRegistroAccesoService registroAcceso)
+
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _tokenService = tokenService;
         _validator = validator;
+
         _dbContext = dbContext;
+        _registroAcceso = registroAcceso;
+
     }
 
     /// <inheritdoc />
@@ -53,12 +64,16 @@ public class AuthService : IAuthService
                 ErrorType.Validation, string.Join(" ", validacion.Errors.Select(e => e.ErrorMessage)));
         }
 
-        // Pendiente GI-102: registrar cada intento (exitoso o no, con su motivo) en
-        // RegistroAcceso cuando Ismael publique la interfaz RegistrarAsync.
-
         var usuario = await _userManager.FindByEmailAsync(request.Email);
-        if (usuario is null || !usuario.Activo)
+        if (usuario is null)
         {
+            await _registroAcceso.RegistrarAsync(null, request.Email, ip, false, MotivosAcceso.UsuarioNoExiste, cancellationToken);
+            return CredencialesInvalidas();
+        }
+
+        if (!usuario.Activo)
+        {
+            await _registroAcceso.RegistrarAsync(usuario.Id, request.Email, ip, false, MotivosAcceso.Inactivo, cancellationToken);
             return CredencialesInvalidas();
         }
 
@@ -68,6 +83,8 @@ public class AuthService : IAuthService
         var resultado = await _signInManager.CheckPasswordSignInAsync(usuario, request.Password, lockoutOnFailure: true);
         if (!resultado.Succeeded)
         {
+            var motivo = resultado.IsLockedOut ? MotivosAcceso.Bloqueado : MotivosAcceso.PasswordIncorrecta;
+            await _registroAcceso.RegistrarAsync(usuario.Id, request.Email, ip, false, motivo, cancellationToken);
             return CredencialesInvalidas();
         }
 
@@ -80,6 +97,13 @@ public class AuthService : IAuthService
         usuario.UltimoAcceso = DateTime.UtcNow;
         await _userManager.UpdateAsync(usuario);
 
+        await _registroAcceso.RegistrarAsync(
+            usuario.Id,
+            request.Email,
+            ip,
+            true,
+            null,
+            cancellationToken);
 
 
         return OperationResult.Success(new LoginResponse
@@ -280,23 +304,31 @@ public class AuthService : IAuthService
                 "Token de renovación inválido.");
         }
 
-        // 5. Comprobar si el token ya fue revocado o venció.
-        if (tokenGuardado.FechaRevocacion is not null ||
-            tokenGuardado.FechaExpiracion <= DateTime.UtcNow)
+
+
+        if (tokenGuardado.FechaRevocacion is not null)
+        {
+            // Cerrar sesión nuevamente también se considera exitoso.
+            return OperationResult.Success();
+        }
+
+        if (tokenGuardado.FechaExpiracion <= DateTime.UtcNow)
         {
             return OperationResult.Failure(
                 ErrorType.Unauthorized,
                 "Token de renovación inválido.");
         }
 
-        // 6. Revocar el token actual.
+        // Revocar el token activo.
         tokenGuardado.FechaRevocacion = DateTime.UtcNow;
 
-        // 7. Guardar el cambio en SQL Server.
+        // Guardar la revocación en SQL Server.
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // 8. Confirmar el cierre de sesión.
+        // Confirmar que el logout fue exitoso.
         return OperationResult.Success();
+
+
     }
 
 
