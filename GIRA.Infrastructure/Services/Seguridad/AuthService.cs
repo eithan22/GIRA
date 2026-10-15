@@ -126,11 +126,16 @@ public class AuthService : IAuthService
                 IsolationLevel.Serializable,
                 cancellationToken);
 
+
         var tokenAnterior = await _dbContext.RefreshTokens
+            .FromSqlInterpolated($@"
+        SELECT *
+        FROM [seguridad].[RefreshToken]
+             WITH (UPDLOCK, HOLDLOCK)
+        WHERE [TokenHash] = {hash}")
             .AsNoTracking()
-            .FirstOrDefaultAsync(
-                t => t.TokenHash == hash,
-                cancellationToken);
+            .FirstOrDefaultAsync(cancellationToken);
+
 
         if (tokenAnterior is null)
             return NoAutorizado();
