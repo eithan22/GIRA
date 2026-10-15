@@ -1,0 +1,66 @@
+@GIRA.Api_HostAddress = http://localhost:5253
+
+GET {{GIRA.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+
+# Iniciar sesión (GI-95). Usa el correo y la contraseña de tu admin (Seed:AdminEmail y Seed:AdminPassword en User Secrets).
+POST {{GIRA.Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@gira.local",
+  "password": "<tu-contraseña>"
+}
+
+###
+### Usuarios sin token (debe dar 401)
+GET https://localhost:7177/api/usuarios
+
+### Login
+POST https://localhost:7177/api/auth/login
+Content-Type: application/json
+
+{ "email": "admin@gira.com", "password": "Admin123!*" }
+
+
+### Listar usuarios
+GET https://localhost:7177/api/usuarios
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+### Mis datos
+GET https://localhost:7177/api/auth/me
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+
+### Crear usuario
+POST https://localhost:7177/api/usuarios
+Content-Type: application/json
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+{ "email": "mesero1@gira.com", "nombreCompleto": "Mesero Uno", "empleadoId": null }
+
+
+### Desactivar usuario
+PATCH https://localhost:7177/api/usuarios/2d80c701-0ccc-4ac7-bbe4-5b1c5af40589/estado
+Content-Type: application/json
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+{ "activo": false }
+
+
+### Desactivar al admin (debe dar 409)
+PATCH https://localhost:7177/api/usuarios/26717457-8036-4921-1576-08df299ed7c3/estado
+Content-Type: application/json
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+{ "activo": false }
+
+
+### Crear con correo inválido
+POST https://localhost:7177/api/usuarios
+Content-Type: application/json
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+{ "email": "no-es-correo", "nombreCompleto": "", "empleadoId": null }

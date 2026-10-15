@@ -3,10 +3,8 @@ import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react
 import { useAuth } from '../AuthContext.jsx';
 import Icon from '../components/Icon.jsx';
 
-const roles = ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'];
-
 export default function Login() {
-  const { user, login, loginDemo, sessionError, clearUser } = useAuth();
+  const { user, login, sessionError, clearUser } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -21,13 +19,13 @@ export default function Login() {
     if (signedOut) clearUser();
   }, [signedOut, clearUser]);
 
-  if (user && !signedOut) return <Navigate to={user.debeCambiarPassword ? '/perfil/cambiar-password' : defaultPath(user)} replace />;
+  if (user && !signedOut) return <Navigate to={defaultPath(user)} replace />;
   const returnUrl = location.state?.from?.pathname
     ? `${location.state.from.pathname}${location.state.from.search || ''}${location.state.from.hash || ''}`
     : searchParams.get('returnUrl');
   const redirectTo = (authenticatedUser) => {
     const target = isSafeInternalPath(returnUrl) ? returnUrl : defaultPath(authenticatedUser);
-    navigate(authenticatedUser.debeCambiarPassword ? '/perfil/cambiar-password' : target || defaultPath(authenticatedUser), { replace: true });
+    navigate(target || defaultPath(authenticatedUser), { replace: true });
   };
 
   async function submit(event) {
@@ -40,19 +38,6 @@ export default function Login() {
     } catch (requestError) {
       const data = requestError.response?.data;
       setError(data?.detail || data?.message || data?.title || 'No pudimos iniciar sesión. Revisa tu correo y contraseña.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function demo(role) {
-    setError('');
-    setLoading(true);
-    try {
-      const authenticatedUser = await loginDemo(role);
-      redirectTo(authenticatedUser);
-    } catch (requestError) {
-      setError(requestError.message || 'No se pudo iniciar el modo demostración.');
     } finally {
       setLoading(false);
     }
@@ -82,7 +67,6 @@ export default function Login() {
             {(error || sessionError) && <div className="form-error" role="alert"><span>!</span>{error || sessionError}</div>}
             <button className="button button-primary login-submit" type="submit" disabled={loading}>{loading ? <><span className="button-spinner" /> Verificando…</> : <>Entrar a GIRA <Icon name="arrow" size={16} /></>}</button>
           </form>
-          <div className="login-demo"><div className="demo-divider"><span /> O explora con una cuenta demo <span /></div><div className="demo-roles">{roles.map((role) => <button key={role} type="button" disabled={loading} onClick={() => demo(role)}>{role}</button>)}</div></div>
           <p className="login-security"><Icon name="shield" size={15} /> Tu sesión está protegida y tus accesos son monitoreados.</p>
           <Link to="/login" className="sr-only">Inicio de sesión</Link>
         </div>

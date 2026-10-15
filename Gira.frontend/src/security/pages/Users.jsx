@@ -10,7 +10,6 @@ export default function Users() {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [rolesError, setRolesError] = useState('');
-  const [search, setSearch] = useState('');
   const [role, setRole] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
@@ -31,7 +30,7 @@ export default function Users() {
     let active = true;
     setLoading(true);
     setError('');
-    authService.getUsers({ page, pageSize, search, role, status }).then((result) => {
+    authService.getUsers({ page, pageSize, role, status }).then((result) => {
       if (active) {
         setUsers(result.items);
         setTotal(result.totalCount);
@@ -40,7 +39,7 @@ export default function Users() {
       if (active) setError(requestError.response?.data?.detail || 'No se pudo cargar el listado. Intenta nuevamente.');
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [page, search, role, status]);
+  }, [page, role, status]);
 
   function updateFilter(setter, value) { setter(value); setPage(1); }
   async function toggleStatus() {
@@ -51,7 +50,7 @@ export default function Users() {
       await authService.setUserStatus(confirmUser.id, nextActive);
       const nextTotal = status && ((status === 'active') !== nextActive) ? Math.max(0, total - 1) : total;
       const nextPage = Math.min(page, Math.max(1, Math.ceil(nextTotal / pageSize)));
-      const refreshed = await authService.getUsers({ page: nextPage, pageSize, search, role, status });
+      const refreshed = await authService.getUsers({ page: nextPage, pageSize, role, status });
       setUsers(refreshed.items);
       setTotal(refreshed.totalCount);
       if (nextPage !== page) setPage(nextPage);
@@ -75,19 +74,18 @@ export default function Users() {
       <div className="panel users-panel">
         <div className="panel-heading"><div><h2>Directorio del equipo</h2><p>Busca y administra las cuentas del sistema.</p></div><span className="count-badge">{total} {total === 1 ? 'usuario' : 'usuarios'}</span></div>
         <div className="filter-row">
-          <div className="input-wrap search-input"><Icon name="search" size={17} /><input aria-label="Buscar usuarios" placeholder="Buscar por nombre o correo…" value={search} onChange={(event) => updateFilter(setSearch, event.target.value)} /></div>
           <label className="select-wrap"><span className="sr-only">Filtrar por rol</span><select value={role} onChange={(event) => updateFilter(setRole, event.target.value)}><option value="">Todos los roles</option>{roles.map((item) => <option key={item}>{item}</option>)}</select></label>
           <label className="select-wrap"><span className="sr-only">Filtrar por estado</span><select value={status} onChange={(event) => updateFilter(setStatus, event.target.value)}><option value="">Todos los estados</option><option value="active">Activo</option><option value="inactive">Inactivo</option></select></label>
         </div>
         <div className="table-scroll">
           <table className="data-table">
-            <thead><tr><th>USUARIO</th><th>ROL</th><th>ESTADO</th><th>FECHA DE ALTA</th><th><span className="sr-only">Acciones</span></th></tr></thead>
+            <thead><tr><th>USUARIO</th><th>ROL</th><th>ESTADO</th><th>ÚLTIMO ACCESO</th><th><span className="sr-only">Acciones</span></th></tr></thead>
             <tbody>{loading ? <tr><td colSpan="5" className="table-message"><span className="button-spinner" /> Cargando usuarios…</td></tr> : users.length ? users.map((user, index) => (
               <tr key={user.id} className="user-row" style={{ animationDelay: `${index * 35}ms` }}>
                 <td><div className="user-cell"><span className={`user-avatar avatar-${index % 5}`}>{user.nombre?.charAt(0) || 'U'}</span><span className="user-name">{user.nombre}<small>{user.email}</small></span></div></td>
                 <td><div className="role-tags">{user.roles.map((item) => <span className="role-tag" key={item}>{item}</span>)}</div></td>
                 <td><span className={`status-pill ${user.activo ? 'active' : 'inactive'}`}><span className="status-dot" />{user.activo ? 'Activo' : 'Inactivo'}</span></td>
-                <td className="date-cell">{user.createdAt ? new Date(user.createdAt).toLocaleDateString('es-DO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+                <td className="date-cell">{user.ultimoAcceso ? new Date(user.ultimoAcceso).toLocaleDateString('es-DO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
                 <td><div className="row-actions"><Link className="icon-button" to={`/seguridad/usuarios/${user.id}`} title="Ver detalle" aria-label={`Ver detalle de ${user.nombre}`}><Icon name="eye" size={16} /></Link><Link className="icon-button" to={`/seguridad/usuarios/${user.id}/editar`} title="Editar" aria-label={`Editar ${user.nombre}`}><Icon name="more" size={17} /></Link><button type="button" className={`icon-button ${user.activo ? 'deactivate-action' : ''}`} onClick={() => setConfirmUser(user)} title={user.activo ? 'Desactivar' : 'Activar'} aria-label={`${user.activo ? 'Desactivar' : 'Activar'} ${user.nombre}`}><Icon name={user.activo ? 'lock' : 'check'} size={15} /></button></div></td>
               </tr>
             )) : <tr><td colSpan="5"><div className="empty-state"><span className="empty-icon"><Icon name="search" size={21} /></span><strong>No encontramos usuarios</strong><p>Prueba con otros filtros o crea una nueva cuenta.</p></div></td></tr>}</tbody>

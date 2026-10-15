@@ -5,24 +5,18 @@ import Icon from './Icon.jsx';
 const menuItems = [
   { label: 'Inicio', to: '/inicio', icon: 'grid', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
   { label: 'Usuarios', to: '/seguridad/usuarios', icon: 'users', roles: ['Administrador'] },
-  { label: 'Cambiar contraseña', to: '/perfil/cambiar-password', icon: 'key', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
 ];
 
 export default function AppLayout() {
-  const { user, logout, isDemo } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const allowedItems = menuItems.filter((item) => item.roles.some((role) => user?.roles?.includes(role)));
 
   async function handleLogout() {
-    const result = await logout();
+    await logout();
     navigate('/login', {
       replace: true,
-      state: {
-        signedOut: true,
-        notice: result.remoteLogoutFailed
-          ? 'La sesión se cerró en este dispositivo, pero la API no confirmó la invalidación remota.'
-          : null,
-      },
+      state: { signedOut: true },
     });
   }
 
@@ -42,16 +36,16 @@ export default function AppLayout() {
         </nav>
         <div className="sidebar-bottom">
           <div className="security-note"><div className="security-note-icon"><Icon name="shield" size={17} /></div><strong>Tu cuenta protegida</strong><p>El acceso a GIRA está protegido según tus permisos.</p></div>
-          <button type="button" className="profile-button" onClick={() => navigate('/perfil/cambiar-password')}>
+          <div className="profile-button">
             <span className="profile-avatar">{user?.nombre?.charAt(0) || 'U'}</span><span className="profile-copy">{user?.nombre}<small>{user?.roles?.join(' · ')}</small></span><Icon name="more" size={18} />
-          </button>
+          </div>
           <button type="button" className="sidebar-logout" onClick={handleLogout}><Icon name="logout" size={16} /> Cerrar sesión</button>
         </div>
       </aside>
       <main className="main-area">
         <header className="topbar">
           <div className="breadcrumbs"><span>GIRA</span><Icon name="chevron" size={14} /><strong>{locationLabel()}</strong></div>
-          <div className="topbar-right">{isDemo && <span className="demo-indicator"><span className="status-dot" /> Modo demostración</span>}<span className="topbar-secure"><span className="status-dot" /> Sesión segura</span><span className="topbar-avatar">{user?.nombre?.charAt(0)}</span></div>
+          <div className="topbar-right"><span className="topbar-secure"><span className="status-dot" /> Sesión segura</span><span className="topbar-avatar">{user?.nombre?.charAt(0)}</span></div>
         </header>
         <div className="page-content"><Outlet /></div>
       </main>
@@ -62,7 +56,6 @@ export default function AppLayout() {
 function locationLabel() {
   const path = window.location.pathname;
   if (path.includes('/usuarios')) return path.includes('nuevo') ? 'Nuevo usuario' : path.includes('editar') ? 'Editar usuario' : path.split('/').length > 3 ? 'Detalle de usuario' : 'Usuarios';
-  if (path.includes('cambiar-password')) return 'Cambiar contraseña';
   if (path.includes('acceso-denegado')) return 'Acceso denegado';
   return 'Inicio';
 }

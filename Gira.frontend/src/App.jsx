@@ -1,7 +1,6 @@
 import { Link, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './security/AuthContext.jsx';
 import AccessDenied from './security/pages/AccessDenied.jsx';
-import ChangePassword from './security/pages/ChangePassword.jsx';
 import Login from './security/pages/Login.jsx';
 import UserDetail from './security/pages/UserDetail.jsx';
 import UserForm from './security/pages/UserForm.jsx';
@@ -21,7 +20,6 @@ function Home() {
       <p>Tu espacio de trabajo está listo. Desde aquí puedes revisar tu perfil y los accesos disponibles para tu rol.</p>
       <div className="welcome-actions">
         {isAdmin && <Link className="button button-primary" to="/seguridad/usuarios">Gestionar usuarios <Icon name="arrow" size={16} /></Link>}
-        <Link className="button button-secondary" to="/perfil/cambiar-password">Cambiar contraseña</Link>
       </div>
       <div className="welcome-footer"><span className="status-dot" /> Sesión segura activa <span className="welcome-role">{user?.roles?.join(' · ')}</span></div>
     </section>
@@ -39,7 +37,6 @@ function AuthenticatedApp() {
           <Route index element={<Navigate to={home} replace />} />
           <Route path="inicio" element={<Home />} />
           <Route path="acceso-denegado" element={<AccessDenied />} />
-          <Route path="perfil/cambiar-password" element={<ChangePassword />} />
           <Route element={<RequireRole roles={['Administrador']} />}>
             <Route path="seguridad/usuarios" element={<Users />} />
             <Route path="seguridad/usuarios/nuevo" element={<UserForm />} />

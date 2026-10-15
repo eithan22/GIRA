@@ -13,6 +13,7 @@ export function AuthProvider({ children }) {
     const expire = () => { setUser(null); setLoading(false); };
     window.addEventListener('gira:session-expired', expire);
     async function restore() {
+      if (localStorage.getItem('gira.demoMode') === 'true') tokenStore.clear();
       if (!tokenStore.getAccess()) {
         setLoading(false);
         return;
@@ -44,19 +45,9 @@ export function AuthProvider({ children }) {
     setUser(result.user);
     return result.user;
   }, []);
-  const loginDemo = useCallback(async (role) => {
-    setSessionError('');
-    const demoUser = await authService.loginDemo(role);
-    setUser(demoUser);
-    return demoUser;
-  }, []);
   const logout = useCallback(async () => {
-    try {
-      await authService.logout();
-      return { remoteLogoutFailed: false };
-    } catch {
-      return { remoteLogoutFailed: true };
-    }
+    await authService.logout();
+    setUser(null);
   }, []);
   const clearUser = useCallback(() => setUser(null), []);
   const updateUser = useCallback((nextUser) => {
@@ -69,13 +60,11 @@ export function AuthProvider({ children }) {
     roles: user?.roles ?? [],
     loading,
     sessionError,
-    isDemo: tokenStore.isDemo(),
     login,
-    loginDemo,
     logout,
     clearUser,
     updateUser,
-  }), [user, loading, sessionError, login, loginDemo, logout, clearUser, updateUser]);
+  }), [user, loading, sessionError, login, logout, clearUser, updateUser]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

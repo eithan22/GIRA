@@ -1,0 +1,66 @@
+using GIRA.Api.Authorization;
+using GIRA.Api.Common;
+using GIRA.Application;
+using GIRA.Infrastructure;
+using GIRA.Infrastructure.Identity;
+using GIRA.Infrastructure.Persistence.Context;
+using GIRA.Infrastructure.Persistence.Seed;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+
+builder.Services.AddControllers();
+// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+builder.Services.AddOpenApi();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("GiraFrontend", policy =>
+        policy.WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials());
+});
+
+// Servicios de Application e Infrastructure.
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
+
+// Autenticación JWT y límite de intentos del login (GI-95).
+builder.Services.AddAutenticacionJwt(builder.Configuration);
+builder.Services.AddLimiteLogin();
+
+//servicios de autorización con políticas y roles.
+builder.Services.AddAutorizacionGira();
+
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+
+    using var scope = app.Services.CreateScope();
+
+    var dbContext = scope.ServiceProvider.GetRequiredService<GiraDbContext>();
+    await dbContext.Database.MigrateAsync();
+
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<Rol>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<Usuario>>();
+    await IdentitySeeder.SeedAsync(roleManager, userManager, app.Configuration);
+}
+
+app.UseHttpsRedirection();
+
+app.UseCors("GiraFrontend");
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
