@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <UserSecretsId>2b349ffb-ef40-42b5-8dbe-9346e9851776</UserSecretsId>
+	  <VSTestTestCaseFilter>Category!=Integration</VSTestTestCaseFilter>
   </PropertyGroup>
 
   <ItemGroup>

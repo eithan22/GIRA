@@ -290,8 +290,12 @@ public class AuthService : IAuthService
         }
 
         // 5. Comprobar si el token ya fue revocado o venció.
-        if (tokenGuardado.FechaRevocacion is not null ||
-            tokenGuardado.FechaExpiracion <= DateTime.UtcNow)
+        if (tokenGuardado.FechaRevocacion is not null)
+        {
+            return OperationResult.Success();
+        }
+
+        if (tokenGuardado.FechaExpiracion <= DateTime.UtcNow)
         {
             return OperationResult.Failure(
                 ErrorType.Unauthorized,
