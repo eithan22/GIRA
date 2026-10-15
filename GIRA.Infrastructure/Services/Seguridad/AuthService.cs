@@ -4,7 +4,10 @@ using GIRA.Application.DTOs.Seguridad;
 using GIRA.Application.Interfaces.Services.Seguridad;
 using GIRA.Domain.Constants;
 using GIRA.Infrastructure.Identity;
+using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 namespace GIRA.Infrastructure.Services.Seguridad;
 
@@ -14,6 +17,7 @@ namespace GIRA.Infrastructure.Services.Seguridad;
 /// </summary>
 public class AuthService : IAuthService
 {
+
     /// <summary>
     /// Mensaje único para todo fallo de credenciales: no revela si el correo existe ni si
     /// la cuenta está bloqueada o desactivada (RF-SEG-01).
@@ -24,21 +28,30 @@ public class AuthService : IAuthService
     private readonly SignInManager<Usuario> _signInManager;
     private readonly ITokenService _tokenService;
     private readonly IValidator<LoginRequest> _validator;
+
+    private readonly GiraDbContext _dbContext;
     private readonly IRegistroAccesoService _registroAcceso;
 
-    /// <summary>Crea el servicio con sus dependencias de Identity, tokens, validación y auditoría de accesos.</summary>
+    /// <summary>
+    /// Crea el servicio con las dependencias de autenticación y auditoría.
+    /// </summary>
     public AuthService(
         UserManager<Usuario> userManager,
         SignInManager<Usuario> signInManager,
         ITokenService tokenService,
         IValidator<LoginRequest> validator,
+        GiraDbContext dbContext,
         IRegistroAccesoService registroAcceso)
+
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _tokenService = tokenService;
         _validator = validator;
+
+        _dbContext = dbContext;
         _registroAcceso = registroAcceso;
+
     }
 
     /// <inheritdoc />
@@ -84,7 +97,14 @@ public class AuthService : IAuthService
         usuario.UltimoAcceso = DateTime.UtcNow;
         await _userManager.UpdateAsync(usuario);
 
-        await _registroAcceso.RegistrarAsync(usuario.Id, request.Email, ip, true, null, cancellationToken);
+        await _registroAcceso.RegistrarAsync(
+            usuario.Id,
+            request.Email,
+            ip,
+            true,
+            null,
+            cancellationToken);
+
 
         return OperationResult.Success(new LoginResponse
         {
@@ -102,6 +122,215 @@ public class AuthService : IAuthService
             }
         });
     }
+
+
+    /// <summary>
+    /// Renueva una sesión utilizando un refresh token.
+    /// GI-119: Validación y rotación de tokens.
+    /// </summary>
+
+    public async Task<OperationResult<LoginResponse>> RefreshAsync(
+        string refreshToken,
+        string ip,
+        CancellationToken cancellationToken = default)
+    {
+        const string mensajeError = "Token de renovación inválido.";
+
+        OperationResult<LoginResponse> NoAutorizado() =>
+            OperationResult.Failure<LoginResponse>(
+                ErrorType.Unauthorized, mensajeError);
+
+        if (string.IsNullOrWhiteSpace(refreshToken))
+            return NoAutorizado();
+
+        var hash = _tokenService.CalcularHash(refreshToken);
+
+        await using var transaccion =
+            await _dbContext.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable,
+                cancellationToken);
+
+
+        var tokenAnterior = await _dbContext.RefreshTokens
+            .FromSqlInterpolated($@"
+        SELECT *
+        FROM [seguridad].[RefreshToken]
+             WITH (UPDLOCK, HOLDLOCK)
+        WHERE [TokenHash] = {hash}")
+            .AsNoTracking()
+            .FirstOrDefaultAsync(cancellationToken);
+
+
+        if (tokenAnterior is null)
+            return NoAutorizado();
+
+        // Detectar reutilización de un token reemplazado.
+        if (tokenAnterior.ReemplazadoPorId is not null)
+        {
+            var ahora = DateTime.UtcNow;
+
+            await _dbContext.RefreshTokens
+                .Where(t =>
+                    t.UsuarioId == tokenAnterior.UsuarioId &&
+                    t.FechaRevocacion == null)
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(
+                        t => t.FechaRevocacion,
+                        ahora),
+                    cancellationToken);
+
+            await transaccion.CommitAsync(cancellationToken);
+            return NoAutorizado();
+        }
+
+        if (tokenAnterior.FechaRevocacion is not null ||
+            tokenAnterior.FechaExpiracion <= DateTime.UtcNow)
+        {
+            return NoAutorizado();
+        }
+
+        // Consultar el usuario y sus roles actuales.
+        var usuario = await _userManager.FindByIdAsync(
+            tokenAnterior.UsuarioId.ToString());
+
+        if (usuario is null || !usuario.Activo ||
+            string.IsNullOrWhiteSpace(usuario.Email))
+        {
+            return NoAutorizado();
+        }
+
+        var roles = await _userManager.GetRolesAsync(usuario);
+
+        // Consumir el token una sola vez.
+        var ahoraRotacion = DateTime.UtcNow;
+
+        var filasActualizadas = await _dbContext.RefreshTokens
+            .Where(t =>
+                t.Id == tokenAnterior.Id &&
+                t.FechaRevocacion == null &&
+                t.ReemplazadoPorId == null &&
+                t.FechaExpiracion > ahoraRotacion)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(
+                    t => t.FechaRevocacion,
+                    ahoraRotacion),
+                cancellationToken);
+
+        if (filasActualizadas != 1)
+            return NoAutorizado();
+
+        // Reutilizar la generación de Luis.
+        var nuevoRefresh = await _tokenService
+            .CrearRefreshTokenAsync(
+                usuario.Id, ip, cancellationToken);
+
+        // Recuperar el identificador del token recién creado.
+        var nuevoHash = _tokenService.CalcularHash(
+            nuevoRefresh.Token);
+
+        var nuevoRegistro = await _dbContext.RefreshTokens
+            .SingleAsync(
+                t => t.TokenHash == nuevoHash,
+                cancellationToken);
+
+        // Enlazar el token anterior con su reemplazo.
+        await _dbContext.RefreshTokens
+            .Where(t => t.Id == tokenAnterior.Id)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(
+                    t => t.ReemplazadoPorId,
+                    nuevoRegistro.Id),
+                cancellationToken);
+
+        var nuevoAccess = _tokenService.GenerarAccessToken(
+            usuario.Id,
+            usuario.Email!,
+            usuario.NombreCompleto,
+            roles);
+
+        await transaccion.CommitAsync(cancellationToken);
+
+        return OperationResult.Success(new LoginResponse
+        {
+            AccessToken = nuevoAccess.Token,
+            AccessTokenExpiraEn = nuevoAccess.ExpiraEn,
+            RefreshToken = nuevoRefresh.Token,
+            RefreshTokenExpiraEn = nuevoRefresh.ExpiraEn,
+            Usuario = new UsuarioAutenticadoDto
+            {
+                Id = usuario.Id,
+                Email = usuario.Email!,
+                NombreCompleto = usuario.NombreCompleto,
+                Roles = roles.ToList(),
+                EmpleadoId = usuario.EmpleadoId
+            }
+        });
+    }
+
+
+
+    /// <summary>
+    /// GI-96: Cierra la sesión revocando el refresh token
+    /// correspondiente al usuario autenticado.
+    /// </summary>
+    public async Task<OperationResult> LogoutAsync(
+        Guid usuarioId,
+        string refreshToken,
+        CancellationToken cancellationToken = default)
+    {
+        // 1. Verificar que se recibió un token.
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return OperationResult.Failure(
+                ErrorType.Unauthorized,
+                "Token de renovación inválido.");
+        }
+
+        // 2. Calcular el hash mediante el servicio existente.
+        var hash = _tokenService.CalcularHash(refreshToken);
+
+        // 3. Buscar el token y comprobar su propietario.
+        var tokenGuardado = await _dbContext.RefreshTokens
+            .FirstOrDefaultAsync(
+                t => t.TokenHash == hash &&
+                     t.UsuarioId == usuarioId,
+                cancellationToken);
+
+        // 4. Rechazar tokens inexistentes o de otro usuario.
+        if (tokenGuardado is null)
+        {
+            return OperationResult.Failure(
+                ErrorType.Unauthorized,
+                "Token de renovación inválido.");
+        }
+
+
+
+        if (tokenGuardado.FechaRevocacion is not null)
+        {
+            // Cerrar sesión nuevamente también se considera exitoso.
+            return OperationResult.Success();
+        }
+
+        if (tokenGuardado.FechaExpiracion <= DateTime.UtcNow)
+        {
+            return OperationResult.Failure(
+                ErrorType.Unauthorized,
+                "Token de renovación inválido.");
+        }
+
+        // Revocar el token activo.
+        tokenGuardado.FechaRevocacion = DateTime.UtcNow;
+
+        // Guardar la revocación en SQL Server.
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Confirmar que el logout fue exitoso.
+        return OperationResult.Success();
+
+
+    }
+
 
     private static OperationResult<LoginResponse> CredencialesInvalidas()
     {
