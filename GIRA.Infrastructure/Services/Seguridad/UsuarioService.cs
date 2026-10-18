@@ -104,6 +104,11 @@ public class UsuarioService : IUsuarioService
         if (await _userManager.FindByEmailAsync(email) is not null)
             return OperationResult.Failure<UsuarioCreadoDto>(ErrorType.Conflict, "Ya existe un usuario con ese correo.");
 
+        if (request.EmpleadoId.HasValue &&
+    await _db.Users.AnyAsync(u => u.EmpleadoId == request.EmpleadoId.Value, ct))
+            return OperationResult.Failure<UsuarioCreadoDto>(ErrorType.Conflict,
+                "El empleado ya está vinculado a otro usuario.");
+
         var usuario = new Usuario
         {
             Id = Guid.NewGuid(),
@@ -141,6 +146,15 @@ public class UsuarioService : IUsuarioService
         if (otro is not null && otro.Id != usuario.Id)
             return OperationResult.Failure<UsuarioDto>(ErrorType.Conflict, "Ya existe un usuario con ese correo.");
 
+        if (request.EmpleadoId.HasValue &&
+    await _db.Users.AnyAsync(u => u.EmpleadoId == request.EmpleadoId.Value && u.Id != id, ct))
+            return OperationResult.Failure<UsuarioDto>(ErrorType.Conflict,
+                "El empleado ya está vinculado a otro usuario.");
+
+        if (request.EmpleadoId.HasValue &&
+    await _db.Users.AnyAsync(u => u.EmpleadoId == request.EmpleadoId.Value && u.Id != usuario.Id, ct))
+            return OperationResult.Failure<UsuarioDto>(ErrorType.Conflict,
+                "El empleado ya está vinculado a otro usuario.");
         var rEmail = await _userManager.SetEmailAsync(usuario, email);
         if (!rEmail.Succeeded)
             return OperationResult.Failure<UsuarioDto>(ErrorType.Validation, Mensaje(rEmail));
