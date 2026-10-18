@@ -171,4 +171,50 @@ public class UsuarioServiceTests
 
         Assert.True(r.IsSuccess);
     }
+
+    [Fact]
+    public async Task Crear_ConEmpleadoYaVinculado_DevuelveConflicto()
+    {
+        var (servicio, _, _) = Crear();
+        var empleadoId = Guid.NewGuid();
+
+        await servicio.CrearAsync(new CrearUsuarioRequest("uno@gira.com", "Uno", empleadoId));
+        var r = await servicio.CrearAsync(new CrearUsuarioRequest("dos@gira.com", "Dos", empleadoId));
+
+        Assert.True(r.IsFailure);
+        Assert.Equal(ErrorType.Conflict, r.Type);
+        Assert.Contains("empleado", r.Error!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Actualizar_ConEmpleadoDeOtroUsuario_DevuelveConflicto()
+    {
+        var (servicio, _, _) = Crear();
+        var empleadoId = Guid.NewGuid();
+
+        await servicio.CrearAsync(new CrearUsuarioRequest("uno@gira.com", "Uno", empleadoId));
+        var segundo = await servicio.CrearAsync(new CrearUsuarioRequest("dos@gira.com", "Dos", null));
+
+        var r = await servicio.ActualizarAsync(
+            segundo.Value!.Usuario.Id,
+            new ActualizarUsuarioRequest("dos@gira.com", "Dos", empleadoId));
+
+        Assert.True(r.IsFailure);
+        Assert.Equal(ErrorType.Conflict, r.Type);
+    }
+
+    [Fact]
+    public async Task Actualizar_ConservandoSuPropioEmpleado_Funciona()
+    {
+        var (servicio, _, _) = Crear();
+        var empleadoId = Guid.NewGuid();
+
+        var creado = await servicio.CrearAsync(new CrearUsuarioRequest("uno@gira.com", "Uno", empleadoId));
+
+        var r = await servicio.ActualizarAsync(
+            creado.Value!.Usuario.Id,
+            new ActualizarUsuarioRequest("uno@gira.com", "Uno Editado", empleadoId));
+
+        Assert.True(r.IsSuccess);
+    }
 }
