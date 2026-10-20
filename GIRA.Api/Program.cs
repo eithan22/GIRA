@@ -42,6 +42,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.UseSwaggerGira();
 
     using var scope = app.Services.CreateScope();
 
