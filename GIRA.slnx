@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/docs/">
+    <File Path="proteger-endpoints.md" />
+  </Folder>
   <Folder Name="/GIRA-API/">
     <Project Path="GIRA.Api/GIRA.Api.csproj" />
   </Folder>

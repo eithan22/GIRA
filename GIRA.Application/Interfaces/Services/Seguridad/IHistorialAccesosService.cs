@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace GIRA.Application.Services.Seguridad
+namespace GIRA.Application.Interfaces.Services.Seguridad
 {
     public interface IHistorialAccesosService
     {

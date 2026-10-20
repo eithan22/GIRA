@@ -13,8 +13,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+
+// OpenAPI con esquema Bearer para probar con el token en /swagger (GI-125)
+builder.Services.AddOpenApiConBearer();
 
 builder.Services.AddCors(options =>
 {
@@ -43,6 +44,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.UseSwaggerGira();
 
     using var scope = app.Services.CreateScope();
 
