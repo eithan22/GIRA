@@ -26,4 +26,10 @@ public interface IAuthService
         Guid usuarioId,
         string refreshToken,
         CancellationToken cancellationToken = default);
+
+    // GI-143: Cambiar la contraseña del usuario autenticado.
+    Task<OperationResult> CambiarPasswordAsync(
+        Guid usuarioId,
+        CambiarPasswordRequest request,
+        CancellationToken cancellationToken = default);
 }

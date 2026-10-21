@@ -137,4 +137,59 @@ public class AuthControllerTests : IAsyncLifetime
         var problema = await respuesta.Content.ReadFromJsonAsync<ProblemDetails>();
         Assert.Equal(AuthService.MensajeCredencialesInvalidas, problema!.Detail);
     }
+
+    // GI-146: Cambiar contraseña requiere autenticación.
+    [Fact]
+    public async Task CambiarPassword_SinAutenticacion_Devuelve401()
+    {
+        var respuesta = await _cliente.PutAsJsonAsync(
+            "/api/auth/cambiar-password",
+            new CambiarPasswordRequest
+            {
+                PasswordActual = Password,
+                PasswordNueva = "NuevaClave456!"
+            });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
+    }
+
+    // GI-146: Si la contraseña actual es incorrecta, devuelve 401.
+    [Fact]
+    public async Task CambiarPassword_PasswordIncorrecta_Devuelve401()
+    {
+        await _factory.CrearUsuarioAsync(
+            Correo, Password, true, Roles.Mesero);
+
+        var login = await LoginAsync(Correo, Password);
+
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+
+        var datos = await login.Content.ReadFromJsonAsync<LoginResponse>();
+        Assert.NotNull(datos);
+
+        using var solicitud = new HttpRequestMessage(
+            HttpMethod.Put,
+            "/api/auth/cambiar-password");
+
+        solicitud.Headers.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer", datos.AccessToken);
+
+        solicitud.Content = JsonContent.Create(
+            new CambiarPasswordRequest
+            {
+                PasswordActual = "Incorrecta123!",
+                PasswordNueva = "NuevaClave456!"
+            });
+
+        var respuesta = await _cliente.SendAsync(solicitud);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
+
+        var problema = await respuesta.Content
+            .ReadFromJsonAsync<ProblemDetails>();
+
+        Assert.NotNull(problema);
+    }
+
 }

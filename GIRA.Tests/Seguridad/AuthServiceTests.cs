@@ -235,4 +235,70 @@ public class AuthServiceTests : IDisposable
 
         Assert.Equal(ErrorType.Validation, resultado.Type);
     }
+
+
+    // GI-146: La contraseña actual debe ser correcta.
+    [Fact]
+    public async Task CambiarPassword_PasswordActualIncorrecta_DevuelveUnauthorized()
+    {
+        var usuario = await CrearUsuarioAsync();
+
+        var request = new CambiarPasswordRequest
+        {
+            PasswordActual = "Incorrecta123!",
+            PasswordNueva = "NuevaSegura123!"
+        };
+
+        var resultado = await Servicio.CambiarPasswordAsync(
+            usuario.Id, request);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(ErrorType.Unauthorized, resultado.Type);
+        Assert.True(await UserManager.CheckPasswordAsync(usuario, Password));
+    }
+
+    // GI-146: No se permite reutilizar la contraseña.
+    [Fact]
+    public async Task CambiarPassword_PasswordNuevaIgual_DevuelveValidation()
+    {
+        var usuario = await CrearUsuarioAsync();
+
+        var request = new CambiarPasswordRequest
+        {
+            PasswordActual = Password,
+            PasswordNueva = Password
+        };
+
+        var resultado = await Servicio.CambiarPasswordAsync(
+            usuario.Id, request);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(ErrorType.Validation, resultado.Type);
+    }
+
+    // GI-146: Validar la política de contraseñas.
+    [Theory]
+    [InlineData("Corta1!")]
+    [InlineData("sinmayuscula123!")]
+    [InlineData("SINMINUSCULA123!")]
+    [InlineData("SinNumeros!")]
+    [InlineData("SinSimbolo123")]
+    public async Task CambiarPassword_PoliticaInvalida_DevuelveValidation(
+        string nuevaPassword)
+    {
+        var usuario = await CrearUsuarioAsync();
+
+        var request = new CambiarPasswordRequest
+        {
+            PasswordActual = Password,
+            PasswordNueva = nuevaPassword
+        };
+
+        var resultado = await Servicio.CambiarPasswordAsync(
+            usuario.Id, request);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(ErrorType.Validation, resultado.Type);
+    }
+
 }

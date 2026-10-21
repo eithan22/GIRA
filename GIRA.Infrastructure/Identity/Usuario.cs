@@ -1,3 +1,4 @@
+
 using Microsoft.AspNetCore.Identity;
 
 namespace GIRA.Infrastructure.Identity;
@@ -17,6 +18,9 @@ public class Usuario : IdentityUser<Guid>
 
     /// <summary>Indica si el usuario puede iniciar sesión. Se usa para deshabilitar cuentas sin eliminarlas.</summary>
     public bool Activo { get; set; } = true;
+
+    /// <summary>Indica si el usuario debe cambiar su contraseña temporal.</summary>
+    public bool DebeCambiarPassword { get; set; } = false;
 
     /// <summary>Fecha y hora, en UTC, del último inicio de sesión exitoso; null si nunca inició sesión.</summary>
     public DateTime? UltimoAcceso { get; set; }
