@@ -1,4 +1,5 @@
-﻿namespace GIRA.Application.DTOs.Seguridad;
+﻿
+namespace GIRA.Application.DTOs.Seguridad;
 
 /// <summary>Datos del usuario autenticado (GET /api/auth/me).</summary>
 public record UsuarioActualDto(
@@ -6,4 +7,5 @@ public record UsuarioActualDto(
     string Email,
     string NombreCompleto,
     IReadOnlyList<string> Roles,
-    Guid? EmpleadoId);
+    Guid? EmpleadoId,
+    bool DebeCambiarPassword);

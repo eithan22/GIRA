@@ -86,4 +86,34 @@ public class AuthController : ControllerBase
 
         return resultado.ToActionResult();
     }
+
+
+    /// <summary>
+    /// GI-143: Cambia la contraseña del usuario autenticado.
+    /// </summary>
+    [HttpPut("cambiar-password")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> CambiarPassword(
+        [FromBody] CambiarPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var usuarioIdClaim = User.FindFirstValue(TiposClaim.UsuarioId);
+
+        if (!Guid.TryParse(usuarioIdClaim, out var usuarioId))
+            return Unauthorized();
+
+        var resultado = await _authService.CambiarPasswordAsync(
+            usuarioId,
+            request,
+            cancellationToken);
+
+        if (!resultado.IsSuccess)
+            return resultado.ToActionResult();
+
+        return NoContent();
+    }
+
 }

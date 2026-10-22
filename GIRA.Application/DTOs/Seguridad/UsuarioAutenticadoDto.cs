@@ -1,3 +1,4 @@
+
 namespace GIRA.Application.DTOs.Seguridad;
 
 /// <summary>Datos básicos del usuario que inició sesión.</summary>
@@ -17,4 +18,7 @@ public class UsuarioAutenticadoDto
 
     /// <summary>Empleado vinculado; null si el usuario no corresponde a un empleado.</summary>
     public Guid? EmpleadoId { get; set; }
+
+    /// <summary>Indica si el usuario debe cambiar su contraseña temporal.</summary>
+    public bool DebeCambiarPassword { get; set; }
 }

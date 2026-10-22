@@ -103,7 +103,8 @@ public class AuthService : IAuthService
                 Email = usuario.Email!,
                 NombreCompleto = usuario.NombreCompleto,
                 Roles = roles.ToList(),
-                EmpleadoId = usuario.EmpleadoId
+                EmpleadoId = usuario.EmpleadoId,
+                DebeCambiarPassword = usuario.DebeCambiarPassword
             }
         });
     }
@@ -247,7 +248,8 @@ public class AuthService : IAuthService
                 Email = usuario.Email!,
                 NombreCompleto = usuario.NombreCompleto,
                 Roles = roles.ToList(),
-                EmpleadoId = usuario.EmpleadoId
+                EmpleadoId = usuario.EmpleadoId,
+                DebeCambiarPassword = usuario.DebeCambiarPassword
             }
         });
     }
@@ -312,6 +314,94 @@ public class AuthService : IAuthService
         return OperationResult.Success();
     }
 
+
+    /// <summary>
+    /// GI-143: Cambia la contraseña del usuario autenticado y revoca sus refresh tokens.
+    /// </summary>
+    public async Task<OperationResult> CambiarPasswordAsync(
+        Guid usuarioId,
+        CambiarPasswordRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null ||
+            string.IsNullOrWhiteSpace(request.PasswordActual) ||
+            string.IsNullOrWhiteSpace(request.PasswordNueva))
+        {
+            return OperationResult.Failure(
+                ErrorType.Validation,
+                "Debes proporcionar la contraseña actual y la nueva.");
+        }
+
+        var usuario = await _userManager.FindByIdAsync(usuarioId.ToString());
+        if (usuario is null || !usuario.Activo)
+        {
+            return OperationResult.Failure(
+                ErrorType.Unauthorized,
+                "Usuario no autorizado.");
+        }
+
+        if (!await _userManager.CheckPasswordAsync(usuario, request.PasswordActual))
+        {
+            return OperationResult.Failure(
+                ErrorType.Unauthorized,
+                "La contraseña actual es incorrecta.");
+        }
+
+        if (request.PasswordActual == request.PasswordNueva ||
+            await _userManager.CheckPasswordAsync(usuario, request.PasswordNueva))
+        {
+            return OperationResult.Failure(
+                ErrorType.Validation,
+                "La contraseña nueva debe ser diferente de la actual.");
+        }
+
+        var nueva = request.PasswordNueva;
+        if (nueva.Length < 8 ||
+            !nueva.Any(char.IsUpper) ||
+            !nueva.Any(char.IsLower) ||
+            !nueva.Any(char.IsDigit) ||
+            !nueva.Any(c => !char.IsLetterOrDigit(c)))
+        {
+            return OperationResult.Failure(
+                ErrorType.Validation,
+                "La nueva contraseña debe tener al menos 8 caracteres, una mayúscula, " +
+                "una minúscula, un número y un símbolo.");
+        }
+
+        // Identity y los refresh tokens usan el mismo GiraDbContext.
+        // Una transacción evita dejar la contraseña actualizada con tokens sin revocar.
+        await using var transaccion = await _dbContext.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            cancellationToken);
+
+        // Identity guarda la contraseña y los campos modificados del usuario
+        // mediante una única actualización. No necesitamos otro UpdateAsync.
+        usuario.DebeCambiarPassword = false;
+        var cambio = await _userManager.ChangePasswordAsync(
+            usuario,
+            request.PasswordActual,
+            request.PasswordNueva);
+
+        if (!cambio.Succeeded)
+        {
+            return OperationResult.Failure(
+                ErrorType.Validation,
+                string.Join(" ", cambio.Errors.Select(e => e.Description)));
+        }
+
+        // El endpoint no recibe un identificador del refresh token actual.
+        // Por lo tanto, se revocan TODOS los tokens activos de este usuario.
+        var ahora = DateTime.UtcNow;
+        await _dbContext.RefreshTokens
+            .Where(t => t.UsuarioId == usuarioId &&
+                        t.FechaRevocacion == null)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(t => t.FechaRevocacion, ahora),
+                cancellationToken);
+
+        await transaccion.CommitAsync(cancellationToken);
+        return OperationResult.Success();
+    }
 
     private static OperationResult<LoginResponse> CredencialesInvalidas()
     {

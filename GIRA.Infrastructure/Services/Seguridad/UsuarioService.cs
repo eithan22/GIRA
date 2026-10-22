@@ -117,6 +117,7 @@ public class UsuarioService : IUsuarioService
             NombreCompleto = request.NombreCompleto.Trim(),
             EmpleadoId = request.EmpleadoId,
             Activo = true,
+            DebeCambiarPassword = true,
             FechaCreacion = DateTime.UtcNow
         };
 
@@ -280,7 +281,9 @@ public class UsuarioService : IUsuarioService
             usuario.Email ?? string.Empty,
             usuario.NombreCompleto,
             roles.ToList(),
-            usuario.EmpleadoId));
+            usuario.EmpleadoId,
+            usuario.DebeCambiarPassword));
+
     }
     private static UsuarioDto ADto(Usuario u, IReadOnlyList<string> roles) =>
         new(u.Id, u.Email ?? string.Empty, u.NombreCompleto, u.Activo, u.EmpleadoId, u.UltimoAcceso, roles);
