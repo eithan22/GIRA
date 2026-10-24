@@ -1,6 +1,7 @@
 import { Link, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './security/AuthContext.jsx';
 import AccessDenied from './security/pages/AccessDenied.jsx';
+import ChangePassword from './security/pages/ChangePassword.jsx';
 import Login from './security/pages/Login.jsx';
 import UserDetail from './security/pages/UserDetail.jsx';
 import UserForm from './security/pages/UserForm.jsx';
@@ -37,6 +38,7 @@ function AuthenticatedApp() {
           <Route index element={<Navigate to={home} replace />} />
           <Route path="inicio" element={<Home />} />
           <Route path="acceso-denegado" element={<AccessDenied />} />
+          <Route path="perfil/cambiar-password" element={<ChangePassword />} />
           <Route element={<RequireRole roles={['Administrador']} />}>
             <Route path="seguridad/usuarios" element={<Users />} />
             <Route path="seguridad/usuarios/nuevo" element={<UserForm />} />

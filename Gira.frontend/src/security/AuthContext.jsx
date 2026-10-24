@@ -46,8 +46,11 @@ export function AuthProvider({ children }) {
     return result.user;
   }, []);
   const logout = useCallback(async () => {
-    await authService.logout();
-    setUser(null);
+    try {
+      await authService.logout();
+    } finally {
+      setUser(null);
+    }
   }, []);
   const clearUser = useCallback(() => setUser(null), []);
   const updateUser = useCallback((nextUser) => {

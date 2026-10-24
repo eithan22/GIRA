@@ -13,11 +13,21 @@ export default function AppLayout() {
   const allowedItems = menuItems.filter((item) => item.roles.some((role) => user?.roles?.includes(role)));
 
   async function handleLogout() {
-    await logout();
-    navigate('/login', {
-      replace: true,
-      state: { signedOut: true },
-    });
+    try {
+      await logout();
+      navigate('/login', {
+        replace: true,
+        state: { signedOut: true },
+      });
+    } catch {
+      navigate('/login', {
+        replace: true,
+        state: {
+          signedOut: true,
+          notice: 'La sesión se cerró en este dispositivo, pero no se pudo confirmar el cierre en el servidor.',
+        },
+      });
+    }
   }
 
   return (
@@ -55,6 +65,7 @@ export default function AppLayout() {
 
 function locationLabel() {
   const path = window.location.pathname;
+  if (path.includes('/perfil/cambiar-password')) return 'Cambiar contraseña';
   if (path.includes('/usuarios')) return path.includes('nuevo') ? 'Nuevo usuario' : path.includes('editar') ? 'Editar usuario' : path.split('/').length > 3 ? 'Detalle de usuario' : 'Usuarios';
   if (path.includes('acceso-denegado')) return 'Acceso denegado';
   return 'Inicio';
