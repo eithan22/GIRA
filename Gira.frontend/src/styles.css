@@ -252,6 +252,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .modal-backdrop { position: fixed; z-index: 20; inset: 0; padding: 18px; display: grid; place-items: center; background: #10182985; backdrop-filter: blur(4px); animation: fade-in .18s ease both; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 .modal-card { position: relative; width: min(100%,435px); padding: 26px; background: white; border: 1px solid #ececf3; border-radius: 12px; box-shadow: 0 23px 70px #111a2c30; animation: modal-in .25s cubic-bezier(.2,.75,.25,1) both; }
+.modal-card.modal-wide { width: min(100%,520px); max-height: calc(100vh - 36px); overflow-y: auto; }
 @keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .modal-close { position: absolute; top: 13px; right: 13px; }
 .modal-content h2 { margin: 7px 0 9px; color: #263147; font: 750 19px Manrope,sans-serif; }
@@ -311,11 +312,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .login-security { margin: 23px 0 0; display: flex; align-items: center; justify-content: center; gap: 7px; color: #a3acb9; font-size: 9px; }
 .login-security svg { color: #8a7bd6; }
 .login-register-link { margin: 17px 0 0; color: #8993a5; text-align: center; font-size: 10px; }
-.login-register-link a { color: #6b5cda; font-weight: 700; }
-.login-register-link a:hover { text-decoration: underline; }
-.register-main { min-height: 100vh; background: linear-gradient(135deg,#f8f7ff,#fff 50%,#f7f9fc); }
-.register-brand { margin-bottom: 27px; }
-.register-role-note { margin: -5px 0 17px; color: #8993a5; font-size: 9px; }
+.login-register-link button { padding: 0; color: #6b5cda; background: transparent; border: 0; font: inherit; font-weight: 700; cursor: pointer; }
+.login-register-link button:hover { text-decoration: underline; }
+.login-register-notice { margin: 12px 0 0; color: #278361; text-align: center; font-size: 10px; }
+.register-modal-copy { margin: 0 0 17px; color: #8993a5; font-size: 10px; }
+.register-form { display: flex; flex-direction: column; }
+.register-form .input-wrap { margin-bottom: 13px; }
+.register-form .input-wrap input { height: 40px; font-size: 10px; }
+.register-role-note { margin: 0; color: #8993a5; font-size: 9px; }
+.register-form .modal-actions { margin-top: 17px; }
 
 @media (min-width: 1400px) {
   .page-content { padding-right: 42px; padding-left: 42px; }
@@ -334,7 +339,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .login-visual .login-brand { display: none; }
   .login-visual::before, .login-art, .login-visual-footer { display: none; }
   .login-main { min-height: calc(100vh - 70px); padding: 32px 22px; }
-  .register-main { min-height: 100vh; }
   .login-mobile-brand { margin-bottom: 29px; display: flex; align-items: center; gap: 9px; }
   .login-mobile-brand .brand-mark { width: 30px; height: 30px; font-size: 15px; }
   .login-mobile-brand .brand-name { color: #263147; font-size: 18px; }

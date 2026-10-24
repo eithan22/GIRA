@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../AuthContext.jsx';
 import Icon from '../components/Icon.jsx';
+import Register from './Register.jsx';
 
 export default function Login() {
   const { user, login, sessionError, clearUser } = useAuth();
@@ -13,6 +14,8 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [registerNotice, setRegisterNotice] = useState('');
   const signedOut = Boolean(location.state?.signedOut);
 
   useEffect(() => {
@@ -67,11 +70,18 @@ export default function Login() {
             {(error || sessionError) && <div className="form-error" role="alert"><span>!</span>{error || sessionError}</div>}
             <button className="button button-primary login-submit" type="submit" disabled={loading}>{loading ? <><span className="button-spinner" /> Verificando…</> : <>Entrar a GIRA <Icon name="arrow" size={16} /></>}</button>
           </form>
-          <p className="login-register-link">¿No tienes una cuenta? <Link to="/registro">Regístrate</Link></p>
+          {registerNotice && <p className="login-register-notice" role="status">{registerNotice}</p>}
+          <p className="login-register-link">¿No tienes una cuenta? <button type="button" onClick={() => { setRegisterNotice(''); setRegisterOpen(true); }}>Regístrate</button></p>
           <p className="login-security"><Icon name="shield" size={15} /> Tu sesión está protegida y tus accesos son monitoreados.</p>
           <Link to="/login" className="sr-only">Inicio de sesión</Link>
         </div>
       </section>
+      {registerOpen && <Register onClose={() => setRegisterOpen(false)} onSuccess={(registeredEmail) => {
+        setEmail(registeredEmail);
+        setPassword('');
+        setRegisterNotice('Cuenta creada. Inicia sesión con tu correo y contraseña.');
+        setRegisterOpen(false);
+      }} />}
     </main>
   );
 }

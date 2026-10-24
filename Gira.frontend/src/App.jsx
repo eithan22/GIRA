@@ -3,7 +3,6 @@ import { useAuth } from './security/AuthContext.jsx';
 import AccessDenied from './security/pages/AccessDenied.jsx';
 import ChangePassword from './security/pages/ChangePassword.jsx';
 import Login from './security/pages/Login.jsx';
-import Register from './security/pages/Register.jsx';
 import UserDetail from './security/pages/UserDetail.jsx';
 import UserForm from './security/pages/UserForm.jsx';
 import Users from './security/pages/Users.jsx';
@@ -34,7 +33,6 @@ function AuthenticatedApp() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/registro" element={<Register />} />
       <Route element={<RequireRole />}>
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to={home} replace />} />
