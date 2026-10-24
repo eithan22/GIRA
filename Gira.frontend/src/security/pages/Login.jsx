@@ -67,6 +67,7 @@ export default function Login() {
             {(error || sessionError) && <div className="form-error" role="alert"><span>!</span>{error || sessionError}</div>}
             <button className="button button-primary login-submit" type="submit" disabled={loading}>{loading ? <><span className="button-spinner" /> Verificando…</> : <>Entrar a GIRA <Icon name="arrow" size={16} /></>}</button>
           </form>
+          <p className="login-register-link">¿No tienes una cuenta? <Link to="/registro">Regístrate</Link></p>
           <p className="login-security"><Icon name="shield" size={15} /> Tu sesión está protegida y tus accesos son monitoreados.</p>
           <Link to="/login" className="sr-only">Inicio de sesión</Link>
         </div>

@@ -15,6 +15,18 @@ Content-Type: application/json
 }
 
 ###
+
+# Registrar una cuenta pública de personal con el rol Mesero.
+POST {{GIRA.Api_HostAddress}}/api/auth/registro
+Content-Type: application/json
+
+{
+  "nombreCompleto": "Nombre de prueba",
+  "email": "persona@gira.local",
+  "password": "Clave-Segura1"
+}
+
+###
 ### Usuarios sin token (debe dar 401)
 GET https://localhost:7177/api/usuarios
 

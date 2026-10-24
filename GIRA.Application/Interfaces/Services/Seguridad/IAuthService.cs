@@ -9,6 +9,10 @@ namespace GIRA.Application.Interfaces.Services.Seguridad;
 /// </summary>
 public interface IAuthService
 {
+    Task<OperationResult> RegistrarAsync(
+        RegistroUsuarioRequest request,
+        CancellationToken cancellationToken = default);
+
     // GI-95: Inicio de sesión (Luis).
     Task<OperationResult<LoginResponse>> LoginAsync(
         LoginRequest request,

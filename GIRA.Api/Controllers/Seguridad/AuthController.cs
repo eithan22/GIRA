@@ -22,6 +22,22 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
 
+    /// <summary>Crea una cuenta de personal con el rol básico de Mesero.</summary>
+    [HttpPost("registro")]
+    [AllowAnonymous]
+    [EnableRateLimiting(LimiteLoginExtensions.Politica)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> Registrar(
+        RegistroUsuarioRequest request,
+        CancellationToken cancellationToken)
+    {
+        var resultado = await _authService.RegistrarAsync(request, cancellationToken);
+        return resultado.ToActionResult();
+    }
+
     /// <summary>Inicia sesión con correo y contraseña; devuelve los tokens y los datos del usuario.</summary>
     [HttpPost("login")]
     [AllowAnonymous]

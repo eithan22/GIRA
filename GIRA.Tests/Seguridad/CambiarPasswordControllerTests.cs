@@ -57,6 +57,11 @@ public class CambiarPasswordControllerTests
 
         public CambiarPasswordRequest? SolicitudRecibida { get; private set; }
 
+        public Task<OperationResult> RegistrarAsync(
+            RegistroUsuarioRequest request,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
         public Task<OperationResult> CambiarPasswordAsync(
             Guid usuarioId,
             CambiarPasswordRequest request,

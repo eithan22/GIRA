@@ -127,6 +127,10 @@ function pageResult(data, page, pageSize) {
 }
 
 export const authService = {
+  async register({ nombreCompleto, email, password }) {
+    await api.post('/api/auth/registro', { nombreCompleto, email, password });
+  },
+
   async login(credentials) {
     const response = await api.post('/api/auth/login', credentials);
     const result = response.data?.data ?? response.data;
