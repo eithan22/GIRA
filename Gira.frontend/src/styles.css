@@ -311,17 +311,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .demo-roles button:disabled { opacity: .6; }
 .login-security { margin: 23px 0 0; display: flex; align-items: center; justify-content: center; gap: 7px; color: #a3acb9; font-size: 9px; }
 .login-security svg { color: #8a7bd6; }
-.login-register-link { margin: 17px 0 0; color: #8993a5; text-align: center; font-size: 10px; }
-.login-register-link button { padding: 0; color: #6b5cda; background: transparent; border: 0; font: inherit; font-weight: 700; cursor: pointer; }
-.login-register-link button:hover { text-decoration: underline; }
-.login-register-notice { margin: 12px 0 0; color: #278361; text-align: center; font-size: 10px; }
-.register-modal-copy { margin: 0 0 17px; color: #8993a5; font-size: 10px; }
-.register-form { display: flex; flex-direction: column; }
-.register-form .input-wrap { margin-bottom: 13px; }
-.register-form .input-wrap input { height: 40px; font-size: 10px; }
-.register-role-note { margin: 0; color: #8993a5; font-size: 9px; }
-.register-form .modal-actions { margin-top: 17px; }
-
 @media (min-width: 1400px) {
   .page-content { padding-right: 42px; padding-left: 42px; }
 }

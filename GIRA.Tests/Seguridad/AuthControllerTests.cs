@@ -5,9 +5,7 @@ using GIRA.Domain.Constants;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Services.Seguridad;
 using GIRA.Tests.Api;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace GIRA.Tests.Seguridad;
@@ -41,73 +39,6 @@ public class AuthControllerTests : IAsyncLifetime
     private Task<HttpResponseMessage> LoginAsync(string correo, string password)
     {
         return _cliente.PostAsJsonAsync(Url, new LoginRequest { Email = correo, Password = password });
-    }
-
-    private async Task CrearRolMeseroAsync()
-    {
-        using var scope = _factory.Services.CreateScope();
-        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<Rol>>();
-        if (!await roleManager.RoleExistsAsync(Roles.Mesero))
-        {
-            Assert.True((await roleManager.CreateAsync(new Rol { Name = Roles.Mesero })).Succeeded);
-        }
-    }
-
-    [Fact]
-    public async Task Registro_CredencialesValidas_CreaCuentaMeseroQuePuedeIniciarSesion()
-    {
-        await CrearRolMeseroAsync();
-        var correo = $"registro-{Guid.NewGuid():N}@gira.local";
-        var registro = await _cliente.PostAsJsonAsync(
-            "/api/auth/registro",
-            new RegistroUsuarioRequest
-            {
-                NombreCompleto = "Persona de Registro",
-                Email = correo,
-                Password = "Clave-Segura1"
-            });
-
-        Assert.Equal(HttpStatusCode.NoContent, registro.StatusCode);
-
-        var login = await LoginAsync(correo, "Clave-Segura1");
-
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
-        var usuario = (await login.Content.ReadFromJsonAsync<LoginResponse>())!.Usuario;
-        Assert.Equal(new[] { Roles.Mesero }, usuario.Roles);
-        Assert.False(usuario.DebeCambiarPassword);
-    }
-
-    [Fact]
-    public async Task Registro_CorreoExistente_Devuelve409()
-    {
-        await CrearRolMeseroAsync();
-        await _factory.CrearUsuarioAsync(Correo, Password, true, Roles.Mesero);
-
-        var respuesta = await _cliente.PostAsJsonAsync(
-            "/api/auth/registro",
-            new RegistroUsuarioRequest
-            {
-                NombreCompleto = "Persona Duplicada",
-                Email = Correo,
-                Password = "Clave-Segura1"
-            });
-
-        Assert.Equal(HttpStatusCode.Conflict, respuesta.StatusCode);
-    }
-
-    [Fact]
-    public async Task Registro_DatosInvalidos_Devuelve400()
-    {
-        var respuesta = await _cliente.PostAsJsonAsync(
-            "/api/auth/registro",
-            new RegistroUsuarioRequest
-            {
-                NombreCompleto = "   ",
-                Email = "persona-invalida@gira.local",
-                Password = "corta"
-            });
-
-        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
     }
 
     // Credenciales válidas -> 200 con access token (roles incluidos), refresh token y datos del usuario.

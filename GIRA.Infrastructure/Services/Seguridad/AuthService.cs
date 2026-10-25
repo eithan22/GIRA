@@ -24,30 +24,24 @@ public class AuthService : IAuthService
     public const string MensajeCredencialesInvalidas = "Correo o contraseña incorrectos.";
 
     private readonly UserManager<Usuario> _userManager;
-    private readonly RoleManager<Rol> _roleManager;
     private readonly SignInManager<Usuario> _signInManager;
     private readonly ITokenService _tokenService;
     private readonly IValidator<LoginRequest> _validator;
-    private readonly IValidator<RegistroUsuarioRequest> _registroValidator;
     private readonly GiraDbContext _dbContext;
     private readonly IRegistroAccesoService _registroAcceso;
     /// <summary>Crea el servicio con sus dependencias de Identity, tokens, validación y auditoría de accesos.</summary>
     public AuthService(
         UserManager<Usuario> userManager,
-        RoleManager<Rol> roleManager,
         SignInManager<Usuario> signInManager,
         ITokenService tokenService,
         IValidator<LoginRequest> validator,
-        IValidator<RegistroUsuarioRequest> registroValidator,
         GiraDbContext dbContext,
         IRegistroAccesoService registroAcceso)
     {
         _userManager = userManager;
-        _roleManager = roleManager;
         _signInManager = signInManager;
         _tokenService = tokenService;
         _validator = validator;
-        _registroValidator = registroValidator;
         _dbContext = dbContext;
         _registroAcceso = registroAcceso;
     }
@@ -114,80 +108,6 @@ public class AuthService : IAuthService
             }
         });
     }
-
-    public async Task<OperationResult> RegistrarAsync(
-        RegistroUsuarioRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        var validacion = await _registroValidator.ValidateAsync(request, cancellationToken);
-        if (!validacion.IsValid)
-        {
-            return OperationResult.Failure(
-                ErrorType.Validation,
-                string.Join(" ", validacion.Errors.Select(error => error.ErrorMessage)));
-        }
-
-        var email = request.Email.Trim();
-        if (await _userManager.FindByEmailAsync(email) is not null)
-        {
-            return OperationResult.Failure(
-                ErrorType.Conflict,
-                "Ya existe una cuenta con ese correo. Inicia sesión o utiliza otro correo.");
-        }
-
-        if (!await _roleManager.RoleExistsAsync(Roles.Mesero))
-        {
-            throw new InvalidOperationException(
-                $"El rol fijo de registro '{Roles.Mesero}' no está configurado.");
-        }
-
-        var usuario = new Usuario
-        {
-            Id = Guid.NewGuid(),
-            UserName = email,
-            Email = email,
-            NombreCompleto = request.NombreCompleto.Trim(),
-            Activo = true,
-            DebeCambiarPassword = false,
-            FechaCreacion = DateTime.UtcNow
-        };
-
-        var creado = await _userManager.CreateAsync(usuario, request.Password);
-        if (!creado.Succeeded)
-        {
-            if (creado.Errors.Any(error =>
-                    error.Code is "DuplicateEmail" or "DuplicateUserName"))
-            {
-                return OperationResult.Failure(
-                    ErrorType.Conflict,
-                    "Ya existe una cuenta con ese correo. Inicia sesión o utiliza otro correo.");
-            }
-
-            return OperationResult.Failure(
-                ErrorType.Validation,
-                string.Join(" ", creado.Errors.Select(error => error.Description)));
-        }
-
-        var asignacionRol = await _userManager.AddToRoleAsync(usuario, Roles.Mesero);
-        if (!asignacionRol.Succeeded)
-        {
-            var eliminacion = await _userManager.DeleteAsync(usuario);
-            if (!eliminacion.Succeeded)
-            {
-                throw new InvalidOperationException(
-                    $"No se pudo asignar el rol de registro ni limpiar la cuenta creada. " +
-                    $"Asignación: {string.Join(" ", asignacionRol.Errors.Select(error => error.Description))} " +
-                    $"Limpieza: {string.Join(" ", eliminacion.Errors.Select(error => error.Description))}");
-            }
-
-            throw new InvalidOperationException(
-                $"No se pudo asignar el rol fijo de registro '{Roles.Mesero}': " +
-                string.Join(" ", asignacionRol.Errors.Select(error => error.Description)));
-        }
-
-        return OperationResult.Success();
-    }
-
 
     /// <summary>
     /// Renueva una sesión utilizando un refresh token.
