@@ -32,7 +32,7 @@ public class HistorialAccesosService : IHistorialAccesosService
         var existe = await _contexto.Users.AnyAsync(u => u.Id == usuarioId, cancellationToken);
         if (!existe)
         {
-            return OperationResult.Failure<HistorialAccesosDto>(ErrorType.NotFound, "El usuario no existe.");
+            return OperationResult.Failure<HistorialAccesosDto>(ErrorType.NotFound, MensajesSeguridad.UsuarioNoExiste);
         }
 
         var consulta = _contexto.RegistrosAcceso

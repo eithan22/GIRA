@@ -45,7 +45,8 @@ public static class DependencyInjection
         })
             .AddRoles<Rol>()
             .AddEntityFrameworkStores<GiraDbContext>()
-            .AddSignInManager();
+            .AddSignInManager()
+            .AddErrorDescriber<IdentityErrorDescriberEspanol>();
             
 
         // Tokens de sesión e inicio de sesión (GI-95).

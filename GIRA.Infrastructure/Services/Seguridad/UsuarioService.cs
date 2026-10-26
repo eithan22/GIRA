@@ -87,7 +87,7 @@ public class UsuarioService : IUsuarioService
     {
         var usuario = await _userManager.FindByIdAsync(id.ToString());
         if (usuario is null)
-            return OperationResult.Failure<UsuarioDto>(ErrorType.NotFound, "El usuario no existe.");
+            return OperationResult.Failure<UsuarioDto>(ErrorType.NotFound, MensajesSeguridad.UsuarioNoExiste);
 
         var roles = await _userManager.GetRolesAsync(usuario);
         return OperationResult.Success(ADto(usuario, roles.ToList()));
@@ -105,7 +105,7 @@ public class UsuarioService : IUsuarioService
             return OperationResult.Failure<UsuarioCreadoDto>(ErrorType.Conflict, "Ya existe un usuario con ese correo.");
 
         if (request.EmpleadoId.HasValue &&
-    await _db.Users.AnyAsync(u => u.EmpleadoId == request.EmpleadoId.Value, ct))
+            await EmpleadoYaVinculadoAsync(request.EmpleadoId.Value, excluirUsuarioId: null, ct))
             return OperationResult.Failure<UsuarioCreadoDto>(ErrorType.Conflict,
                 "El empleado ya está vinculado a otro usuario.");
 
@@ -139,7 +139,7 @@ public class UsuarioService : IUsuarioService
 
         var usuario = await _userManager.FindByIdAsync(id.ToString());
         if (usuario is null)
-            return OperationResult.Failure<UsuarioDto>(ErrorType.NotFound, "El usuario no existe.");
+            return OperationResult.Failure<UsuarioDto>(ErrorType.NotFound, MensajesSeguridad.UsuarioNoExiste);
 
         var email = request.Email.Trim();
 
@@ -148,14 +148,10 @@ public class UsuarioService : IUsuarioService
             return OperationResult.Failure<UsuarioDto>(ErrorType.Conflict, "Ya existe un usuario con ese correo.");
 
         if (request.EmpleadoId.HasValue &&
-    await _db.Users.AnyAsync(u => u.EmpleadoId == request.EmpleadoId.Value && u.Id != id, ct))
+            await EmpleadoYaVinculadoAsync(request.EmpleadoId.Value, excluirUsuarioId: id, ct))
             return OperationResult.Failure<UsuarioDto>(ErrorType.Conflict,
                 "El empleado ya está vinculado a otro usuario.");
 
-        if (request.EmpleadoId.HasValue &&
-    await _db.Users.AnyAsync(u => u.EmpleadoId == request.EmpleadoId.Value && u.Id != usuario.Id, ct))
-            return OperationResult.Failure<UsuarioDto>(ErrorType.Conflict,
-                "El empleado ya está vinculado a otro usuario.");
         var rEmail = await _userManager.SetEmailAsync(usuario, email);
         if (!rEmail.Succeeded)
             return OperationResult.Failure<UsuarioDto>(ErrorType.Validation, Mensaje(rEmail));
@@ -179,7 +175,7 @@ public class UsuarioService : IUsuarioService
     {
         var usuario = await _userManager.FindByIdAsync(id.ToString());
         if (usuario is null)
-            return OperationResult.Failure(ErrorType.NotFound, "El usuario no existe.");
+            return OperationResult.Failure(ErrorType.NotFound, MensajesSeguridad.UsuarioNoExiste);
 
         if (usuario.Activo == activo)
             return OperationResult.Success();
@@ -232,7 +228,7 @@ public class UsuarioService : IUsuarioService
 
         var usuario = await _userManager.FindByIdAsync(id.ToString());
         if (usuario is null)
-            return OperationResult.Failure<UsuarioDto>(ErrorType.NotFound, "El usuario no existe.");
+            return OperationResult.Failure<UsuarioDto>(ErrorType.NotFound, MensajesSeguridad.UsuarioNoExiste);
 
         // Solo se aceptan roles existentes; los nombres se comparan sin distinguir mayúsculas.
         var pedidos = request.Roles.Select(r => r.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
@@ -272,7 +268,7 @@ public class UsuarioService : IUsuarioService
     {
         var usuario = await _userManager.FindByIdAsync(usuarioId.ToString());
         if (usuario is null || !usuario.Activo)
-            return OperationResult.Failure<UsuarioActualDto>(ErrorType.Unauthorized, "Usuario no autorizado.");
+            return OperationResult.Failure<UsuarioActualDto>(ErrorType.Unauthorized, MensajesSeguridad.UsuarioNoAutorizado);
 
         var roles = await _userManager.GetRolesAsync(usuario);
 
@@ -287,6 +283,10 @@ public class UsuarioService : IUsuarioService
     }
     private static UsuarioDto ADto(Usuario u, IReadOnlyList<string> roles) =>
         new(u.Id, u.Email ?? string.Empty, u.NombreCompleto, u.Activo, u.EmpleadoId, u.UltimoAcceso, roles);
+
+    /// <summary>Indica si el empleado ya está vinculado a otro usuario distinto de <paramref name="excluirUsuarioId"/>.</summary>
+    private async Task<bool> EmpleadoYaVinculadoAsync(Guid empleadoId, Guid? excluirUsuarioId, CancellationToken ct) =>
+        await _db.Users.AnyAsync(u => u.EmpleadoId == empleadoId && u.Id != excluirUsuarioId, ct);
 
     private static string Mensaje(FluentValidation.Results.ValidationResult r) =>
         string.Join(" ", r.Errors.Select(e => e.ErrorMessage));

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -33,7 +34,11 @@ public class GiraApiFactory : WebApplicationFactory<Program>
         {
             services.RemoveAll<DbContextOptions<GiraDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<GiraDbContext>>();
-            services.AddDbContext<GiraDbContext>(options => options.UseInMemoryDatabase(_nombreBase));
+            // El proveedor InMemory no soporta transacciones; CambiarPasswordAsync abre una a
+            // propósito (ver el comentario en AuthService), así que se ignora la advertencia.
+            services.AddDbContext<GiraDbContext>(options => options
+                .UseInMemoryDatabase(_nombreBase)
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning)));
         });
     }
 

@@ -9,6 +9,7 @@ using GIRA.Infrastructure.Persistence.Context;
 using GIRA.Infrastructure.Services.Seguridad;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -54,7 +55,11 @@ public class AuthServiceTests : IDisposable
         services.RemoveAll<DbContextOptions<GiraDbContext>>();
         services.RemoveAll<IDbContextOptionsConfiguration<GiraDbContext>>();
         var nombreBase = Guid.NewGuid().ToString();
-        services.AddDbContext<GiraDbContext>(options => options.UseInMemoryDatabase(nombreBase));
+        // El proveedor InMemory no soporta transacciones; CambiarPasswordAsync abre una a
+        // propósito (ver el comentario en AuthService), así que se ignora la advertencia.
+        services.AddDbContext<GiraDbContext>(options => options
+            .UseInMemoryDatabase(nombreBase)
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning)));
 
         _proveedor = services.BuildServiceProvider();
         _scope = _proveedor.CreateScope();
@@ -299,6 +304,47 @@ public class AuthServiceTests : IDisposable
 
         Assert.True(resultado.IsFailure);
         Assert.Equal(ErrorType.Validation, resultado.Type);
+    }
+
+    // GI-146 / 4.5: Identity es la única fuente de la política; su mensaje debe salir en español.
+    [Fact]
+    public async Task CambiarPassword_SinOchoCaracteres_MensajeEnEspanol()
+    {
+        var usuario = await CrearUsuarioAsync();
+        var request = new CambiarPasswordRequest { PasswordActual = Password, PasswordNueva = "Corta1!" };
+
+        var resultado = await Servicio.CambiarPasswordAsync(usuario.Id, request);
+
+        Assert.Contains("al menos 8 caracteres", resultado.Error);
+    }
+
+    [Fact]
+    public async Task CambiarPassword_SinMayuscula_MensajeEnEspanol()
+    {
+        var usuario = await CrearUsuarioAsync();
+        var request = new CambiarPasswordRequest { PasswordActual = Password, PasswordNueva = "sinmayuscula123!" };
+
+        var resultado = await Servicio.CambiarPasswordAsync(usuario.Id, request);
+
+        Assert.Contains("mayúscula", resultado.Error);
+    }
+
+    // Varias reglas inválidas a la vez: Identity concatena un Description por regla, en el
+    // orden en que las valida (longitud, símbolo, número, minúscula, mayúscula).
+    [Fact]
+    public async Task CambiarPassword_VariasReglasInvalidas_ConcatenaUnMensajePorRegla()
+    {
+        var usuario = await CrearUsuarioAsync();
+        var request = new CambiarPasswordRequest { PasswordActual = Password, PasswordNueva = "abc" };
+
+        var resultado = await Servicio.CambiarPasswordAsync(usuario.Id, request);
+
+        Assert.Equal(
+            "La contraseña debe tener al menos 8 caracteres. " +
+            "La contraseña debe tener al menos un símbolo. " +
+            "La contraseña debe tener al menos un número. " +
+            "La contraseña debe tener al menos una mayúscula.",
+            resultado.Error);
     }
 
 }

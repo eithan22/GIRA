@@ -4,8 +4,6 @@ using GIRA.Application.Interfaces.Services.Seguridad;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using System.Security.Claims;
-using GIRA.Infrastructure.Identity;
 
 namespace GIRA.Api.Controllers.Seguridad;
 
@@ -71,16 +69,15 @@ public class AuthController : ControllerBase
         LogoutRequest request,
         CancellationToken cancellationToken)
     {
-        var usuarioIdClaim = User.FindFirstValue(
-            TiposClaim.UsuarioId);
+        var usuarioId = User.ObtenerUsuarioId();
 
-        if (!Guid.TryParse(usuarioIdClaim, out var usuarioId))
+        if (usuarioId is null)
         {
             return Unauthorized();
         }
 
         var resultado = await _authService.LogoutAsync(
-            usuarioId,
+            usuarioId.Value,
             request.RefreshToken,
             cancellationToken);
 
@@ -100,13 +97,13 @@ public class AuthController : ControllerBase
         [FromBody] CambiarPasswordRequest request,
         CancellationToken cancellationToken)
     {
-        var usuarioIdClaim = User.FindFirstValue(TiposClaim.UsuarioId);
+        var usuarioId = User.ObtenerUsuarioId();
 
-        if (!Guid.TryParse(usuarioIdClaim, out var usuarioId))
+        if (usuarioId is null)
             return Unauthorized();
 
         var resultado = await _authService.CambiarPasswordAsync(
-            usuarioId,
+            usuarioId.Value,
             request,
             cancellationToken);
 

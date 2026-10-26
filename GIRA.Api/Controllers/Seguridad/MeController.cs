@@ -1,5 +1,4 @@
-﻿using System.Security.Claims;
-using GIRA.Api.Common;
+﻿using GIRA.Api.Common;
 using GIRA.Application.Common;
 using GIRA.Application.Interfaces.Services.Seguridad;
 using Microsoft.AspNetCore.Authorization;
@@ -23,13 +22,12 @@ public class MeController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Obtener(CancellationToken ct)
     {
-        var claim = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                    ?? User.FindFirstValue("sub");
+        var usuarioId = User.ObtenerUsuarioId();
 
-        if (!Guid.TryParse(claim, out var usuarioId))
+        if (usuarioId is null)
             return OperationResult.Failure<object>(ErrorType.Unauthorized, "Token inválido.")
                 .ToActionResult();
 
-        return (await _usuarios.ObtenerActualAsync(usuarioId, ct)).ToActionResult();
+        return (await _usuarios.ObtenerActualAsync(usuarioId.Value, ct)).ToActionResult();
     }
 }

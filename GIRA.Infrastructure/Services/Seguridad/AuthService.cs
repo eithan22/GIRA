@@ -97,15 +97,7 @@ public class AuthService : IAuthService
             AccessTokenExpiraEn = accessToken.ExpiraEn,
             RefreshToken = refreshToken.Token,
             RefreshTokenExpiraEn = refreshToken.ExpiraEn,
-            Usuario = new UsuarioAutenticadoDto
-            {
-                Id = usuario.Id,
-                Email = usuario.Email!,
-                NombreCompleto = usuario.NombreCompleto,
-                Roles = roles.ToList(),
-                EmpleadoId = usuario.EmpleadoId,
-                DebeCambiarPassword = usuario.DebeCambiarPassword
-            }
+            Usuario = ADto(usuario, roles)
         });
     }
 
@@ -119,11 +111,9 @@ public class AuthService : IAuthService
         string ip,
         CancellationToken cancellationToken = default)
     {
-        const string mensajeError = "Token de renovación inválido.";
-
         OperationResult<LoginResponse> NoAutorizado() =>
             OperationResult.Failure<LoginResponse>(
-                ErrorType.Unauthorized, mensajeError);
+                ErrorType.Unauthorized, MensajesSeguridad.TokenRenovacionInvalido);
 
         if (string.IsNullOrWhiteSpace(refreshToken))
             return NoAutorizado();
@@ -241,15 +231,7 @@ public class AuthService : IAuthService
             AccessTokenExpiraEn = nuevoAccess.ExpiraEn,
             RefreshToken = nuevoRefresh.Token,
             RefreshTokenExpiraEn = nuevoRefresh.ExpiraEn,
-            Usuario = new UsuarioAutenticadoDto
-            {
-                Id = usuario.Id,
-                Email = usuario.Email!,
-                NombreCompleto = usuario.NombreCompleto,
-                Roles = roles.ToList(),
-                EmpleadoId = usuario.EmpleadoId,
-                DebeCambiarPassword = usuario.DebeCambiarPassword
-            }
+            Usuario = ADto(usuario, roles)
         });
     }
 
@@ -269,7 +251,7 @@ public class AuthService : IAuthService
         {
             return OperationResult.Failure(
                 ErrorType.Unauthorized,
-                "Token de renovación inválido.");
+                MensajesSeguridad.TokenRenovacionInvalido);
         }
 
         // 2. Calcular el hash mediante el servicio existente.
@@ -287,7 +269,7 @@ public class AuthService : IAuthService
         {
             return OperationResult.Failure(
                 ErrorType.Unauthorized,
-                "Token de renovación inválido.");
+                MensajesSeguridad.TokenRenovacionInvalido);
         }
 
         // 5. Comprobar si el token ya fue revocado o venció.
@@ -300,7 +282,7 @@ public class AuthService : IAuthService
         {
             return OperationResult.Failure(
                 ErrorType.Unauthorized,
-                "Token de renovación inválido.");
+                MensajesSeguridad.TokenRenovacionInvalido);
         }
 
         // 6. Revocar el token actual.
@@ -336,35 +318,14 @@ public class AuthService : IAuthService
         {
             return OperationResult.Failure(
                 ErrorType.Unauthorized,
-                "Usuario no autorizado.");
+                MensajesSeguridad.UsuarioNoAutorizado);
         }
 
-        if (!await _userManager.CheckPasswordAsync(usuario, request.PasswordActual))
-        {
-            return OperationResult.Failure(
-                ErrorType.Validation,
-                "La contraseña actual es incorrecta.");
-        }
-
-        if (request.PasswordActual == request.PasswordNueva ||
-            await _userManager.CheckPasswordAsync(usuario, request.PasswordNueva))
+        if (request.PasswordActual == request.PasswordNueva)
         {
             return OperationResult.Failure(
                 ErrorType.Validation,
                 "La contraseña nueva debe ser diferente de la actual.");
-        }
-
-        var nueva = request.PasswordNueva;
-        if (nueva.Length < 8 ||
-            !nueva.Any(char.IsUpper) ||
-            !nueva.Any(char.IsLower) ||
-            !nueva.Any(char.IsDigit) ||
-            !nueva.Any(c => !char.IsLetterOrDigit(c)))
-        {
-            return OperationResult.Failure(
-                ErrorType.Validation,
-                "La nueva contraseña debe tener al menos 8 caracteres, una mayúscula, " +
-                "una minúscula, un número y un símbolo.");
         }
 
         // Identity y los refresh tokens usan el mismo GiraDbContext.
@@ -408,4 +369,14 @@ public class AuthService : IAuthService
     {
         return OperationResult.Failure<LoginResponse>(ErrorType.Unauthorized, MensajeCredencialesInvalidas);
     }
+
+    private static UsuarioAutenticadoDto ADto(Usuario usuario, IList<string> roles) => new()
+    {
+        Id = usuario.Id,
+        Email = usuario.Email!,
+        NombreCompleto = usuario.NombreCompleto,
+        Roles = roles.ToList(),
+        EmpleadoId = usuario.EmpleadoId,
+        DebeCambiarPassword = usuario.DebeCambiarPassword
+    };
 }
