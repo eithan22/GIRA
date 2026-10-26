@@ -5,7 +5,7 @@ using GIRA.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace GIRA.Api.Controllers;
+namespace GIRA.Api.Controllers.Seguridad;
 
 /// <summary>Gestión de las cuentas de usuario del personal (GI-98). Solo Administrador.</summary>
 [ApiController]

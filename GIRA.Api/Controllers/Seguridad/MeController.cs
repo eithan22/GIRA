@@ -5,7 +5,7 @@ using GIRA.Application.Interfaces.Services.Seguridad;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace GIRA.Api.Controllers;
+namespace GIRA.Api.Controllers.Seguridad;
 
 /// <summary>Datos del usuario autenticado (GI-147).</summary>
 [ApiController]
