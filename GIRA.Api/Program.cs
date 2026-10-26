@@ -17,14 +17,10 @@ builder.Services.AddControllers();
 // OpenAPI con esquema Bearer para probar con el token en /swagger (GI-125)
 builder.Services.AddOpenApiConBearer();
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("GiraFrontend", policy =>
-        policy.WithOrigins("http://localhost:5173")
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials());
-});
+builder.Services.AddExceptionHandler<ManejadorExcepcionesGlobal>();
+builder.Services.AddProblemDetails();
+
+builder.Services.AddGiraCors(builder.Configuration);
 
 // Servicios de Application e Infrastructure.
 builder.Services.AddApplication();
@@ -40,10 +36,13 @@ builder.Services.AddAutorizacionGira();
 
 var app = builder.Build();
 
+// Al inicio de la cadena: cualquier excepción no controlada de lo que sigue queda cubierta.
+app.UseExceptionHandler();
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
     app.UseSwaggerGira();
 
     using var scope = app.Services.CreateScope();
@@ -58,7 +57,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseCors("GiraFrontend");
+app.UseCors(CorsExtensions.Politica);
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

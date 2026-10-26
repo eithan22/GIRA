@@ -25,6 +25,11 @@ public class UsuariosController : ControllerBase
     public async Task<IActionResult> Listar([FromQuery] UsuarioFiltroRequest filtro, CancellationToken ct)
         => (await _usuarios.ListarAsync(filtro, ct)).ToActionResult();
 
+    /// <summary>Obtiene un usuario por su identificador.</summary>
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> Obtener(Guid id, CancellationToken ct)
+        => (await _usuarios.ObtenerAsync(id, ct)).ToActionResult();
+
     /// <summary>Crea una cuenta con contraseña temporal generada.</summary>
     [HttpPost]
     public async Task<IActionResult> Crear([FromBody] CrearUsuarioRequest request, CancellationToken ct)

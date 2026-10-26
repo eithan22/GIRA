@@ -56,6 +56,52 @@ public class UsuariosEndpointTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ObtenerUsuario_SinToken_Devuelve401()
+    {
+        var respuesta = await _cliente.GetAsync($"/api/usuarios/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task ObtenerUsuario_ComoGerente_Devuelve403()
+    {
+        _cliente.UsarToken(await _cliente.ObtenerTokenAsync(CorreoGerente, Password));
+
+        var respuesta = await _cliente.GetAsync($"/api/usuarios/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Forbidden, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task ObtenerUsuario_IdInexistente_Devuelve404()
+    {
+        _cliente.UsarToken(await _cliente.ObtenerTokenAsync(CorreoAdmin, Password));
+
+        var respuesta = await _cliente.GetAsync($"/api/usuarios/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.NotFound, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task ObtenerUsuario_IdValido_Devuelve200ConLosDatosDelUsuario()
+    {
+        _cliente.UsarToken(await _cliente.ObtenerTokenAsync(CorreoAdmin, Password));
+
+        var listado = await _cliente.GetAsync("/api/usuarios");
+        using var json = JsonDocument.Parse(await listado.Content.ReadAsStringAsync());
+        var idGerente = json.RootElement.GetProperty("items").EnumerateArray()
+            .First(u => u.GetProperty("email").GetString() == CorreoGerente)
+            .GetProperty("id").GetString();
+
+        var respuesta = await _cliente.GetAsync($"/api/usuarios/{idGerente}");
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        using var detalle = JsonDocument.Parse(await respuesta.Content.ReadAsStringAsync());
+        Assert.Equal(CorreoGerente, detalle.RootElement.GetProperty("email").GetString());
+    }
+
+    [Fact]
     public async Task Me_SinToken_Devuelve401()
     {
         var respuesta = await _cliente.GetAsync("/api/auth/me");

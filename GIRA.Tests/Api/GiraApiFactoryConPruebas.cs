@@ -42,6 +42,16 @@ namespace GIRA.Tests.Api
         [HttpGet("cualquier-rol")]
         [Authorize(Policy = Politicas.ConsultarMisTurnos)]
         public IActionResult CualquierRol() => Ok();
+
+        /// <summary>Sin [Authorize] ni [AllowAnonymous]: debe quedar protegido solo por el FallbackPolicy.</summary>
+        [HttpGet("sin-proteger")]
+        public IActionResult SinProteger() => Ok();
+
+        /// <summary>Lanza una excepción para probar el manejador global; anónimo para aislar la prueba de la autenticación.</summary>
+        [HttpGet("lanza-excepcion")]
+        [AllowAnonymous]
+        public IActionResult LanzaExcepcion() =>
+            throw new InvalidOperationException("mensaje-interno-de-prueba-nunca-debe-salir-al-cliente");
     }
 
 }

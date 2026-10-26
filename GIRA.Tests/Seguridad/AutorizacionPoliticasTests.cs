@@ -15,6 +15,7 @@ namespace GIRA.Tests.Seguridad
         private const string SoloAdministrador = "/api/prueba-politicas/solo-administrador";
         private const string GerenteOAdministrador = "/api/prueba-politicas/gerente-o-administrador";
         private const string CualquierRol = "/api/prueba-politicas/cualquier-rol";
+        private const string SinProteger = "/api/prueba-politicas/sin-proteger";
 
         private readonly GiraApiFactoryConPruebas _factory = new();
         private HttpClient _cliente = null!;
@@ -54,6 +55,14 @@ namespace GIRA.Tests.Seguridad
             var problema = await respuesta.Content.ReadFromJsonAsync<ProblemDetails>();
             Assert.Equal(401, problema!.Status);
             Assert.Equal("No autenticado", problema.Title);
+        }
+
+        [Fact]
+        public async Task SinProteger_Devuelve401PorDefecto()
+        {
+            var respuesta = await _cliente.GetAsync(SinProteger);
+
+            Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
         }
 
         [Fact]

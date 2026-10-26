@@ -10,6 +10,12 @@ namespace GIRA.Api.Authorization
         {
             services.AddAuthorization(options =>
             {
+                // Deny-by-default: un endpoint sin [Authorize] ni [AllowAnonymous] exige
+                // un usuario autenticado, no queda público por accidente.
+                options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                    .RequireAuthenticatedUser()
+                    .Build();
+
                 void Agregar(string politica, params string[] roles) =>
                     options.AddPolicy(politica, p => p.RequireAuthenticatedUser().RequireRole(roles));
 
