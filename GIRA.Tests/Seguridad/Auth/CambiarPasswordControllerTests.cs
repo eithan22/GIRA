@@ -8,7 +8,7 @@ using GIRA.Infrastructure.Identity;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace GIRA.Tests.Seguridad;
+namespace GIRA.Tests.Seguridad.Auth;
 
 public class CambiarPasswordControllerTests
 {

@@ -15,7 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.JsonWebTokens;
 
-namespace GIRA.Tests.Seguridad;
+namespace GIRA.Tests.Seguridad.Auth;
 
 /// <summary>
 /// Pruebas del login (GI-95) con la configuración real de Identity de AddInfrastructure

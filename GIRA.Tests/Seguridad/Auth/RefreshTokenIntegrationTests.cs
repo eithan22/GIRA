@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 
-namespace GIRA.Tests.Seguridad;
+namespace GIRA.Tests.Seguridad.Auth;
 
 /// <summary>
 /// Pruebas de integración de GI-96 con SQL Server.

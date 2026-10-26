@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace GIRA.Tests.Seguridad;
+namespace GIRA.Tests.Seguridad.Usuarios;
 
 public class UsuarioServiceTests
 {

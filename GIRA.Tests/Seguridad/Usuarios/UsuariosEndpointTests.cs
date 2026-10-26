@@ -3,7 +3,7 @@ using System.Text.Json;
 using GIRA.Domain.Constants;
 using GIRA.Tests.Api;
 
-namespace GIRA.Tests.Seguridad;
+namespace GIRA.Tests.Seguridad.Usuarios;
 
 public class UsuariosEndpointTests : IAsyncLifetime
 {

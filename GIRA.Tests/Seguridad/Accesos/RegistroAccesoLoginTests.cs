@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
 
-namespace GIRA.Tests.Seguridad;
+namespace GIRA.Tests.Seguridad.Accesos;
 
 public class RegistroAccesoLoginTests : IAsyncLifetime
 {

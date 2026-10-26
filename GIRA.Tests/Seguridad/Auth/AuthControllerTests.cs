@@ -8,7 +8,7 @@ using GIRA.Tests.Api;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
 
-namespace GIRA.Tests.Seguridad;
+namespace GIRA.Tests.Seguridad.Auth;
 
 /// <summary>
 /// Pruebas de integración de POST /api/auth/login (GI-117): recorren el pipeline HTTP real

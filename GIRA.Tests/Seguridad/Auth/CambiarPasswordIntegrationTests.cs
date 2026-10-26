@@ -12,7 +12,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace GIRA.Tests.Seguridad;
+namespace GIRA.Tests.Seguridad.Auth;
 
 /// <summary>
 /// GI-146: Pruebas reales de cambio de contraseña con SQL Server.

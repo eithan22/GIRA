@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 
-namespace GIRA.Tests.Seguridad;
+namespace GIRA.Tests.Seguridad.Usuarios;
 
 /// <summary>
 /// Pruebas de la asignación de roles (GI-99, GI-141): reglas de AsignarRolesAsync y los
