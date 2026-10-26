@@ -1,0 +1,10 @@
+root = true
+
+[*]
+charset = utf-8
+
+[*.cs]
+csharp_style_namespace_declarations = file_scoped:suggestion
+
+[**/Migrations/*.cs]
+generated_code = true

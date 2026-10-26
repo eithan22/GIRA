@@ -1,4 +1,3 @@
-
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad;
 
