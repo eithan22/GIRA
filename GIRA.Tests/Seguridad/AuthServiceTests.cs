@@ -237,9 +237,9 @@ public class AuthServiceTests : IDisposable
     }
 
 
-    // GI-146: La contraseña actual debe ser correcta.
+    // GI-146: Una contraseña actual incorrecta es un error de validación (400).
     [Fact]
-    public async Task CambiarPassword_PasswordActualIncorrecta_DevuelveUnauthorized()
+    public async Task CambiarPassword_PasswordActualIncorrecta_DevuelveValidation()
     {
         var usuario = await CrearUsuarioAsync();
 
@@ -253,7 +253,7 @@ public class AuthServiceTests : IDisposable
             usuario.Id, request);
 
         Assert.True(resultado.IsFailure);
-        Assert.Equal(ErrorType.Unauthorized, resultado.Type);
+        Assert.Equal(ErrorType.Validation, resultado.Type);
         Assert.True(await UserManager.CheckPasswordAsync(usuario, Password));
     }
 

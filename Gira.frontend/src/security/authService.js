@@ -30,21 +30,60 @@ export const tokenStore = {
   },
 };
 
+let refreshPromise;
+
 api.interceptors.request.use((config) => {
   const accessToken = tokenStore.getAccess();
   if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
   return config;
 });
 
+function isAuthEndpoint(url = '') {
+  return /\/api\/auth\/(?:login|refresh|logout)(?:[/?#]|$)/i.test(url);
+}
+
+function expireSession() {
+  tokenStore.clear();
+  window.dispatchEvent(new Event('gira:session-expired'));
+}
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    const isLoginRequest = /\/auth\/login(?:\?|$)/i.test(error.config?.url || '');
-    if (error.response?.status === 401 && !isLoginRequest && tokenStore.getAccess()) {
-      tokenStore.clear();
-      window.dispatchEvent(new Event('gira:session-expired'));
+  async (error) => {
+    const request = error.config;
+    if (error.response?.status !== 401 || !request || request._retry || isAuthEndpoint(request.url)) {
+      return Promise.reject(error);
     }
-    return Promise.reject(error);
+
+    if (!tokenStore.getAccess()) return Promise.reject(error);
+    const refreshToken = tokenStore.getRefresh();
+    if (!refreshToken) {
+      expireSession();
+      return Promise.reject(error);
+    }
+
+    request._retry = true;
+    try {
+      if (!refreshPromise) {
+        refreshPromise = api.post('/api/auth/refresh', { refreshToken })
+          .then((response) => {
+            const result = response.data?.data ?? response.data;
+            if (!result?.accessToken) {
+              throw new Error('La respuesta de renovación no incluye un token de acceso.');
+            }
+            tokenStore.set({ accessToken: result.accessToken, refreshToken: result.refreshToken });
+            return result.accessToken;
+          })
+          .finally(() => { refreshPromise = null; });
+      }
+
+      const accessToken = await refreshPromise;
+      request.headers.Authorization = `Bearer ${accessToken}`;
+      return api(request);
+    } catch (refreshError) {
+      expireSession();
+      return Promise.reject(refreshError);
+    }
   },
 );
 
@@ -108,7 +147,16 @@ export const authService = {
   },
 
   async logout() {
-    tokenStore.clear();
+    const refreshToken = tokenStore.getRefresh();
+    try {
+      await api.post('/api/auth/logout', { refreshToken: refreshToken || '' });
+    } finally {
+      tokenStore.clear();
+    }
+  },
+
+  async changePassword({ passwordActual, passwordNueva }) {
+    await api.put('/api/auth/cambiar-password', { passwordActual, passwordNueva });
   },
 
   async getRoles() {

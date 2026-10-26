@@ -252,6 +252,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .modal-backdrop { position: fixed; z-index: 20; inset: 0; padding: 18px; display: grid; place-items: center; background: #10182985; backdrop-filter: blur(4px); animation: fade-in .18s ease both; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 .modal-card { position: relative; width: min(100%,435px); padding: 26px; background: white; border: 1px solid #ececf3; border-radius: 12px; box-shadow: 0 23px 70px #111a2c30; animation: modal-in .25s cubic-bezier(.2,.75,.25,1) both; }
+.modal-card.modal-wide { width: min(100%,520px); max-height: calc(100vh - 36px); overflow-y: auto; }
 @keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .modal-close { position: absolute; top: 13px; right: 13px; }
 .modal-content h2 { margin: 7px 0 9px; color: #263147; font: 750 19px Manrope,sans-serif; }
@@ -310,7 +311,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .demo-roles button:disabled { opacity: .6; }
 .login-security { margin: 23px 0 0; display: flex; align-items: center; justify-content: center; gap: 7px; color: #a3acb9; font-size: 9px; }
 .login-security svg { color: #8a7bd6; }
-
 @media (min-width: 1400px) {
   .page-content { padding-right: 42px; padding-left: 42px; }
 }

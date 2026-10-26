@@ -109,7 +109,6 @@ public class AuthService : IAuthService
         });
     }
 
-
     /// <summary>
     /// Renueva una sesión utilizando un refresh token.
     /// GI-119: Validación y rotación de tokens.
@@ -343,7 +342,7 @@ public class AuthService : IAuthService
         if (!await _userManager.CheckPasswordAsync(usuario, request.PasswordActual))
         {
             return OperationResult.Failure(
-                ErrorType.Unauthorized,
+                ErrorType.Validation,
                 "La contraseña actual es incorrecta.");
         }
 

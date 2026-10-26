@@ -153,9 +153,9 @@ public class AuthControllerTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
     }
 
-    // GI-146: Si la contraseña actual es incorrecta, devuelve 401.
+    // GI-146: Si la contraseña actual es incorrecta, devuelve 400.
     [Fact]
-    public async Task CambiarPassword_PasswordIncorrecta_Devuelve401()
+    public async Task CambiarPassword_PasswordIncorrecta_Devuelve400()
     {
         await _factory.CrearUsuarioAsync(
             Correo, Password, true, Roles.Mesero);
@@ -184,7 +184,7 @@ public class AuthControllerTests : IAsyncLifetime
 
         var respuesta = await _cliente.SendAsync(solicitud);
 
-        Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
 
         var problema = await respuesta.Content
             .ReadFromJsonAsync<ProblemDetails>();
