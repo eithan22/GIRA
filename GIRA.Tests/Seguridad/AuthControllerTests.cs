@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using GIRA.Application.DTOs.Seguridad;
+using GIRA.Application.DTOs.Seguridad.Auth;
 using GIRA.Domain.Constants;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Services.Seguridad;

@@ -1,4 +1,4 @@
-namespace GIRA.Application.DTOs.Seguridad;
+namespace GIRA.Application.DTOs.Seguridad.Auth;
 
 /// <summary>Respuesta de un inicio de sesión exitoso.</summary>
 public class LoginResponse

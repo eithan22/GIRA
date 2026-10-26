@@ -1,4 +1,4 @@
-namespace GIRA.Application.DTOs.Seguridad;
+namespace GIRA.Application.DTOs.Seguridad.Auth;
 
 /// <summary>Credenciales para iniciar sesión (POST /api/auth/login).</summary>
 public class LoginRequest

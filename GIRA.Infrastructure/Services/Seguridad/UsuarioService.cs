@@ -1,7 +1,7 @@
 ﻿using System.Security.Cryptography;
 using FluentValidation;
 using GIRA.Application.Common;
-using GIRA.Application.DTOs.Seguridad;
+using GIRA.Application.DTOs.Seguridad.Usuarios;
 using GIRA.Application.Interfaces.Services.Seguridad;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;

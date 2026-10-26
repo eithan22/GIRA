@@ -1,6 +1,6 @@
 using FluentValidation;
 using GIRA.Application.Common;
-using GIRA.Application.DTOs.Seguridad;
+using GIRA.Application.DTOs.Seguridad.Auth;
 using GIRA.Application.Interfaces.Services.Seguridad;
 using GIRA.Domain.Constants;
 using GIRA.Infrastructure.Identity;
@@ -369,6 +369,8 @@ public class AuthService : IAuthService
 
         // Identity y los refresh tokens usan el mismo GiraDbContext.
         // Una transacción evita dejar la contraseña actualizada con tokens sin revocar.
+        // Serializable es intencional y no debe bajarse sin analizar la carrera: evita que un
+        // refresh concurrente cree una sesión nueva que sobreviva al cambio de contraseña.
         await using var transaccion = await _dbContext.Database.BeginTransactionAsync(
             IsolationLevel.Serializable,
             cancellationToken);

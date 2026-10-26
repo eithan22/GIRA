@@ -1,4 +1,4 @@
-﻿namespace GIRA.Application.DTOs.Seguridad;
+﻿namespace GIRA.Application.DTOs.Seguridad.Accesos;
 
 /// <summary>
 /// Página del historial de accesos de un usuario, del intento más reciente al más antiguo.

@@ -1,5 +1,5 @@
 ﻿using GIRA.Api.Common;
-using GIRA.Application.DTOs.Seguridad;
+using GIRA.Application.DTOs.Seguridad.Usuarios;
 using GIRA.Application.Interfaces.Services.Seguridad;
 using GIRA.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;

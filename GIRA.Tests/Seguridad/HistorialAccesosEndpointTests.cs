@@ -1,4 +1,4 @@
-﻿using GIRA.Application.DTOs.Seguridad;
+﻿using GIRA.Application.DTOs.Seguridad.Accesos;
 using GIRA.Domain.Constants;
 using GIRA.Domain.Entities.Seguridad;
 using GIRA.Infrastructure.Identity;

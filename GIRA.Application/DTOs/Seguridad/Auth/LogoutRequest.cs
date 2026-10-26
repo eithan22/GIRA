@@ -1,5 +1,5 @@
 ﻿
-namespace GIRA.Application.DTOs.Seguridad;
+namespace GIRA.Application.DTOs.Seguridad.Auth;
 
 /// <summary>Solicitud para cerrar una sesión.</summary>
 public class LogoutRequest

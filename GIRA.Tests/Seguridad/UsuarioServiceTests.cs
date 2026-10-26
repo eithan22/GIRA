@@ -1,4 +1,4 @@
-﻿using GIRA.Application.DTOs.Seguridad;
+﻿using GIRA.Application.DTOs.Seguridad.Usuarios;
 using GIRA.Application.Common;
 using GIRA.Application.Validations.Seguridad;
 using GIRA.Domain.Constants;

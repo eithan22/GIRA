@@ -1,7 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using GIRA.Application.Common;
-using GIRA.Application.DTOs.Seguridad;
+using GIRA.Application.DTOs.Seguridad.Roles;
+using GIRA.Application.DTOs.Seguridad.Usuarios;
 using GIRA.Application.Interfaces.Services.Seguridad;
 using GIRA.Domain.Constants;
 using GIRA.Infrastructure.Identity;

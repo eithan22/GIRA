@@ -1,5 +1,5 @@
 ﻿using FluentValidation;
-using GIRA.Application.DTOs.Seguridad;
+using GIRA.Application.DTOs.Seguridad.Accesos;
 
 namespace GIRA.Application.Validations.Seguridad;
 

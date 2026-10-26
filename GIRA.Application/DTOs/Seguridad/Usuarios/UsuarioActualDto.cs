@@ -1,5 +1,5 @@
 ﻿
-namespace GIRA.Application.DTOs.Seguridad;
+namespace GIRA.Application.DTOs.Seguridad.Usuarios;
 
 /// <summary>Datos del usuario autenticado (GET /api/auth/me).</summary>
 public record UsuarioActualDto(

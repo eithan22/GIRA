@@ -1,4 +1,4 @@
-using GIRA.Application.DTOs.Seguridad;
+using GIRA.Application.DTOs.Seguridad.Auth;
 
 namespace GIRA.Application.Interfaces.Services.Seguridad;
 

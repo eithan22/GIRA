@@ -2,7 +2,7 @@
 using System.Security.Claims;
 using GIRA.Api.Controllers.Seguridad;
 using GIRA.Application.Common;
-using GIRA.Application.DTOs.Seguridad;
+using GIRA.Application.DTOs.Seguridad.Auth;
 using GIRA.Application.Interfaces.Services.Seguridad;
 using GIRA.Infrastructure.Identity;
 using Microsoft.AspNetCore.Http;

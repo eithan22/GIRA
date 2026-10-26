@@ -1,5 +1,5 @@
 
-namespace GIRA.Application.DTOs.Seguridad;
+namespace GIRA.Application.DTOs.Seguridad.Auth;
 
 /// <summary>Datos básicos del usuario que inició sesión.</summary>
 public class UsuarioAutenticadoDto

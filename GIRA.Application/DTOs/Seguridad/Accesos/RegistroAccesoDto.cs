@@ -1,4 +1,4 @@
-﻿namespace GIRA.Application.DTOs.Seguridad;
+﻿namespace GIRA.Application.DTOs.Seguridad.Accesos;
 
 public record RegistroAccesoDto(
  Guid Id,

@@ -1,4 +1,4 @@
-﻿using GIRA.Application.DTOs.Seguridad;
+﻿using GIRA.Application.DTOs.Seguridad.Auth;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 
