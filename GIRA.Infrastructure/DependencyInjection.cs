@@ -1,8 +1,5 @@
-using GIRA.Application.Interfaces.Services.Seguridad;
-using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
 using GIRA.Infrastructure.Services.Seguridad;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,35 +26,7 @@ public static class DependencyInjection
 
         services.AddDbContext<GiraDbContext>(options => options.UseSqlServer(connectionString));
 
-        services.AddIdentityCore<Usuario>(options =>
-        {
-            options.Password.RequiredLength = 8;
-            options.Password.RequireUppercase = true;
-            options.Password.RequireLowercase = true;
-            options.Password.RequireDigit = true;
-            options.Password.RequireNonAlphanumeric = true;
-
-            options.Lockout.MaxFailedAccessAttempts = 5;
-            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-            options.Lockout.AllowedForNewUsers = true;
-
-            options.User.RequireUniqueEmail = true;
-        })
-            .AddRoles<Rol>()
-            .AddEntityFrameworkStores<GiraDbContext>()
-            .AddSignInManager()
-            .AddErrorDescriber<IdentityErrorDescriberEspanol>();
-            
-
-        // Tokens de sesión e inicio de sesión (GI-95).
-        services.AddSingleton(JwtSettings.Leer(configuration));
-        services.AddScoped<ITokenService, TokenService>();
-        services.AddScoped<IRotadorRefreshToken, RotadorRefreshToken>();
-        services.AddScoped<IAuthService, AuthService>();
-        services.AddScoped<IRegistroAccesoService, RegistroAccesoService>();
-        services.AddScoped<IHistorialAccesosService, HistorialAccesosService>();
-
-            services.AddUsuarioService();
+        services.AddSeguridad(configuration);
 
         return services;
     }
