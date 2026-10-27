@@ -5,8 +5,8 @@ Fuente de verdad del proyecto para cualquier sesión de Claude Code. Léelo ante
 ## 1. Proyecto
 - **Nombre:** GIRA (Gestión Inteligente de Restaurantes Automatizada).
 - **Contexto:** proyecto final de ITLA, Idea N.º 26. Equipo de 6 personas.
-- **Backend:** ASP.NET Core Web API (.NET), Clean Architecture, SQL Server, EF Core, MediatR, ML.NET.
-- **Frontend:** React, dentro de este mismo repositorio pero en la **rama `frontend`** (no en un repo separado). No tocar el frontend desde el trabajo de backend sin coordinar.
+- **Backend:** ASP.NET Core Web API (.NET), Clean Architecture, SQL Server, EF Core, ML.NET. MediatR está **planeado** solo para eventos entre módulos; aún no está instalado ni usado en ningún proyecto.
+- **Frontend:** El frontend React vive en la carpeta Gira.frontend/ de este repositorio (no en un repo separado). No tocar el frontend desde el trabajo de backend sin coordinar.
 - **Documento de requisitos:** SRS GIRA v1.1 (6 módulos, 75 requisitos MoSCoW: 53 Debe, 17 Debería, 5 Podría).
 
 ## 2. Estructura de la solución
@@ -14,7 +14,7 @@ Fuente de verdad del proyecto para cualquier sesión de Claude Code. Léelo ante
 GIRA (solución)
 ├── GIRA.Api              → Controllers, Program.cs, middlewares, configuración
 ├── GIRA.Domain           → entidades, enums, eventos de dominio, interfaces; sin dependencias externas
-├── GIRA.Application      → casos de uso con MediatR, DTOs, validadores FluentValidation, interfaces
+├── GIRA.Application      → casos de uso, DTOs, validadores FluentValidation, interfaces (MediatR planeado solo para eventos entre módulos)
 └── GIRA.Infrastructure   → GiraDbContext, configuraciones EF, migraciones, repositorios, servicios externos
 ```
 > Nota: `GIRA.slnx` agrupa estos proyectos en carpetas virtuales `GIRA-API`, `GIRA-CORE/GIRA-Domain`, `GIRA-CORE/GIRA-Application`, `GIRA-Infrastructure`. Esas carpetas **no existen físicamente en disco**; son solo organización visual de la solución en Visual Studio.
@@ -22,7 +22,20 @@ GIRA (solución)
 **Dependencias permitidas:** API → Infrastructure → Application → Domain. Domain no depende de nada.
 Dentro de cada capa, el código se organiza por módulo (carpeta por módulo).
 
-Los casos de uso viven en servicios por módulo (Application/Services/<Modulo>, con su interfaz en Application/Interfaces/Services/<Modulo>). MediatR se usa SOLO para eventos entre módulos (Application/Events/<Modulo> y Application/EventHandlers/<Modulo>). El paquete MediatR se instala únicamente en GIRA.Application.
+Convención acordada por módulo: repositorio por agregado (interfaz en Application/Interfaces/Repository/<Modulo>, implementación en Infrastructure/Repositories/<Modulo>), servicios por módulo (interfaz en Application/Interfaces/Services/<Modulo>), y registro de DI con un método `Add<Modulo>()` en Services/<Modulo>/<Modulo>ServiceExtensions.cs.
+
+Recomendado, no acordado ni obligatorio: cuando un módulo tenga varias subáreas claramente separables, organizar los servicios por subárea dentro de esas mismas carpetas (interfaz en Application/Interfaces/Services/<Modulo>/<Subarea>, implementación en Application/Services/<Modulo>/<Subarea>), con un `Add<Subarea>Service()` por subárea llamado desde `Add<Modulo>()`. Es la plantilla que dejó Seguridad, no una regla del equipo. Los repositorios siguen siempre la regla del módulo (<Modulo>), nunca se subdividen por subárea. Si el nombre de una subcarpeta de subárea choca con una clase estática de constantes que el archivo use (caso real: la subcarpeta `Roles` contra `GIRA.Domain.Constants.Roles`), usar un alias en ese archivo (`using RolesConst = GIRA.Domain.Constants.Roles;`); nunca renombrar la subcarpeta.
+
+**Seguridad es una excepción documentada a esa convención:** sus servicios viven directamente en GIRA.Infrastructure/Services/Seguridad, no en Application/Services/Seguridad, porque dependen de ASP.NET Core Identity (`UserManager`, `SignInManager`) y de GiraDbContext, ambos exclusivos de Infrastructure. Los contratos (interfaces, DTOs, validadores) sí viven en Application, como en cualquier otro módulo. El registro de DI de Seguridad sigue la convención: `AddSeguridad()` en Infrastructure/Services/Seguridad/SeguridadServiceExtensions.cs, que delega en `AddUsuarioService()` y `AddRolService()`.
+
+Seguridad es, además, la **plantilla de organización por subárea** (Auth, Usuarios, Roles, Accesos); se aconseja imitarla cuando otro módulo tenga varias subáreas claramente separables, pero no es obligatoria:
+- `Application/Interfaces/Services/Seguridad/{Auth,Usuarios,Roles,Accesos}` y `Application/Validations/Seguridad/{Auth,Usuarios,Accesos}`.
+- `Infrastructure/Services/Seguridad/{Auth,Usuarios,Roles,Accesos}`, con `SeguridadServiceExtensions.cs` y `MensajesSeguridad.cs` en la raíz del módulo (compartidos entre subáreas, no pertenecen a una sola).
+- `Infrastructure/Identity` solo tiene `Usuario`, `Rol` e `IdentityErrorDescriberEspanol` — lo que Identity exige directamente. `JwtSettings` y `TiposClaim` viven en `Infrastructure/Services/Seguridad/Auth` porque son responsabilidad de tokens/claims, no del modelo de usuario.
+- `Api/Common/Seguridad` tiene `AutenticacionJwtExtensions` y `LimiteLoginExtensions` (configuración propia de Seguridad). `ClaimsPrincipalExtensions.ObtenerUsuarioId` se queda en `Api/Common` porque es transversal a todos los módulos.
+- `UsuarioService` no se dividió en varias clases: no hay lógica pura que lo justifique sin tocar `UsuariosController`/`MeController` y sus tests. Solo se extrajo `GeneradorPasswordTemporal` (sin estado, sin dependencias de Identity), declarado `public` porque GIRA.Infrastructure no tiene `InternalsVisibleTo` hacia GIRA.Tests.
+
+MediatR se usa SOLO para eventos entre módulos (Application/Events/<Modulo> y Application/EventHandlers/<Modulo>), publicados tras SaveChanges. Es diseño a futuro: hoy esas carpetas solo tienen scaffold vacío (TextFile1.txt) y el paquete MediatR no está instalado en ningún proyecto; se instalará únicamente en GIRA.Application cuando se implemente el primer evento real.
 
 ## 3. Módulos y responsables
 | Módulo | Responsable(s) |
@@ -71,14 +84,16 @@ docker compose down -v     # BORRA todos los datos; solo para reiniciar de cero
 ### Reglas de migraciones en equipo
 1. `git pull` ANTES de crear una migración.
 2. Nombres con prefijo de módulo: `Seguridad_...`, `Reservas_...`, `Inventario_...`, `Personal_...`, `Analitica_...`, `Configuracion_...`.
-3. NUNCA editar una migración ya fusionada en `main`; crear una nueva.
+3. NUNCA editar una migración ya fusionada en `master`; crear una nueva.
 4. Conflicto en `GiraDbContextModelSnapshot.cs`: `migrations remove`, `git pull`, regenerar la migración.
 5. Una migración por cambio lógico; revisar el código generado antes de hacer commit.
 
-Una base en la nube se usará **solo** para la demo final, desplegando desde `main`. Nadie desarrolla contra ella.
+Una base en la nube se usará **solo** para la demo final, desplegando desde `master`. Nadie desarrolla contra ella.
 
 ## 5. Seguridad
 - ASP.NET Core Identity + JWT: access token de 30 min; refresh token de 7 días con rotación, guardado hasheado.
+- Los claims del token usan nombres cortos (`sub`, `email`, `name`, `role`), definidos en `TiposClaim`. El usuario autenticado se obtiene con `User.FindFirst(TiposClaim.UsuarioId)`.
+- `ITokenService` emite los tokens y calcula el hash SHA-256 del refresh token; reutilizarlo en vez de generar tokens por otro lado.
 - Roles: Administrador, Gerente, Supervisor, Mesero, Cocina. Autorizar con políticas (constantes en `Politicas`), nunca con nombres de rol sueltos.
 - Bloqueo: 5 intentos fallidos, 15 minutos. Contraseña: mínimo 8, mayúscula, minúscula, dígito y símbolo.
 - Los clientes NO tienen cuenta: usan código de reserva + teléfono.
@@ -86,15 +101,15 @@ Una base en la nube se usará **solo** para la demo final, desplegando desde `ma
 ## 6. Convenciones de código
 - C# con comentarios XML en clases y métodos públicos; nombres de dominio en español (`Reserva`, `Mesa`, `Empleado`), nombres técnicos en inglés cuando sean estándar.
 - Todas las entidades heredan de `BaseEntity` (Id Guid, auditoría, soft delete, RowVersion).
-- Casos de uso en servicios por módulo (interfaz en Application/Interfaces/Services/<Modulo>), con FluentValidation invocado desde el servicio. Errores con `ProblemDetails`. NO usar Commands/Queries de MediatR.
-- MediatR se usa SOLO para eventos entre módulos (`INotification`), publicados tras `SaveChanges`, nunca antes. Eventos en Application/Events/<Modulo> (ejemplo: ReservaCompletadaEvent) y handlers en Application/EventHandlers/<Modulo> (ejemplo: DescontarInsumosHandler). Los handlers deben ser cortos y no fallar en silencio. Prohibido que un módulo use directamente las entidades internas de otro; la comunicación entre módulos es por eventos.
+- Casos de uso en servicios por módulo (y por subárea cuando el módulo la tenga), con FluentValidation invocado desde el servicio. Errores con `ProblemDetails`. NO usar Commands/Queries de MediatR. Convención de repositorio, servicio y registro de DI por módulo (y la excepción de Seguridad): ver sección 2.
+- MediatR está **planeado** (diseño a futuro, aún no instalado) para eventos entre módulos (`INotification`), publicados tras `SaveChanges`, nunca antes. Cuando se implemente: eventos en Application/Events/<Modulo> (ejemplo propuesto: ReservaCompletadaEvent) y handlers en Application/EventHandlers/<Modulo> (ejemplo propuesto: DescontarInsumosHandler). Los handlers deben ser cortos y no fallar en silencio. Prohibido que un módulo use directamente las entidades internas de otro; la comunicación entre módulos es por eventos.
 - Mapeo manual o con Mapperly. No usar AutoMapper (licencia comercial).
 - Logging con Serilog. Notificaciones en tiempo real con SignalR. Rate limiting en login.
 - **Reservas:** estados `Confirmada → EnCurso → Completada`, `Cancelada`, `NoAsistio`; transiciones como métodos de la entidad `Reserva`; índice único filtrado en `(MesaId, Fecha, FranjaHorariaId)` contra doble reserva.
 - **Analítica:** ML.NET (SSA) entrenado en `BackgroundService`; datos sintéticos para el arranque en frío.
 
 ## 7. Flujo de trabajo del equipo
-- **Git:** ramas `feature/<modulo>-<descripcion>`, Pull Request hacia `main`, sin push directo a `main`. El frontend vive en la rama `frontend` de este mismo repositorio.
+- **Git:** ramas `feature/<modulo>-<descripcion>` (o `GI-<ticket>-<descripcion>`), Pull Request hacia `DEV` o la rama del módulo correspondiente (p. ej. `Modulo-Seguridad`), sin push directo a esas ramas ni a `master`. El frontend React vive en la carpeta Gira.frontend/ de este repositorio.
 - **Jira:** proyecto GI (https://eithanread1.atlassian.net). Épicas por módulo; el módulo Usuarios y Roles ya tiene historias GI-94 a GI-102 y sus subtareas. Mencionar la clave de Jira en commits y PRs.
 
 ## 8. Cómo levantar el entorno (onboarding)
@@ -102,7 +117,13 @@ Una base en la nube se usará **solo** para la demo final, desplegando desde `ma
 2. Clonar el repositorio.
 3. Copiar `.env.example` a `.env` y definir tu propia contraseña (`SA_PASSWORD`).
 4. `docker compose up -d`.
-5. Configurar User Secrets con `ConnectionStrings:GiraDb`.
+5. Configurar User Secrets en `GIRA.Api` (la API no arranca si falta alguno):
+   - `ConnectionStrings:GiraDb`: la cadena de conexión de la sección 4.
+   - `Seed:AdminEmail` y `Seed:AdminPassword`: el administrador inicial que crea el seeder.
+   - `Jwt:Key`: clave para firmar los tokens, de al menos 32 caracteres.
+   ```bash
+   dotnet user-secrets set "Jwt:Key" "<clave-larga-y-aleatoria>" --project GIRA.Api
+   ```
 6. Ejecutar la API (aplica migraciones y seeder automáticamente).
 7. Verificar con Swagger.
 

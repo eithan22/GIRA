@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/docs/">
+    <File Path="docs/proteger-endpoints.md" />
+  </Folder>
   <Folder Name="/GIRA-API/">
     <Project Path="GIRA.Api/GIRA.Api.csproj" />
   </Folder>
@@ -11,5 +14,8 @@
   </Folder>
   <Folder Name="/GIRA-Infrastructure/">
     <Project Path="GIRA.Infrastructure/GIRA.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/GIRA-Tests/">
+    <Project Path="GIRA.Tests/GIRA.Tests.csproj" />
   </Folder>
 </Solution>
