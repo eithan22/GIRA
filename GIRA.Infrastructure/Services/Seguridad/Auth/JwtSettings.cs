@@ -2,7 +2,7 @@ using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
-namespace GIRA.Infrastructure.Identity;
+namespace GIRA.Infrastructure.Services.Seguridad.Auth;
 
 /// <summary>
 /// Configuración de los tokens de sesión (sección "Jwt"). Emisor, audiencia y duraciones

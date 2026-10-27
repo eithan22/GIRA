@@ -1,8 +1,8 @@
-using GIRA.Infrastructure.Identity;
+using GIRA.Infrastructure.Services.Seguridad.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
-namespace GIRA.Api.Common;
+namespace GIRA.Api.Common.Seguridad;
 
 /// <summary>Configura la autenticación con JWT Bearer (GI-95).</summary>
 public static class AutenticacionJwtExtensions

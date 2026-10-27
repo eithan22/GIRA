@@ -4,7 +4,7 @@ using GIRA.Application.Interfaces.Services.Seguridad.Roles;
 using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 
-namespace GIRA.Infrastructure.Services.Seguridad;
+namespace GIRA.Infrastructure.Services.Seguridad.Roles;
 
 /// <summary>Implementación de <see cref="IRolService"/> sobre las tablas de roles de Identity.</summary>
 public class RolService : IRolService

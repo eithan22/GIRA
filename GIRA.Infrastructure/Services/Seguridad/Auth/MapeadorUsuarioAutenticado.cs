@@ -1,7 +1,7 @@
 ﻿using GIRA.Application.DTOs.Seguridad.Auth;
 using GIRA.Infrastructure.Identity;
 
-namespace GIRA.Infrastructure.Services.Seguridad;
+namespace GIRA.Infrastructure.Services.Seguridad.Auth;
 
 /// <summary>
 /// Convierte un <see cref="Usuario"/> de Identity en su DTO de autenticación.

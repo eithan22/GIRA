@@ -5,12 +5,11 @@ using System.Text;
 using GIRA.Application.DTOs.Seguridad.Auth;
 using GIRA.Application.Interfaces.Services.Seguridad.Auth;
 using GIRA.Domain.Entities.Seguridad;
-using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
-namespace GIRA.Infrastructure.Services.Seguridad;
+namespace GIRA.Infrastructure.Services.Seguridad.Auth;
 
 /// <summary>
 /// Implementación de <see cref="ITokenService"/>: access tokens JWT firmados con

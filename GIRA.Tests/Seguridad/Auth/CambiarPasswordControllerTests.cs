@@ -4,7 +4,7 @@ using GIRA.Api.Controllers.Seguridad;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad.Auth;
 using GIRA.Application.Interfaces.Services.Seguridad.Auth;
-using GIRA.Infrastructure.Identity;
+using GIRA.Infrastructure.Services.Seguridad.Auth;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 

@@ -5,7 +5,7 @@ using GIRA.Application.Interfaces.Services.Seguridad.Accesos;
 using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 
-namespace GIRA.Infrastructure.Services.Seguridad;
+namespace GIRA.Infrastructure.Services.Seguridad.Accesos;
 
 public class HistorialAccesosService : IHistorialAccesosService
 {

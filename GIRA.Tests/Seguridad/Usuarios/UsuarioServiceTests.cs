@@ -5,7 +5,7 @@ using GIRA.Domain.Constants;
 using GIRA.Domain.Entities.Seguridad;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
-using GIRA.Infrastructure.Services.Seguridad;
+using GIRA.Infrastructure.Services.Seguridad.Usuarios;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

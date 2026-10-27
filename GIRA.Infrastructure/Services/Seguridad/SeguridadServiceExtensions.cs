@@ -2,6 +2,10 @@
 using GIRA.Application.Interfaces.Services.Seguridad.Auth;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
+using GIRA.Infrastructure.Services.Seguridad.Accesos;
+using GIRA.Infrastructure.Services.Seguridad.Auth;
+using GIRA.Infrastructure.Services.Seguridad.Roles;
+using GIRA.Infrastructure.Services.Seguridad.Usuarios;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -45,6 +49,7 @@ public static class SeguridadServiceExtensions
         services.AddScoped<IHistorialAccesosService, HistorialAccesosService>();
 
         services.AddUsuarioService();
+        services.AddRolService();
 
         return services;
     }

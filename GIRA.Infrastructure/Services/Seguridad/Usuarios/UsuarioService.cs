@@ -1,5 +1,4 @@
-﻿using System.Security.Cryptography;
-using FluentValidation;
+﻿using FluentValidation;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad.Usuarios;
 using GIRA.Application.Interfaces.Services.Seguridad.Usuarios;
@@ -7,9 +6,9 @@ using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using GIRA.Domain.Constants;
+using RolesConst = GIRA.Domain.Constants.Roles;
 
-namespace GIRA.Infrastructure.Services.Seguridad;
+namespace GIRA.Infrastructure.Services.Seguridad.Usuarios;
 
 /// <summary>Implementación de la gestión de usuarios sobre ASP.NET Core Identity.</summary>
 public class UsuarioService : IUsuarioService
@@ -121,7 +120,7 @@ public class UsuarioService : IUsuarioService
             FechaCreacion = DateTime.UtcNow
         };
 
-        var passwordTemporal = GenerarPasswordTemporal();
+        var passwordTemporal = GeneradorPasswordTemporal.Generar();
         var resultado = await _userManager.CreateAsync(usuario, passwordTemporal);
 
         if (!resultado.Succeeded)
@@ -213,7 +212,7 @@ public class UsuarioService : IUsuarioService
             from ur in _db.UserRoles
             join r in _db.Roles on ur.RoleId equals r.Id
             join u in _db.Users on ur.UserId equals u.Id
-            where r.Name == Roles.Administrador && u.Activo
+            where r.Name == RolesConst.Administrador && u.Activo
             select u.Id)
             .ToListAsync(ct);
 
@@ -246,8 +245,8 @@ public class UsuarioService : IUsuarioService
 
         // RN-SEG-06: no se puede quitar el rol Administrador al último Administrador activo.
         var rolesActuales = await _userManager.GetRolesAsync(usuario);
-        var quitaAdministrador = rolesActuales.Contains(Roles.Administrador)
-            && rolesDestino.All(r => r.Name != Roles.Administrador);
+        var quitaAdministrador = rolesActuales.Contains(RolesConst.Administrador)
+            && rolesDestino.All(r => r.Name != RolesConst.Administrador);
         if (quitaAdministrador && await EsUltimoAdministradorActivoAsync(id, ct))
             return OperationResult.Failure<UsuarioDto>(ErrorType.Conflict,
                 "No se puede quitar el rol Administrador al último Administrador activo.");
@@ -293,34 +292,4 @@ public class UsuarioService : IUsuarioService
 
     private static string Mensaje(IdentityResult r) =>
         string.Join(" ", r.Errors.Select(e => e.Description));
-
-    /// <summary>Genera una contraseña de 12 caracteres con mayúscula, minúscula, número y símbolo.</summary>
-    private static string GenerarPasswordTemporal()
-    {
-        const string mayusculas = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-        const string minusculas = "abcdefghijkmnopqrstuvwxyz";
-        const string numeros = "23456789";
-        const string simbolos = "!@#$%*?";
-        const string todos = mayusculas + minusculas + numeros + simbolos;
-
-        var caracteres = new List<char>
-        {
-            mayusculas[RandomNumberGenerator.GetInt32(mayusculas.Length)],
-            minusculas[RandomNumberGenerator.GetInt32(minusculas.Length)],
-            numeros[RandomNumberGenerator.GetInt32(numeros.Length)],
-            simbolos[RandomNumberGenerator.GetInt32(simbolos.Length)]
-        };
-
-        while (caracteres.Count < 12)
-            caracteres.Add(todos[RandomNumberGenerator.GetInt32(todos.Length)]);
-
-        // Mezcla para que los 4 tipos no queden siempre al inicio.
-        for (var i = caracteres.Count - 1; i > 0; i--)
-        {
-            var j = RandomNumberGenerator.GetInt32(i + 1);
-            (caracteres[i], caracteres[j]) = (caracteres[j], caracteres[i]);
-        }
-
-        return new string(caracteres.ToArray());
-    }
 }

@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 
-namespace GIRA.Infrastructure.Services.Seguridad;
+namespace GIRA.Infrastructure.Services.Seguridad.Auth;
 
 /// <summary>
 /// Implementación de <see cref="IRotadorRefreshToken"/>. Extraído de

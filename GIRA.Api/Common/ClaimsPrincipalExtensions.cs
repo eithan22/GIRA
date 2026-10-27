@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using GIRA.Infrastructure.Identity;
+using GIRA.Infrastructure.Services.Seguridad.Auth;
 
 namespace GIRA.Api.Common;
 

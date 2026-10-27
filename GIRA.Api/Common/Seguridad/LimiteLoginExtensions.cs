@@ -1,6 +1,6 @@
 using System.Threading.RateLimiting;
 
-namespace GIRA.Api.Common;
+namespace GIRA.Api.Common.Seguridad;
 
 /// <summary>Limita los intentos de inicio de sesión por IP contra la fuerza bruta (RNF-06).</summary>
 public static class LimiteLoginExtensions

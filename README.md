@@ -76,16 +76,62 @@ La base de pruebas debe llamarse exactamente `GIRA_GI96_TEST`. Nunca usar `GIRA_
 
 ## Convenciones por módulo
 
+**Acordado por el equipo:**
 - Repositorio por agregado: interfaz en `Application/Interfaces/Repository/<Modulo>`, implementación en `Infrastructure/Repositories/<Modulo>`.
 - Servicios por módulo: interfaz en `Application/Interfaces/Services/<Modulo>`.
 - Registro de DI con un método `Add<Modulo>()` en `Services/<Modulo>/<Modulo>ServiceExtensions.cs`.
-- **Seguridad es la excepción documentada:** sus servicios viven directamente en `Infrastructure/Services/Seguridad` (no en `Application`) porque dependen de ASP.NET Core Identity y de `GiraDbContext`.
 - Namespace = carpeta, siempre.
+
+**Recomendado (no obligatorio):** cuando un módulo tenga varias subáreas claramente separables, organizar los servicios por subárea dentro de esas mismas carpetas: interfaz en `Application/Interfaces/Services/<Modulo>/<Subarea>`, implementación en `Application/Services/<Modulo>/<Subarea>`, con un `Add<Subarea>Service()` por subárea llamado desde `Add<Modulo>()`. Es la plantilla que dejó Seguridad, no una regla acordada por el equipo; un módulo sin subáreas claras no necesita adoptarla. Los repositorios siguen siempre la regla del módulo (`<Modulo>`), nunca se subdividen por subárea.
+
+Si el nombre de una subcarpeta de subárea coincide con una clase estática de constantes que el archivo use (caso real: la subcarpeta `Roles` contra `GIRA.Domain.Constants.Roles`), usar un alias en ese archivo — `using RolesConst = GIRA.Domain.Constants.Roles;` — y **nunca** renombrar la subcarpeta para evitar el choque.
+
+### Seguridad: la excepción documentada y la plantilla a imitar
+
+Seguridad no sigue la convención de arriba al pie de la letra: sus servicios viven en `GIRA.Infrastructure/Services/Seguridad`, no en `Application/Services/Seguridad`, porque dependen directamente de ASP.NET Core Identity (`UserManager`, `SignInManager`) y de `GiraDbContext`. Los contratos (interfaces, DTOs, validadores) sí viven en `Application`, como en cualquier otro módulo.
+
+Lo que **sí** es la plantilla a imitar — como recomendación, no como regla acordada — es la organización por subárea (Auth, Usuarios, Roles, Accesos), idéntica en todas las capas, aconsejable cuando un módulo tenga varias subáreas:
+
+```
+Application/Interfaces/Services/Seguridad/
+├── Auth/        IAuthService, ITokenService, IRotadorRefreshToken
+├── Usuarios/    IUsuarioService
+├── Roles/       IRolService
+└── Accesos/     IRegistroAccesoService, IHistorialAccesosService
+
+Application/Validations/Seguridad/
+├── Auth/        LoginRequestValidator
+├── Usuarios/    CrearUsuarioRequestValidator, ActualizarUsuarioRequestValidator,
+│                UsuarioFiltroRequestValidator, AsignarRolesRequestValidator
+└── Accesos/     HistorialAccesosRequestValidator
+
+Infrastructure/Services/Seguridad/
+├── SeguridadServiceExtensions.cs   (raíz — AddSeguridad)
+├── MensajesSeguridad.cs            (raíz — compartido entre subáreas)
+├── Auth/        AuthService, RotadorRefreshToken, TokenService,
+│                JwtSettings, TiposClaim, MapeadorUsuarioAutenticado
+├── Usuarios/    UsuarioService, UsuarioServiceExtensions, GeneradorPasswordTemporal
+├── Roles/       RolService, RolServiceExtensions
+└── Accesos/     RegistroAccesoService, HistorialAccesosService
+
+Infrastructure/Identity/
+└── Usuario, Rol, IdentityErrorDescriberEspanol   (solo lo que Identity exige directamente)
+
+Api/Common/Seguridad/
+└── AutenticacionJwtExtensions, LimiteLoginExtensions
+```
+
+Decisiones de diseño detrás de ese árbol:
+
+- `UsuarioService` **no se dividió** en varias clases: no hay lógica pura que justifique más clases sin tocar `UsuariosController`/`MeController` y sus tests. Solo se extrajo `GeneradorPasswordTemporal` (generación de la contraseña temporal, sin estado ni dependencias de Identity).
+- `GeneradorPasswordTemporal` es `public` (no `internal`) porque `GIRA.Infrastructure` no declara `InternalsVisibleTo` hacia `GIRA.Tests`.
+- `ClaimsPrincipalExtensions.ObtenerUsuarioId` se queda en `Api/Common` (no en `Api/Common/Seguridad`): es transversal, lo usarán los controllers de todos los módulos para leer el usuario autenticado.
+- `JwtSettings` y `TiposClaim` viven en `Infrastructure/Services/Seguridad/Auth`, no en `Infrastructure/Identity`: son responsabilidad de tokens/claims (Auth), no del modelo de usuario de Identity.
 
 ## Cómo agregar un módulo nuevo
 
-1. Crear las carpetas del módulo en cada capa que aplique (`Application/Interfaces/Repository/<Modulo>`, `Application/Interfaces/Services/<Modulo>`, `Infrastructure/Repositories/<Modulo>`, `Infrastructure/Services/<Modulo>`, etc.).
-2. Implementar el registro de DI del módulo con `Add<Modulo>()` en `Services/<Modulo>/<Modulo>ServiceExtensions.cs`, siguiendo el patrón de `AddSeguridad()`.
+1. Crear las carpetas del módulo en cada capa que aplique (`Application/Interfaces/Repository/<Modulo>`, `Application/Interfaces/Services/<Modulo>`, `Infrastructure/Repositories/<Modulo>`, `Infrastructure/Services/<Modulo>`, etc.). Si el módulo tiene varias subáreas claramente separables, se puede organizar `Services` por subárea (`<Modulo>/<Subarea>`), siguiendo el árbol de Seguridad como plantilla; los repositorios siguen siempre la regla del módulo, sin subárea.
+2. Implementar el registro de DI del módulo con `Add<Modulo>()` en `Services/<Modulo>/<Modulo>ServiceExtensions.cs`, delegando en un `Add<Subarea>Service()` por subárea cuando el módulo tenga varias, siguiendo el patrón de `AddSeguridad()`.
 3. Agregar las políticas de autorización del módulo en `GIRA.Api/Authorization/AutorizacionExtensions.cs` (`AddAutorizacionGira` es compartido; cada módulo agrega ahí las suyas).
 4. Escribir las pruebas del módulo (unitarias y, si aplica, de integración).
 5. Verificar que el namespace de cada archivo coincida con su carpeta.

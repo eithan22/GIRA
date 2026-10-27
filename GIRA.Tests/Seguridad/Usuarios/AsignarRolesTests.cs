@@ -6,6 +6,7 @@ using GIRA.Application.DTOs.Seguridad.Usuarios;
 using GIRA.Application.Interfaces.Services.Seguridad.Usuarios;
 using GIRA.Domain.Constants;
 using GIRA.Infrastructure.Identity;
+using GIRA.Infrastructure.Services.Seguridad.Auth;
 using GIRA.Tests.Api;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;

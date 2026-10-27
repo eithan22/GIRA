@@ -1,4 +1,4 @@
-namespace GIRA.Infrastructure.Identity;
+namespace GIRA.Infrastructure.Services.Seguridad.Auth;
 
 /// <summary>
 /// Nombres de los claims del access token. La API los lee tal cual (sin traducirlos a

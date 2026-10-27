@@ -1,5 +1,6 @@
 using GIRA.Api.Authorization;
 using GIRA.Api.Common;
+using GIRA.Api.Common.Seguridad;
 using GIRA.Application;
 using GIRA.Infrastructure;
 using GIRA.Infrastructure.Identity;

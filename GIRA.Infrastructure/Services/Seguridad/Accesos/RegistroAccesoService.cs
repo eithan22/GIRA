@@ -2,7 +2,7 @@
 using GIRA.Domain.Entities.Seguridad;
 using GIRA.Infrastructure.Persistence.Context;
 
-namespace GIRA.Infrastructure.Services.Seguridad;
+namespace GIRA.Infrastructure.Services.Seguridad.Accesos;
 
 public class RegistroAccesoService : IRegistroAccesoService
 {
