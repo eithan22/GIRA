@@ -1,7 +1,7 @@
 ﻿using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad.Accesos;
 
-namespace GIRA.Application.Interfaces.Services.Seguridad;
+namespace GIRA.Application.Interfaces.Services.Seguridad.Accesos;
 
 public interface IHistorialAccesosService
 {

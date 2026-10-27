@@ -1,6 +1,6 @@
 ﻿using GIRA.Application.DTOs.Seguridad.Usuarios;
 using GIRA.Application.Common;
-using GIRA.Application.Validations.Seguridad;
+using GIRA.Application.Validations.Seguridad.Usuarios;
 using GIRA.Domain.Constants;
 using GIRA.Domain.Entities.Seguridad;
 using GIRA.Infrastructure.Identity;

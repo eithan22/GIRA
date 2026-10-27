@@ -2,7 +2,7 @@
 using FluentValidation;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad.Usuarios;
-using GIRA.Application.Interfaces.Services.Seguridad;
+using GIRA.Application.Interfaces.Services.Seguridad.Usuarios;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.AspNetCore.Identity;

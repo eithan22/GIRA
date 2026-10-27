@@ -1,7 +1,7 @@
 ﻿using FluentValidation;
 using GIRA.Application.DTOs.Seguridad.Accesos;
 
-namespace GIRA.Application.Validations.Seguridad;
+namespace GIRA.Application.Validations.Seguridad.Accesos;
 
 /// <summary>Valida la paginación y el rango de fechas del historial de accesos.</summary>
 public class HistorialAccesosRequestValidator : AbstractValidator<HistorialAccesosRequest>

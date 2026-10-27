@@ -1,6 +1,6 @@
 using GIRA.Application.DTOs.Seguridad.Auth;
 
-namespace GIRA.Application.Interfaces.Services.Seguridad;
+namespace GIRA.Application.Interfaces.Services.Seguridad.Auth;
 
 /// <summary>
 /// Emite los tokens de sesión. Recibe datos simples, no la entidad Usuario, para que

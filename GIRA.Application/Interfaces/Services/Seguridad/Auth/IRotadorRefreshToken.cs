@@ -1,7 +1,7 @@
 ﻿using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad.Auth;
 
-namespace GIRA.Application.Interfaces.Services.Seguridad;
+namespace GIRA.Application.Interfaces.Services.Seguridad.Auth;
 
 /// <summary>
 /// Valida y rota un refresh token (GI-119): detecta reutilización de un token ya

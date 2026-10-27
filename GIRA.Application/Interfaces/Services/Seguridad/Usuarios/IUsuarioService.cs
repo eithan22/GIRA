@@ -1,7 +1,7 @@
 ﻿using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad.Usuarios;
 
-namespace GIRA.Application.Interfaces.Services.Seguridad;
+namespace GIRA.Application.Interfaces.Services.Seguridad.Usuarios;
 
 /// <summary>Gestión de las cuentas de usuario del personal.</summary>
 public interface IUsuarioService

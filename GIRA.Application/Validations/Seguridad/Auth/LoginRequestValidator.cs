@@ -1,7 +1,7 @@
 using FluentValidation;
 using GIRA.Application.DTOs.Seguridad.Auth;
 
-namespace GIRA.Application.Validations.Seguridad;
+namespace GIRA.Application.Validations.Seguridad.Auth;
 
 /// <summary>Valida el formato de las credenciales antes de consultar la base.</summary>
 public class LoginRequestValidator : AbstractValidator<LoginRequest>

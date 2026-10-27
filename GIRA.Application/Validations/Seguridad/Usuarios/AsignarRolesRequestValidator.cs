@@ -1,7 +1,7 @@
 using FluentValidation;
 using GIRA.Application.DTOs.Seguridad.Usuarios;
 
-namespace GIRA.Application.Validations.Seguridad;
+namespace GIRA.Application.Validations.Seguridad.Usuarios;
 
 /// <summary>Valida la lista de roles antes de consultar la base; la existencia de cada rol la comprueba el servicio.</summary>
 public class AsignarRolesRequestValidator : AbstractValidator<AsignarRolesRequest>

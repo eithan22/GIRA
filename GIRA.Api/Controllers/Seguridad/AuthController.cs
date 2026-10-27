@@ -1,6 +1,6 @@
 using GIRA.Api.Common;
 using GIRA.Application.DTOs.Seguridad.Auth;
-using GIRA.Application.Interfaces.Services.Seguridad;
+using GIRA.Application.Interfaces.Services.Seguridad.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;

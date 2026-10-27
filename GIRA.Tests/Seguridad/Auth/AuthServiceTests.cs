@@ -1,7 +1,7 @@
 using GIRA.Application;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad.Auth;
-using GIRA.Application.Interfaces.Services.Seguridad;
+using GIRA.Application.Interfaces.Services.Seguridad.Auth;
 using GIRA.Domain.Constants;
 using GIRA.Infrastructure;
 using GIRA.Infrastructure.Identity;

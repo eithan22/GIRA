@@ -1,4 +1,4 @@
-﻿using GIRA.Application.Interfaces.Services.Seguridad;
+﻿using GIRA.Application.Interfaces.Services.Seguridad.Accesos;
 using GIRA.Domain.Entities.Seguridad;
 using GIRA.Infrastructure.Persistence.Context;
 

@@ -1,7 +1,7 @@
 ﻿using FluentValidation;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad.Accesos;
-using GIRA.Application.Interfaces.Services.Seguridad;
+using GIRA.Application.Interfaces.Services.Seguridad.Accesos;
 using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 

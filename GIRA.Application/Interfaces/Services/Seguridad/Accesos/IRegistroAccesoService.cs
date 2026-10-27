@@ -1,4 +1,4 @@
-﻿namespace GIRA.Application.Interfaces.Services.Seguridad;
+﻿namespace GIRA.Application.Interfaces.Services.Seguridad.Accesos;
 
 public interface IRegistroAccesoService
 {

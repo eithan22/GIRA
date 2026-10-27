@@ -1,7 +1,7 @@
 ﻿using FluentValidation;
 using GIRA.Application.DTOs.Seguridad.Usuarios;
 
-namespace GIRA.Application.Validations.Seguridad;
+namespace GIRA.Application.Validations.Seguridad.Usuarios;
 
 public class CrearUsuarioRequestValidator : AbstractValidator<CrearUsuarioRequest>
 {

@@ -3,7 +3,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using GIRA.Application.DTOs.Seguridad.Auth;
-using GIRA.Application.Interfaces.Services.Seguridad;
+using GIRA.Application.Interfaces.Services.Seguridad.Auth;
 using GIRA.Domain.Entities.Seguridad;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;

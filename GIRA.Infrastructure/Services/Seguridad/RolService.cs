@@ -1,6 +1,6 @@
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad.Roles;
-using GIRA.Application.Interfaces.Services.Seguridad;
+using GIRA.Application.Interfaces.Services.Seguridad.Roles;
 using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 

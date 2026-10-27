@@ -1,7 +1,7 @@
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad.Auth;
 
-namespace GIRA.Application.Interfaces.Services.Seguridad;
+namespace GIRA.Application.Interfaces.Services.Seguridad.Auth;
 
 /// <summary>
 /// Casos de uso de autenticación del personal.
