@@ -29,6 +29,7 @@ public class AuthService : IAuthService
     private readonly IValidator<LoginRequest> _validator;
     private readonly GiraDbContext _dbContext;
     private readonly IRegistroAccesoService _registroAcceso;
+    private readonly IRotadorRefreshToken _rotadorRefreshToken;
     /// <summary>Crea el servicio con sus dependencias de Identity, tokens, validación y auditoría de accesos.</summary>
     public AuthService(
         UserManager<Usuario> userManager,
@@ -36,7 +37,8 @@ public class AuthService : IAuthService
         ITokenService tokenService,
         IValidator<LoginRequest> validator,
         GiraDbContext dbContext,
-        IRegistroAccesoService registroAcceso)
+        IRegistroAccesoService registroAcceso,
+        IRotadorRefreshToken rotadorRefreshToken)
     {
         _userManager = userManager;
         _signInManager = signInManager;
@@ -44,6 +46,7 @@ public class AuthService : IAuthService
         _validator = validator;
         _dbContext = dbContext;
         _registroAcceso = registroAcceso;
+        _rotadorRefreshToken = rotadorRefreshToken;
     }
 
     /// <inheritdoc />
@@ -97,143 +100,20 @@ public class AuthService : IAuthService
             AccessTokenExpiraEn = accessToken.ExpiraEn,
             RefreshToken = refreshToken.Token,
             RefreshTokenExpiraEn = refreshToken.ExpiraEn,
-            Usuario = ADto(usuario, roles)
+            Usuario = MapeadorUsuarioAutenticado.ADto(usuario, roles)
         });
     }
 
     /// <summary>
     /// Renueva una sesión utilizando un refresh token.
     /// GI-119: Validación y rotación de tokens.
+    /// Delega en <see cref="IRotadorRefreshToken"/> (Tanda C, 4.2).
     /// </summary>
-
-    public async Task<OperationResult<LoginResponse>> RefreshAsync(
+    public Task<OperationResult<LoginResponse>> RefreshAsync(
         string refreshToken,
         string ip,
-        CancellationToken cancellationToken = default)
-    {
-        OperationResult<LoginResponse> NoAutorizado() =>
-            OperationResult.Failure<LoginResponse>(
-                ErrorType.Unauthorized, MensajesSeguridad.TokenRenovacionInvalido);
-
-        if (string.IsNullOrWhiteSpace(refreshToken))
-            return NoAutorizado();
-
-        var hash = _tokenService.CalcularHash(refreshToken);
-
-        await using var transaccion =
-            await _dbContext.Database.BeginTransactionAsync(
-                IsolationLevel.Serializable,
-                cancellationToken);
-
-
-        var tokenAnterior = await _dbContext.RefreshTokens
-            .FromSqlInterpolated($@"
-        SELECT *
-        FROM [seguridad].[RefreshToken]
-             WITH (UPDLOCK, HOLDLOCK)
-        WHERE [TokenHash] = {hash}")
-            .AsNoTracking()
-            .FirstOrDefaultAsync(cancellationToken);
-
-
-        if (tokenAnterior is null)
-            return NoAutorizado();
-
-        // Detectar reutilización de un token reemplazado.
-        if (tokenAnterior.ReemplazadoPorId is not null)
-        {
-            var ahora = DateTime.UtcNow;
-
-            await _dbContext.RefreshTokens
-                .Where(t =>
-                    t.UsuarioId == tokenAnterior.UsuarioId &&
-                    t.FechaRevocacion == null)
-                .ExecuteUpdateAsync(
-                    setters => setters.SetProperty(
-                        t => t.FechaRevocacion,
-                        ahora),
-                    cancellationToken);
-
-            await transaccion.CommitAsync(cancellationToken);
-            return NoAutorizado();
-        }
-
-        if (tokenAnterior.FechaRevocacion is not null ||
-            tokenAnterior.FechaExpiracion <= DateTime.UtcNow)
-        {
-            return NoAutorizado();
-        }
-
-        // Consultar el usuario y sus roles actuales.
-        var usuario = await _userManager.FindByIdAsync(
-            tokenAnterior.UsuarioId.ToString());
-
-        if (usuario is null || !usuario.Activo ||
-            string.IsNullOrWhiteSpace(usuario.Email))
-        {
-            return NoAutorizado();
-        }
-
-        var roles = await _userManager.GetRolesAsync(usuario);
-
-        // Consumir el token una sola vez.
-        var ahoraRotacion = DateTime.UtcNow;
-
-        var filasActualizadas = await _dbContext.RefreshTokens
-            .Where(t =>
-                t.Id == tokenAnterior.Id &&
-                t.FechaRevocacion == null &&
-                t.ReemplazadoPorId == null &&
-                t.FechaExpiracion > ahoraRotacion)
-            .ExecuteUpdateAsync(
-                setters => setters.SetProperty(
-                    t => t.FechaRevocacion,
-                    ahoraRotacion),
-                cancellationToken);
-
-        if (filasActualizadas != 1)
-            return NoAutorizado();
-
-        // Reutilizar la generación de Luis.
-        var nuevoRefresh = await _tokenService
-            .CrearRefreshTokenAsync(
-                usuario.Id, ip, cancellationToken);
-
-        // Recuperar el identificador del token recién creado.
-        var nuevoHash = _tokenService.CalcularHash(
-            nuevoRefresh.Token);
-
-        var nuevoRegistro = await _dbContext.RefreshTokens
-            .SingleAsync(
-                t => t.TokenHash == nuevoHash,
-                cancellationToken);
-
-        // Enlazar el token anterior con su reemplazo.
-        await _dbContext.RefreshTokens
-            .Where(t => t.Id == tokenAnterior.Id)
-            .ExecuteUpdateAsync(
-                setters => setters.SetProperty(
-                    t => t.ReemplazadoPorId,
-                    nuevoRegistro.Id),
-                cancellationToken);
-
-        var nuevoAccess = _tokenService.GenerarAccessToken(
-            usuario.Id,
-            usuario.Email!,
-            usuario.NombreCompleto,
-            roles);
-
-        await transaccion.CommitAsync(cancellationToken);
-
-        return OperationResult.Success(new LoginResponse
-        {
-            AccessToken = nuevoAccess.Token,
-            AccessTokenExpiraEn = nuevoAccess.ExpiraEn,
-            RefreshToken = nuevoRefresh.Token,
-            RefreshTokenExpiraEn = nuevoRefresh.ExpiraEn,
-            Usuario = ADto(usuario, roles)
-        });
-    }
+        CancellationToken cancellationToken = default) =>
+        _rotadorRefreshToken.RotarAsync(refreshToken, ip, cancellationToken);
 
 
 
@@ -369,14 +249,4 @@ public class AuthService : IAuthService
     {
         return OperationResult.Failure<LoginResponse>(ErrorType.Unauthorized, MensajeCredencialesInvalidas);
     }
-
-    private static UsuarioAutenticadoDto ADto(Usuario usuario, IList<string> roles) => new()
-    {
-        Id = usuario.Id,
-        Email = usuario.Email!,
-        NombreCompleto = usuario.NombreCompleto,
-        Roles = roles.ToList(),
-        EmpleadoId = usuario.EmpleadoId,
-        DebeCambiarPassword = usuario.DebeCambiarPassword
-    };
 }

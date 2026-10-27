@@ -52,6 +52,7 @@ public static class DependencyInjection
         // Tokens de sesión e inicio de sesión (GI-95).
         services.AddSingleton(JwtSettings.Leer(configuration));
         services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<IRotadorRefreshToken, RotadorRefreshToken>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IRegistroAccesoService, RegistroAccesoService>();
         services.AddScoped<IHistorialAccesosService, HistorialAccesosService>();
