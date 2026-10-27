@@ -13,7 +13,7 @@ public async Task<IActionResult> Crear(...) { ... }
 ```
 
 - Un endpoint sin `[Authorize]` y sin `[AllowAnonymous]` queda abierto: no lo dejes así.
-- `[AllowAnonymous]` solo se usa en el login.
+- `[AllowAnonymous]` solo se usa en login y refresh.
 - Para un permiso nuevo o para cambiar quién tiene uno, se edita solo `GIRA.Api/Authorization/AutorizacionExtensions.cs` y se avisa en el PR.
 
 ## Políticas y roles
@@ -36,12 +36,25 @@ public async Task<IActionResult> Crear(...) { ... }
 | `GestionarConfiguracion` | Administrador, Gerente | Configuración |
 | `GestionarPlantillasCorreo` | Administrador | Configuración |
 
+> `AddAutorizacionGira` (en `GIRA.Api/Authorization/AutorizacionExtensions.cs`) es compartido entre todos los módulos: cada módulo agrega ahí sus propias políticas, no crea su propio registro de autorización.
+
 ## Endpoints actuales
 
-| Endpoint | Acceso |
-|---|---|
-| `POST /api/auth/login` | Anónimo (máximo 10 intentos por minuto por IP; 429 si se pasa) |
-| `GET /api/usuarios/{id}/accesos` | `GestionarUsuarios` (solo Administrador). Paginado (`page`, `pageSize` máximo 100), lo más reciente primero; filtros opcionales `exitoso`, `desde`, `hasta` |
+| Endpoint | Verbo | Acceso |
+|---|---|---|
+| `/api/auth/login` | POST | Anónimo (máximo 10 intentos por minuto por IP; 429 si se pasa) |
+| `/api/auth/refresh` | POST | Anónimo |
+| `/api/auth/logout` | POST | `[Authorize]` (usuario autenticado, sin política específica) |
+| `/api/auth/cambiar-password` | PUT | `[Authorize]` (usuario autenticado, sin política específica) |
+| `/api/auth/me` | GET | `[Authorize]` (usuario autenticado, sin política específica) |
+| `/api/roles` | GET | `GestionarUsuarios` |
+| `/api/usuarios` | GET | `GestionarUsuarios`. Filtros opcionales por `UsuarioFiltroRequest` |
+| `/api/usuarios/{id}` | GET | `GestionarUsuarios` |
+| `/api/usuarios` | POST | `GestionarUsuarios` |
+| `/api/usuarios/{id}` | PUT | `GestionarUsuarios` |
+| `/api/usuarios/{id}/estado` | PATCH | `GestionarUsuarios` |
+| `/api/usuarios/{id}/roles` | PUT | `GestionarUsuarios` |
+| `/api/usuarios/{id}/accesos` | GET | `GestionarUsuarios`. Paginado (`page`, `pageSize` máximo 100), lo más reciente primero; filtros opcionales `exitoso`, `desde`, `hasta` |
 
 ## Respuestas de error
 
