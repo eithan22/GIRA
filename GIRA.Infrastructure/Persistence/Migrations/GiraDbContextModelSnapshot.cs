@@ -98,6 +98,26 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.ToTable("RegistroAcceso", "seguridad");
                 });
 
+            modelBuilder.Entity("GIRA.Domain.Entities.Seguridad.SolicitudRecuperacionPassword", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("FechaSolicitud")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId")
+                        .IsUnique();
+
+                    b.ToTable("SolicitudRecuperacionPassword", "seguridad");
+                });
+
             modelBuilder.Entity("GIRA.Infrastructure.Identity.Rol", b =>
                 {
                     b.Property<Guid>("Id")

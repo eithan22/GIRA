@@ -6,6 +6,7 @@ using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 using RolesConst = GIRA.Domain.Constants.Roles;
 
 namespace GIRA.Infrastructure.Services.Seguridad.Usuarios;
@@ -261,6 +262,101 @@ public class UsuarioService : IUsuarioService
         await _db.SaveChangesAsync(ct);
 
         return OperationResult.Success(ADto(usuario, rolesDestino.Select(r => r.Name!).Order().ToList()));
+    }
+
+    public async Task<OperationResult<PasswordReseteadaDto>> ResetearPasswordAsync(Guid id, CancellationToken ct = default)
+    {
+        var usuario = await _userManager.FindByIdAsync(id.ToString());
+        if (usuario is null)
+            return OperationResult.Failure<PasswordReseteadaDto>(ErrorType.NotFound, MensajesSeguridad.UsuarioNoExiste);
+
+        var roles = await _userManager.GetRolesAsync(usuario);
+        var passwordTemporal = GeneradorPasswordTemporal.Generar();
+
+        // Identity, los refresh tokens y las solicitudes usan el mismo GiraDbContext.
+        // Serializable es intencional y no debe bajarse sin analizar la carrera (igual que en
+        // AuthService.CambiarPasswordAsync): evita que un refresh concurrente cree una sesión
+        // nueva que sobreviva al reseteo de la contraseña.
+        await using var transaccion = await _db.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            ct);
+
+        // Quitar y volver a poner la contraseña es el mecanismo de Identity para que un
+        // Administrador fije una nueva sin conocer la anterior.
+        var quitar = await _userManager.RemovePasswordAsync(usuario);
+        if (!quitar.Succeeded)
+            return OperationResult.Failure<PasswordReseteadaDto>(ErrorType.Validation, Mensaje(quitar));
+
+        // Se marca antes de AddPasswordAsync para que Identity lo guarde en la misma
+        // actualización que el hash de la contraseña.
+        usuario.DebeCambiarPassword = true;
+
+        var poner = await _userManager.AddPasswordAsync(usuario, passwordTemporal);
+        if (!poner.Succeeded)
+            return OperationResult.Failure<PasswordReseteadaDto>(ErrorType.Validation, Mensaje(poner));
+
+        // Las sesiones abiertas con la contraseña anterior dejan de servir.
+        var ahora = DateTime.UtcNow;
+        var tokens = await _db.RefreshTokens
+            .Where(t => t.UsuarioId == id && t.FechaRevocacion == null)
+            .ToListAsync(ct);
+
+        foreach (var token in tokens)
+            token.FechaRevocacion = ahora;
+
+        // La solicitud de recuperación queda atendida; se borra para sacarla de la cola.
+        var solicitud = await _db.SolicitudesRecuperacionPassword
+            .FirstOrDefaultAsync(s => s.UsuarioId == id, ct);
+
+        if (solicitud is not null)
+            _db.SolicitudesRecuperacionPassword.Remove(solicitud);
+
+        await _db.SaveChangesAsync(ct);
+        await transaccion.CommitAsync(ct);
+
+        return OperationResult.Success(
+            new PasswordReseteadaDto(ADto(usuario, roles.ToList()), passwordTemporal));
+    }
+
+    public async Task<OperationResult<IReadOnlyList<SolicitudRecuperacionDto>>> ListarSolicitudesRecuperacionAsync(CancellationToken ct = default)
+    {
+        // La más antigua primero: el Administrador atiende la cola en orden de llegada.
+        var solicitudes = await (
+            from s in _db.SolicitudesRecuperacionPassword.AsNoTracking()
+            join u in _db.Users on s.UsuarioId equals u.Id
+            orderby s.FechaSolicitud
+            select new { s.UsuarioId, u.NombreCompleto, u.Email, s.FechaSolicitud })
+            .ToListAsync(ct);
+
+        // SQL Server devuelve las fechas sin zona (Kind = Unspecified); se marcan como UTC
+        // para que el JSON salga con "Z" y el cliente no las confunda con hora local.
+        IReadOnlyList<SolicitudRecuperacionDto> items = solicitudes
+            .Select(s => new SolicitudRecuperacionDto(
+                s.UsuarioId,
+                s.NombreCompleto,
+                s.Email ?? string.Empty,
+                DateTime.SpecifyKind(s.FechaSolicitud, DateTimeKind.Utc)))
+            .ToList();
+
+        return OperationResult.Success(items);
+    }
+
+    public async Task<OperationResult> DescartarSolicitudRecuperacionAsync(Guid usuarioId, CancellationToken ct = default)
+    {
+        var solicitud = await _db.SolicitudesRecuperacionPassword
+            .FirstOrDefaultAsync(s => s.UsuarioId == usuarioId, ct);
+
+        // 404 en vez de éxito silencioso: si la solicitud ya no está, el Administrador debe
+        // saber que otro la atendió antes (la lista que tenía en pantalla está vieja).
+        if (solicitud is null)
+            return OperationResult.Failure(ErrorType.NotFound,
+                "No hay una solicitud de recuperación pendiente para ese usuario.");
+
+        // No se toca la contraseña: descartar solo saca la solicitud de la cola.
+        _db.SolicitudesRecuperacionPassword.Remove(solicitud);
+        await _db.SaveChangesAsync(ct);
+
+        return OperationResult.Success();
     }
 
     public async Task<OperationResult<UsuarioActualDto>> ObtenerActualAsync(Guid usuarioId, CancellationToken ct = default)

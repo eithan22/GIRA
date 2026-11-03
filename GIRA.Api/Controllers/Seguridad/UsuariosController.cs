@@ -49,4 +49,23 @@ public class UsuariosController : ControllerBase
     [HttpPut("{id:guid}/roles")]
     public async Task<IActionResult> AsignarRoles(Guid id, [FromBody] AsignarRolesRequest request, CancellationToken ct)
         => (await _usuarios.AsignarRolesAsync(id, request, ct)).ToActionResult();
+
+    /// <summary>
+    /// Resetea la contraseña del usuario (GI-218): devuelve una temporal que deberá cambiar,
+    /// cierra sus sesiones abiertas y atiende su solicitud de recuperación si tenía una.
+    /// La contraseña se muestra solo en esta respuesta.
+    /// </summary>
+    [HttpPost("{id:guid}/resetear-password")]
+    public async Task<IActionResult> ResetearPassword(Guid id, CancellationToken ct)
+        => (await _usuarios.ResetearPasswordAsync(id, ct)).ToActionResult();
+
+    /// <summary>Solicitudes de recuperación de contraseña pendientes (GI-219), de la más antigua a la más reciente.</summary>
+    [HttpGet("solicitudes-recuperacion")]
+    public async Task<IActionResult> ListarSolicitudesRecuperacion(CancellationToken ct)
+        => (await _usuarios.ListarSolicitudesRecuperacionAsync(ct)).ToActionResult();
+
+    /// <summary>Descarta una solicitud de recuperación sin cambiar la contraseña (GI-219).</summary>
+    [HttpDelete("solicitudes-recuperacion/{usuarioId:guid}")]
+    public async Task<IActionResult> DescartarSolicitudRecuperacion(Guid usuarioId, CancellationToken ct)
+        => (await _usuarios.DescartarSolicitudRecuperacionAsync(usuarioId, ct)).ToActionResult();
 }

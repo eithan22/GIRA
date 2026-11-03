@@ -14,6 +14,7 @@ export default function UserForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [created, setCreated] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!editing) return undefined;
@@ -38,6 +39,12 @@ export default function UserForm() {
     } finally { setSaving(false); }
   }
 
+  function copyPassword(password) {
+    navigator.clipboard.writeText(password);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
   if (loading) return <div className="loading-panel"><span className="button-spinner" /> Cargando usuario…</div>;
   return (
     <section className="page-section form-page enter">
@@ -52,7 +59,7 @@ export default function UserForm() {
         {!editing && <div className="form-tip"><span className="tip-icon"><Icon name="key" size={16} /></span><span><strong>Contraseña temporal</strong><small>Se generará al guardar y solo se mostrará una vez.</small></span></div>}
         <div className="form-actions"><Link className="button button-secondary" to="/seguridad/usuarios">Cancelar</Link><button type="submit" className="button button-primary" disabled={saving || !form.roles.length}>{saving ? <><span className="button-spinner" /> Guardando…</> : <>{editing ? 'Guardar cambios' : 'Crear usuario'} <Icon name="arrow" size={16} /></>}</button></div>
       </form>
-      {created && <Modal title="Usuario creado" onClose={() => navigate('/seguridad/usuarios', { replace: true })}><div className="created-user-info"><span className="created-success"><Icon name="check" size={20} /></span><p>La cuenta de <strong>{created.user.nombre}</strong> fue creada. Comparte esta contraseña temporal de forma segura; no volverá a mostrarse.</p>{created.roleAssignmentError && <div className="notice-error" role="alert">No se pudieron asignar los roles. Puedes volver a editar la cuenta para corregirlo: {created.roleAssignmentError}</div>}<label className="field-label" htmlFor="temporary-password">CONTRASEÑA TEMPORAL</label><div className="temporary-password"><code id="temporary-password">{created.temporaryPassword}</code><button type="button" className="icon-button" onClick={() => navigator.clipboard.writeText(created.temporaryPassword)} title="Copiar contraseña" aria-label="Copiar contraseña"><Icon name="key" size={16} /></button></div><span className="field-hint">Se solicitará cambiarla en el primer inicio de sesión.</span></div><div className="modal-actions"><button className="button button-primary" type="button" onClick={() => navigate('/seguridad/usuarios', { replace: true })}>Listo</button></div></Modal>}
+      {created && <Modal title="Usuario creado" onClose={() => navigate('/seguridad/usuarios', { replace: true })}><div className="created-user-info"><span className="created-success"><Icon name="check" size={20} /></span><p>La cuenta de <strong>{created.user.nombre}</strong> fue creada. Comparte esta contraseña temporal de forma segura; no volverá a mostrarse.</p>{created.roleAssignmentError && <div className="notice-error" role="alert">No se pudieron asignar los roles. Puedes volver a editar la cuenta para corregirlo: {created.roleAssignmentError}</div>}<label className="field-label" htmlFor="temporary-password">CONTRASEÑA TEMPORAL</label><div className="temporary-password"><code id="temporary-password">{created.temporaryPassword}</code><button type="button" className={`icon-button${copied ? ' copy-done' : ''}`} onClick={() => copyPassword(created.temporaryPassword)} title={copied ? 'Copiada' : 'Copiar contraseña'} aria-label={copied ? 'Contraseña copiada' : 'Copiar contraseña'}><Icon name={copied ? 'check' : 'key'} size={16} /></button></div>{copied ? <span className="form-success"><Icon name="check" size={14} /> Copiada al portapapeles</span> : <span className="field-hint">Se solicitará cambiarla en el primer inicio de sesión.</span>}</div><div className="modal-actions"><button className="button button-primary" type="button" onClick={() => navigate('/seguridad/usuarios', { replace: true })}>Listo</button></div></Modal>}
     </section>
   );
 }

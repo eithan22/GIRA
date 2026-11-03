@@ -24,6 +24,9 @@ public class GiraDbContext : IdentityDbContext<Usuario, Rol, Guid>
     /// <summary>Historial de intentos de inicio de sesión, exitosos o no.</summary>
     public DbSet<RegistroAcceso> RegistrosAcceso => Set<RegistroAcceso>();
 
+    /// <summary>Solicitudes de recuperación de contraseña pendientes de atender por un Administrador.</summary>
+    public DbSet<SolicitudRecuperacionPassword> SolicitudesRecuperacionPassword => Set<SolicitudRecuperacionPassword>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder builder)
     {

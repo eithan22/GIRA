@@ -53,9 +53,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .restaurant-name small, .profile-copy small { overflow: hidden; color: #8792a9; font-size: 10px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .side-nav { margin-top: 35px; }
 .side-nav .nav-heading { margin-bottom: 10px; }
-.nav-link { min-height: 42px; margin: 3px 0; padding: 0 10px; display: flex; align-items: center; gap: 12px; color: #a5aec2; border-radius: 8px; font-size: 12px; font-weight: 500; transition: background .2s,color .2s,transform .2s; }
+.nav-link { position: relative; min-height: 42px; margin: 3px 0; padding: 0 10px; display: flex; align-items: center; gap: 12px; color: #a5aec2; border-radius: 8px; font-size: 12px; font-weight: 500; transition: background .2s,color .2s,transform .2s; }
 .nav-link:hover { color: #fff; background: #202c44; transform: translateX(2px); }
 .nav-link.active { color: #fff; background: #6b5cda; box-shadow: 0 5px 14px #5144bd33; }
+.nav-badge { min-width: 18px; height: 18px; margin-left: auto; padding: 0 5px; display: grid; place-items: center; color: #241a06; background: #e9a93c; border-radius: 9px; font: 800 9px Manrope, sans-serif; }
 .sidebar-bottom { margin-top: auto; }
 .security-note { margin: 0 1px 17px; padding: 13px; color: #dbe0ef; background: linear-gradient(135deg,#252441,#202a40); border: 1px solid #30314e; border-radius: 10px; }
 .security-note-icon { width: 29px; height: 29px; margin-bottom: 11px; display: grid; place-items: center; color: #aa9cff; background: #6d5be433; border-radius: 8px; }
@@ -112,6 +113,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .panel-heading h2, .form-section-title h2, .password-form h2 { margin: 0; color: #293448; font: 700 14px Manrope,sans-serif; }
 .panel-heading p, .form-section-title p, .form-subtitle { margin: 5px 0 0; color: #96a0b0; font-size: 10px; }
 .count-badge { flex: none; padding: 5px 8px; color: #7b6bd2; background: #f3f1ff; border-radius: 5px; font-size: 9px; font-weight: 700; }
+.requests-panel { margin-bottom: 18px; border-color: #f1e6cd; box-shadow: 0 3px 12px #a67c1c0a; }
+.requests-panel .panel-heading { padding-bottom: 13px; }
+.requests-panel .count-badge { color: #8a6418; background: #fdf4e3; }
+.request-list { padding: 0 19px 17px; display: flex; flex-direction: column; gap: 8px; }
+.request-row { padding: 11px 12px; display: flex; align-items: center; gap: 11px; background: #fffdf7; border: 1px solid #f4ebce; border-radius: 8px; animation: enter .32s both; }
+.request-row .user-avatar { color: #a3762a; background: #fdf1dc; }
+.request-row .user-name small { color: #6f7a8c; }
+.request-time { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: #6f7a8c; font-size: 9px; white-space: nowrap; }
+.request-time.request-late { color: #b2565e; }
+.request-actions { display: flex; align-items: center; gap: 5px; }
+.request-more { padding: 0 19px 17px; }
+.request-more .text-link { padding: 0; background: transparent; border: 0; }
+.requests-resolved { margin: 0 0 18px; padding: 11px 14px; display: flex; align-items: center; gap: 9px; color: #22805f; background: #eefaf5; border: 1px solid #d5efe5; border-radius: 7px; font-size: 11px; }
 .filter-row { padding: 0 19px 15px; display: flex; gap: 9px; }
 .input-wrap { position: relative; display: flex; align-items: center; color: #a3acba; background: #fff; border: 1px solid #e5e8ef; border-radius: 7px; transition: border .2s,box-shadow .2s; }
 .input-wrap:focus-within { border-color: #a89df1; box-shadow: 0 0 0 3px #8371ed16; }
@@ -147,6 +161,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .icon-button { width: 29px; height: 29px; padding: 0; display: inline-grid; place-items: center; color: #99a2b1; background: transparent; border: 1px solid transparent; border-radius: 6px; transition: .18s; }
 .icon-button:hover { color: var(--purple); background: #f5f3ff; border-color: #eae6ff; }
 .icon-button.deactivate-action:hover { color: #c45159; background: #fff3f3; border-color: #f6dddd; }
+.icon-button.reset-action:hover { color: #a9761f; background: #fff9ef; border-color: #f3e6cc; }
+.icon-button.copy-done { color: #1d9b72; }
 .table-message { height: 100px; color: #909aab!important; text-align: center; }
 .table-message .button-spinner { margin-right: 8px; vertical-align: middle; }
 .empty-state { min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
@@ -258,6 +274,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .modal-content h2 { margin: 7px 0 9px; color: #263147; font: 750 19px Manrope,sans-serif; }
 .modal-copy { margin: 0; color: #858fa0; font-size: 11px; line-height: 1.7; }
 .modal-copy strong { color: #455166; }
+.modal-copy + .modal-copy { margin-top: 10px; }
 .modal-actions { margin-top: 21px; display: flex; justify-content: flex-end; gap: 8px; }
 .created-user-info { margin-top: 13px; }
 .created-success { width: 37px; height: 37px; margin-bottom: 11px; display: grid; place-items: center; color: #1d9b72; background: #eaf8f2; border-radius: 11px; }
@@ -267,6 +284,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .temporary-password { padding: 10px; display: flex; align-items: center; justify-content: space-between; background: #f8f7ff; border: 1px solid #e9e6ff; border-radius: 6px; }
 .temporary-password code { color: #5f52b4; font: 700 13px 'Segoe UI',sans-serif; letter-spacing: .3px; }
 .created-user-info > .field-hint { display: block; margin-top: 6px; }
+.created-user-info > .form-success { margin: 7px 0 0; }
 
 .login-screen { min-height: 100vh; display: grid; grid-template-columns: minmax(380px,.92fr) 1.08fr; background: #fff; }
 .login-visual { position: relative; min-height: 100vh; padding: 32px 38px; overflow: hidden; display: flex; flex-direction: column; color: white; background: radial-gradient(ellipse at 15% 83%,#222244 0,transparent 38%),linear-gradient(145deg,#111a2c,#111a2c 68%,#161a32); }
@@ -311,6 +329,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .demo-roles button:disabled { opacity: .6; }
 .login-security { margin: 23px 0 0; display: flex; align-items: center; justify-content: center; gap: 7px; color: #a3acb9; font-size: 9px; }
 .login-security svg { color: #8a7bd6; }
+.login-help { margin: 15px 0 0; display: flex; justify-content: center; }
+.login-help .text-link { padding: 8px 10px; }
+.recover-actions { margin-top: 19px; display: flex; justify-content: center; }
+.recover-done .created-success { margin-bottom: 15px; }
+.recover-done h2 { margin: 0 0 9px; color: #263147; font: 750 19px Manrope, sans-serif; }
+.recover-done p { margin: 0; color: #858fa0; font-size: 11px; line-height: 1.7; }
+.recover-done p strong { color: #455166; }
+.recover-done .field-hint { display: block; margin-top: 13px; }
+.recover-note { margin-top: 17px; padding: 11px 12px; display: flex; align-items: flex-start; gap: 9px; color: #6a6395; background: #f9f8ff; border: 1px solid #efedff; border-radius: 7px; font-size: 9px; line-height: 1.6; }
+.recover-note svg { flex: none; color: #8779dd; }
 @media (min-width: 1400px) {
   .page-content { padding-right: 42px; padding-left: 42px; }
 }
@@ -337,6 +365,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .side-nav { height: 100%; margin: 0; display: flex; justify-content: center; gap: 7px; }
   .nav-link { min-width: 85px; min-height: 46px; margin: 0; padding: 5px 9px; flex-direction: column; justify-content: center; gap: 3px; font-size: 8px; }
   .nav-link.active { box-shadow: none; }
+  .nav-badge { position: absolute; top: 7px; right: 24px; width: 7px; min-width: 0; height: 7px; margin: 0; padding: 0; border-radius: 50%; font-size: 0; }
   .main-area { min-height: calc(100vh - 60px); margin: 0 0 60px; }
   .topbar { height: 52px; padding: 0 17px; }
   .page-content { min-height: calc(100vh - 112px); padding: 22px 17px 29px; }
@@ -348,7 +377,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .filter-row { flex-wrap: wrap; }
   .select-wrap { flex: 1; }
   .users-panel .panel-heading { padding: 15px; }
-  .data-table { min-width: 690px; }
+  .data-table { min-width: 722px; }
+  .request-row { flex-wrap: wrap; }
+  .request-time { margin-left: 0; }
+  .request-actions { width: 100%; }
+  .request-actions .button { flex: 1; min-height: 44px; }
   .table-scroll:has(.access-table) .data-table { min-width: 0; }
   .password-layout { max-width: 500px; margin: 0 auto; grid-template-columns: 1fr; gap: 5px; }
   .password-intro { padding: 7px 0; }

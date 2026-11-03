@@ -31,6 +31,9 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddAutenticacionJwt(builder.Configuration);
 builder.Services.AddLimiteLogin();
 
+// Límite de solicitudes de recuperación de contraseña (GI-215).
+builder.Services.AddLimiteOlvidePassword();
+
 //servicios de autorización con políticas y roles.
 builder.Services.AddAutorizacionGira();
 

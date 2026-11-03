@@ -4,6 +4,7 @@ using GIRA.Application.DTOs.Seguridad.Auth;
 using GIRA.Application.Interfaces.Services.Seguridad.Accesos;
 using GIRA.Application.Interfaces.Services.Seguridad.Auth;
 using GIRA.Domain.Constants;
+using GIRA.Domain.Entities.Seguridad;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.AspNetCore.Identity;
@@ -31,6 +32,7 @@ public class AuthService : IAuthService
     private readonly GiraDbContext _dbContext;
     private readonly IRegistroAccesoService _registroAcceso;
     private readonly IRotadorRefreshToken _rotadorRefreshToken;
+    private readonly IValidator<OlvidePasswordRequest> _olvidePasswordValidator;
     /// <summary>Crea el servicio con sus dependencias de Identity, tokens, validación y auditoría de accesos.</summary>
     public AuthService(
         UserManager<Usuario> userManager,
@@ -39,7 +41,8 @@ public class AuthService : IAuthService
         IValidator<LoginRequest> validator,
         GiraDbContext dbContext,
         IRegistroAccesoService registroAcceso,
-        IRotadorRefreshToken rotadorRefreshToken)
+        IRotadorRefreshToken rotadorRefreshToken,
+        IValidator<OlvidePasswordRequest> olvidePasswordValidator)
     {
         _userManager = userManager;
         _signInManager = signInManager;
@@ -48,6 +51,7 @@ public class AuthService : IAuthService
         _dbContext = dbContext;
         _registroAcceso = registroAcceso;
         _rotadorRefreshToken = rotadorRefreshToken;
+        _olvidePasswordValidator = olvidePasswordValidator;
     }
 
     /// <inheritdoc />
@@ -243,6 +247,53 @@ public class AuthService : IAuthService
                 cancellationToken);
 
         await transaccion.CommitAsync(cancellationToken);
+        return OperationResult.Success();
+    }
+
+    /// <summary>
+    /// GI-215: Registra la solicitud de recuperación de contraseña del dueño del correo.
+    /// </summary>
+    public async Task<OperationResult> OlvidePasswordAsync(
+        OlvidePasswordRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var validacion = await _olvidePasswordValidator.ValidateAsync(request, cancellationToken);
+        if (!validacion.IsValid)
+        {
+            return OperationResult.Failure(
+                ErrorType.Validation,
+                string.Join(" ", validacion.Errors.Select(e => e.ErrorMessage)));
+        }
+
+        var usuario = await _userManager.FindByEmailAsync(request.Email.Trim());
+
+        // Correo inexistente o cuenta desactivada: se responde éxito sin crear nada, igual que
+        // con un correo válido. Es intencional (GI-212): el endpoint es anónimo y una
+        // respuesta distinta permitiría averiguar qué correos están registrados.
+        if (usuario is null || !usuario.Activo)
+        {
+            return OperationResult.Success();
+        }
+
+        // Una sola solicitud pendiente por usuario: repetir la petición no acumula filas ni
+        // adelanta el turno en la cola del Administrador, que ordena por FechaSolicitud.
+        var yaSolicitado = await _dbContext.SolicitudesRecuperacionPassword
+            .AnyAsync(s => s.UsuarioId == usuario.Id, cancellationToken);
+
+        if (yaSolicitado)
+        {
+            return OperationResult.Success();
+        }
+
+        _dbContext.SolicitudesRecuperacionPassword.Add(new SolicitudRecuperacionPassword
+        {
+            Id = Guid.NewGuid(),
+            UsuarioId = usuario.Id,
+            FechaSolicitud = DateTime.UtcNow
+        });
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
         return OperationResult.Success();
     }
 

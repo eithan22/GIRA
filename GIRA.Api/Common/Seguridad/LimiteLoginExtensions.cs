@@ -14,10 +14,21 @@ public static class LimiteLoginExtensions
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            options.OnRejected = (context, _) => new ValueTask(Results.Problem(
-                statusCode: StatusCodes.Status429TooManyRequests,
-                detail: "Demasiados intentos de inicio de sesión. Espera un minuto e inténtalo de nuevo.")
-                .ExecuteAsync(context.HttpContext));
+            options.OnRejected = (context, _) =>
+            {
+                // Este OnRejected es global: corre para cualquier política rechazada, incluso
+                // las que ya escribieron su propio mensaje (LimiteOlvidePasswordPolicy). Si la
+                // respuesta ya empezó, no se vuelve a escribir: fijar el estado reventaría.
+                if (context.HttpContext.Response.HasStarted)
+                {
+                    return ValueTask.CompletedTask;
+                }
+
+                return new ValueTask(Results.Problem(
+                    statusCode: StatusCodes.Status429TooManyRequests,
+                    detail: "Demasiados intentos de inicio de sesión. Espera un minuto e inténtalo de nuevo.")
+                    .ExecuteAsync(context.HttpContext));
+            };
 
             // El límite es mayor que los 5 intentos del bloqueo de cuenta para no ocultarlo.
             options.AddPolicy(Politica, httpContext => RateLimitPartition.GetFixedWindowLimiter(

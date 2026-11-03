@@ -114,4 +114,31 @@ public class AuthController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// GI-215: Pide recuperar el acceso cuando se olvidó la contraseña. Deja la solicitud
+    /// registrada para que un Administrador la atienda.
+    /// </summary>
+    /// <remarks>
+    /// Responde 200 siempre, exista o no el correo: una respuesta distinta permitiría
+    /// averiguar qué correos están registrados (GI-212).
+    /// </remarks>
+    [HttpPost("olvide-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting(LimiteOlvidePasswordExtensions.Politica)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> OlvidePassword(
+        [FromBody] OlvidePasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var resultado = await _authService.OlvidePasswordAsync(request, cancellationToken);
+
+        if (!resultado.IsSuccess)
+            return resultado.ToActionResult();
+
+        // Ok() sin cuerpo: no se distingue el correo que existe del que no.
+        return Ok();
+    }
+
 }

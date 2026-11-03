@@ -31,4 +31,13 @@ public interface IAuthService
         Guid usuarioId,
         CambiarPasswordRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// GI-215: Registra una solicitud de recuperación de contraseña para que un Administrador
+    /// la atienda. Devuelve éxito aunque el correo no exista o la cuenta esté desactivada:
+    /// la respuesta nunca revela si el correo está registrado (GI-212).
+    /// </summary>
+    Task<OperationResult> OlvidePasswordAsync(
+        OlvidePasswordRequest request,
+        CancellationToken cancellationToken = default);
 }

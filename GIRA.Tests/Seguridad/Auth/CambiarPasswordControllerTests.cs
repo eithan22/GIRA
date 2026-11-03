@@ -85,5 +85,10 @@ public class CambiarPasswordControllerTests
             string refreshToken,
             CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
+
+        public Task<OperationResult> OlvidePasswordAsync(
+            OlvidePasswordRequest request,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
     }
 }

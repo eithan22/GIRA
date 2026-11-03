@@ -159,6 +159,10 @@ export const authService = {
     await api.put('/api/auth/cambiar-password', { passwordActual, passwordNueva });
   },
 
+  async forgotPassword(email) {
+    await api.post('/api/auth/olvide-password', { email });
+  },
+
   async getRoles() {
     const response = await api.get('/api/roles');
     const roles = response.data?.data ?? response.data;
@@ -227,6 +231,30 @@ export const authService = {
 
   async setUserStatus(id, activo) {
     await api.patch(`/api/usuarios/${id}/estado`, { activo });
+  },
+
+  async resetUserPassword(id) {
+    const response = await api.post(`/api/usuarios/${id}/resetear-password`);
+    const result = response.data?.data ?? response.data;
+    const user = normalizeUser(result?.usuario);
+    const temporaryPassword = result?.passwordTemporal;
+    if (!temporaryPassword) {
+      throw new Error('La respuesta del reseteo no incluye la contraseña temporal.');
+    }
+    return { user, temporaryPassword };
+  },
+
+  async getPendingRequests() {
+    const response = await api.get('/api/usuarios/solicitudes-recuperacion');
+    const result = response.data?.data ?? response.data ?? [];
+    if (!Array.isArray(result)) {
+      throw new Error('La API devolvió un listado de solicitudes de recuperación inválido.');
+    }
+    return result;
+  },
+
+  async dismissRequest(usuarioId) {
+    await api.delete(`/api/usuarios/solicitudes-recuperacion/${usuarioId}`);
   },
 
   async getAccesses(id) {

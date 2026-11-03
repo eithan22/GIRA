@@ -21,5 +21,25 @@ public interface IUsuarioService
     /// exige al menos uno y no quita el rol Administrador al último Administrador activo.
     /// </summary>
     Task<OperationResult<UsuarioDto>> AsignarRolesAsync(Guid id, AsignarRolesRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// GI-218: Resetea la contraseña del usuario. Genera una contraseña temporal,
+    /// lo obliga a cambiarla en el próximo inicio de sesión, revoca sus refresh tokens activos
+    /// y cierra la solicitud de recuperación pendiente si la había. La contraseña en claro se
+    /// devuelve solo en esta respuesta.
+    /// </summary>
+    Task<OperationResult<PasswordReseteadaDto>> ResetearPasswordAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// GI-219: Lista las solicitudes de recuperación de contraseña pendientes, de la más
+    /// antigua a la más reciente (orden de atención).
+    /// </summary>
+    Task<OperationResult<IReadOnlyList<SolicitudRecuperacionDto>>> ListarSolicitudesRecuperacionAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// GI-219: Descarta la solicitud de recuperación de un usuario sin tocar su contraseña
+    /// (por ejemplo, cuando el usuario recordó la suya o la solicitud no era legítima).
+    /// </summary>
+    Task<OperationResult> DescartarSolicitudRecuperacionAsync(Guid usuarioId, CancellationToken ct = default);
 }
 
