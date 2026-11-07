@@ -1,8 +1,11 @@
+using GIRA.Domain.Base;
+using GIRA.Domain.Entities.Reservas;
 using GIRA.Domain.Entities.Seguridad;
 using GIRA.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace GIRA.Infrastructure.Persistence.Context;
 
@@ -27,6 +30,24 @@ public class GiraDbContext : IdentityDbContext<Usuario, Rol, Guid>
     /// <summary>Solicitudes de recuperación de contraseña pendientes de atender por un Administrador.</summary>
     public DbSet<SolicitudRecuperacionPassword> SolicitudesRecuperacionPassword => Set<SolicitudRecuperacionPassword>();
 
+    /// <summary>Clientes identificados por teléfono.</summary>
+    public DbSet<Cliente> Clientes => Set<Cliente>();
+
+    /// <summary>Zonas del restaurante.</summary>
+    public DbSet<Zona> Zonas => Set<Zona>();
+
+    /// <summary>Mesas del restaurante.</summary>
+    public DbSet<Mesa> Mesas => Set<Mesa>();
+
+    /// <summary>Franjas horarias en las que se puede reservar.</summary>
+    public DbSet<FranjaHoraria> FranjasHorarias => Set<FranjaHoraria>();
+
+    /// <summary>Reservas de mesas.</summary>
+    public DbSet<Reserva> Reservas => Set<Reserva>();
+
+    /// <summary>Visitas de clientes que llegaron sin reserva previa.</summary>
+    public DbSet<VisitaSinReserva> VisitasSinReserva => Set<VisitaSinReserva>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -44,5 +65,26 @@ public class GiraDbContext : IdentityDbContext<Usuario, Rol, Guid>
         builder.Entity<IdentityRoleClaim<Guid>>(entity => entity.ToTable("RolClaim", "seguridad"));
 
         builder.ApplyConfigurationsFromAssembly(typeof(GiraDbContext).Assembly);
+
+        // RowVersion y borrado lógico son responsabilidad de BaseEntity para TODA entidad que
+        // herede de ella (hoy, solo las de Reservas); se aplican aquí una sola vez en vez de
+        // repetirlos en cada IEntityTypeConfiguration.
+        foreach (var entityType in builder.Model.GetEntityTypes())
+        {
+            if (!typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
+            {
+                continue;
+            }
+
+            builder.Entity(entityType.ClrType)
+                .Property(nameof(BaseEntity.RowVersion))
+                .IsRowVersion();
+
+            var parametro = Expression.Parameter(entityType.ClrType, "entidad");
+            var propiedad = Expression.Property(parametro, nameof(BaseEntity.IsDeleted));
+            var filtro = Expression.Lambda(Expression.Not(propiedad), parametro);
+
+            builder.Entity(entityType.ClrType).HasQueryFilter(filtro);
+        }
     }
 }

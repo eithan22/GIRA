@@ -1,4 +1,5 @@
 using GIRA.Infrastructure.Persistence.Context;
+using GIRA.Infrastructure.Persistence.Interceptors;
 using GIRA.Infrastructure.Services.Seguridad;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -24,7 +25,12 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException(
                 "Falta la cadena de conexión 'GiraDb'. Configúrala en User Secrets con la clave 'ConnectionStrings:GiraDb'.");
 
-        services.AddDbContext<GiraDbContext>(options => options.UseSqlServer(connectionString));
+        services.AddHttpContextAccessor();
+        services.AddScoped<AuditoriaSaveChangesInterceptor>();
+
+        services.AddDbContext<GiraDbContext>((sp, options) =>
+            options.UseSqlServer(connectionString)
+                .AddInterceptors(sp.GetRequiredService<AuditoriaSaveChangesInterceptor>()));
 
         services.AddSeguridad(configuration);
 
