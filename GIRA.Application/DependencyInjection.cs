@@ -1,4 +1,5 @@
 using FluentValidation;
+using GIRA.Application.Services.Reservas;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GIRA.Application;
@@ -6,10 +7,11 @@ namespace GIRA.Application;
 /// <summary>Registra los servicios de GIRA.Application.</summary>
 public static class DependencyInjection
 {
-    /// <summary>Registra los validadores de FluentValidation.</summary>
+    /// <summary>Registra los validadores de FluentValidation y los servicios de los módulos.</summary>
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
+        services.AddReservas();
         return services;
     }
 }
