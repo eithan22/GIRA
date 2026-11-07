@@ -222,6 +222,9 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("Fecha")
                         .HasColumnType("date");
 
+                    b.Property<DateTime?>("FechaCheckIn")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("FranjaHorariaId")
                         .HasColumnType("uniqueidentifier");
 
@@ -239,6 +242,9 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("Personas")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PersonasReales")
                         .HasColumnType("int");
 
                     b.Property<byte[]>("RowVersion")

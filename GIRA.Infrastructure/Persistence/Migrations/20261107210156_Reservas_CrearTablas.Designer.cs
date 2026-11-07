@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GIRA.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(GiraDbContext))]
-    [Migration("20261107195135_Reservas_CrearTablas")]
+    [Migration("20261107210156_Reservas_CrearTablas")]
     partial class Reservas_CrearTablas
     {
         /// <inheritdoc />
@@ -225,6 +225,9 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("Fecha")
                         .HasColumnType("date");
 
+                    b.Property<DateTime?>("FechaCheckIn")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("FranjaHorariaId")
                         .HasColumnType("uniqueidentifier");
 
@@ -242,6 +245,9 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("Personas")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PersonasReales")
                         .HasColumnType("int");
 
                     b.Property<byte[]>("RowVersion")

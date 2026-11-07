@@ -127,6 +127,8 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     Estado = table.Column<int>(type: "int", nullable: false),
                     Origen = table.Column<int>(type: "int", nullable: false),
                     MotivoCancelacion = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    PersonasReales = table.Column<int>(type: "int", nullable: true),
+                    FechaCheckIn = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),

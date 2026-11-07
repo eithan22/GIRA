@@ -27,6 +27,11 @@ public class ReservaConfiguration : IEntityTypeConfiguration<Reserva>
         builder.Property(r => r.MotivoCancelacion)
             .HasMaxLength(500);
 
+        // Se guardan al hacer check-in (HacerCheckIn); las usa el cierre automático (GI-224)
+        // para publicar VisitaCompletadaEvent sin intervención manual.
+        builder.Property(r => r.PersonasReales);
+        builder.Property(r => r.FechaCheckIn);
+
         builder.HasIndex(r => r.Codigo)
             .IsUnique();
 
