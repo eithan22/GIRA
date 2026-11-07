@@ -1,5 +1,6 @@
 using GIRA.Infrastructure.Persistence.Context;
 using GIRA.Infrastructure.Persistence.Interceptors;
+using GIRA.Infrastructure.Persistence.Repositories.Reservas;
 using GIRA.Infrastructure.Services.Seguridad;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -33,6 +34,7 @@ public static class DependencyInjection
                 .AddInterceptors(sp.GetRequiredService<AuditoriaSaveChangesInterceptor>()));
 
         services.AddSeguridad(configuration);
+        services.AddReservasRepositories();
 
         return services;
     }

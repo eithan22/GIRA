@@ -47,6 +47,7 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     Nombre = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     HoraInicio = table.Column<TimeOnly>(type: "time", nullable: false),
                     HoraFin = table.Column<TimeOnly>(type: "time", nullable: false),
+                    Activa = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -68,6 +69,7 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Nombre = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Activa = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -91,6 +93,7 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     Numero = table.Column<int>(type: "int", nullable: false),
                     Capacidad = table.Column<int>(type: "int", nullable: false),
                     ZonaId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Activa = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -205,11 +208,11 @@ namespace GIRA.Infrastructure.Persistence.Migrations
             migrationBuilder.InsertData(
                 schema: "reservas",
                 table: "FranjaHoraria",
-                columns: new[] { "Id", "CreatedAt", "CreatedBy", "DeletedAt", "DeletedBy", "HoraFin", "HoraInicio", "IsDeleted", "Nombre", "UpdatedAt", "UpdatedBy" },
+                columns: new[] { "Id", "Activa", "CreatedAt", "CreatedBy", "DeletedAt", "DeletedBy", "HoraFin", "HoraInicio", "IsDeleted", "Nombre", "UpdatedAt", "UpdatedBy" },
                 values: new object[,]
                 {
-                    { new Guid("00000000-0000-0000-0000-000000000001"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, null, new TimeOnly(15, 0, 0), new TimeOnly(12, 0, 0), false, "Almuerzo", null, null },
-                    { new Guid("00000000-0000-0000-0000-000000000002"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, null, new TimeOnly(22, 30, 0), new TimeOnly(18, 0, 0), false, "Cena", null, null }
+                    { new Guid("00000000-0000-0000-0000-000000000001"), true, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, null, new TimeOnly(15, 0, 0), new TimeOnly(12, 0, 0), false, "Almuerzo", null, null },
+                    { new Guid("00000000-0000-0000-0000-000000000002"), true, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, null, new TimeOnly(22, 30, 0), new TimeOnly(18, 0, 0), false, "Cena", null, null }
                 });
 
             migrationBuilder.CreateIndex(

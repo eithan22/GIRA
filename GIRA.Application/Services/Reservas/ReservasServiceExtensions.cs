@@ -10,6 +10,8 @@ public static class ReservasServiceExtensions
     public static IServiceCollection AddReservas(this IServiceCollection services)
     {
         services.AddSingleton<IParametrosReservaService, ParametrosReservaService>();
+        services.AddSingleton(TimeProvider.System);
+        services.AddScoped<IDisponibilidadService, DisponibilidadService>();
         return services;
     }
 }

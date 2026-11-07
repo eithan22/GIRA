@@ -16,4 +16,7 @@ public class Mesa : BaseEntity
 
     /// <summary>Zona a la que pertenece la mesa.</summary>
     public Guid ZonaId { get; set; }
+
+    /// <summary>Si está activa, se ofrece en disponibilidad. Si es false, GI-163 la desactivó.</summary>
+    public bool Activa { get; set; } = true;
 }

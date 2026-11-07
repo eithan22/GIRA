@@ -20,6 +20,8 @@ public class FranjaHorariaConfiguration : IEntityTypeConfiguration<FranjaHoraria
             .HasMaxLength(50)
             .IsRequired();
 
+        // Activa: GI-163 la desactiva; GI-157 excluye franjas inactivas de la disponibilidad.
+
         var creadaEn = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         builder.HasData(
@@ -30,7 +32,8 @@ public class FranjaHorariaConfiguration : IEntityTypeConfiguration<FranjaHoraria
                 HoraInicio = new TimeOnly(12, 0),
                 HoraFin = new TimeOnly(15, 0),
                 CreatedAt = creadaEn,
-                IsDeleted = false
+                IsDeleted = false,
+                Activa = true
             },
             new FranjaHoraria
             {
@@ -39,7 +42,8 @@ public class FranjaHorariaConfiguration : IEntityTypeConfiguration<FranjaHoraria
                 HoraInicio = new TimeOnly(18, 0),
                 HoraFin = new TimeOnly(22, 30),
                 CreatedAt = creadaEn,
-                IsDeleted = false
+                IsDeleted = false,
+                Activa = true
             });
     }
 }

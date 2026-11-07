@@ -19,5 +19,8 @@ public class ZonaConfiguration : IEntityTypeConfiguration<Zona>
         builder.Property(z => z.Nombre)
             .HasMaxLength(100)
             .IsRequired();
+
+        // Activa: GI-163 la desactiva; si la zona está inactiva, ninguna de sus mesas se
+        // ofrece en disponibilidad aunque cada mesa esté activa (RN-RES-21).
     }
 }

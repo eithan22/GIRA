@@ -1,5 +1,6 @@
 using GIRA.Api.Authorization;
 using GIRA.Api.Common;
+using GIRA.Api.Common.Reservas;
 using GIRA.Api.Common.Seguridad;
 using GIRA.Application;
 using GIRA.Infrastructure;
@@ -33,6 +34,9 @@ builder.Services.AddLimiteLogin();
 
 // Límite de solicitudes de recuperación de contraseña (GI-215).
 builder.Services.AddLimiteOlvidePassword();
+
+// Límite del endpoint público de disponibilidad (GI-157).
+builder.Services.AddLimiteReservas();
 
 //servicios de autorización con políticas y roles.
 builder.Services.AddAutorizacionGira();

@@ -79,6 +79,9 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("Activa")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -124,6 +127,7 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("00000000-0000-0000-0000-000000000001"),
+                            Activa = true,
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             HoraFin = new TimeOnly(15, 0, 0),
                             HoraInicio = new TimeOnly(12, 0, 0),
@@ -133,6 +137,7 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("00000000-0000-0000-0000-000000000002"),
+                            Activa = true,
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             HoraFin = new TimeOnly(22, 30, 0),
                             HoraInicio = new TimeOnly(18, 0, 0),
@@ -146,6 +151,9 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Activa")
+                        .HasColumnType("bit");
 
                     b.Property<int>("Capacidad")
                         .HasColumnType("int");
@@ -333,6 +341,9 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Activa")
+                        .HasColumnType("bit");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");

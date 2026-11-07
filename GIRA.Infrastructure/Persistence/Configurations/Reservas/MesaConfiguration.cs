@@ -16,6 +16,8 @@ public class MesaConfiguration : IEntityTypeConfiguration<Mesa>
 
         builder.HasKey(m => m.Id);
 
+        // Activa: GI-163 la desactiva; GI-157 excluye mesas inactivas de la disponibilidad.
+
         builder.HasOne<Zona>()
             .WithMany()
             .HasForeignKey(m => m.ZonaId)

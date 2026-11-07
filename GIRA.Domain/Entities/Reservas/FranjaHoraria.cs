@@ -16,4 +16,7 @@ public class FranjaHoraria : BaseEntity
 
     /// <summary>Hora de fin de la franja, en hora local de República Dominicana.</summary>
     public TimeOnly HoraFin { get; set; }
+
+    /// <summary>Si está activa, se ofrece en disponibilidad. Si es false, GI-163 la desactivó.</summary>
+    public bool Activa { get; set; } = true;
 }
