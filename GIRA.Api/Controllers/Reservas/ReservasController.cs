@@ -63,4 +63,43 @@ public class ReservasController : ControllerBase
 
         return resultado.ToActionResult();
     }
+
+    /// <summary>
+    /// GI-184/185: consulta una reserva por código y teléfono. Mismo 404 neutro tanto si el
+    /// código no existe como si el teléfono no coincide, sin revelar cuál de los dos falló.
+    /// El teléfono va en el cuerpo, nunca en la URL, para no quedar expuesto en logs ni en
+    /// proxies intermedios.
+    /// </summary>
+    [HttpPost("consultar")]
+    [AllowAnonymous]
+    [EnableRateLimiting(LimiteReservasExtensions.PoliticaConsultaCodigo)]
+    [ProducesResponseType<ReservaConsultadaDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ConsultarPorCodigo(ConsultarReservaRequest request, CancellationToken cancellationToken)
+    {
+        var resultado = await _reservaService.ConsultarPorCodigoAsync(request, cancellationToken);
+
+        return resultado.ToActionResult();
+    }
+
+    /// <summary>
+    /// GI-184/185: cancela una reserva por código y teléfono, sin motivo obligatorio. Mismo
+    /// 404 neutro que la consulta si no coinciden; 409 si ya no se puede cancelar (estado o
+    /// límite de anticipación). El teléfono va en el cuerpo, nunca en la URL, por la misma
+    /// razón que la consulta.
+    /// </summary>
+    [HttpPatch("codigo/{codigo}/cancelar")]
+    [AllowAnonymous]
+    [EnableRateLimiting(LimiteReservasExtensions.PoliticaCancelacion)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> CancelarPorCodigo(string codigo, CancelarReservaRequest request, CancellationToken cancellationToken)
+    {
+        var resultado = await _reservaService.CancelarPorCodigoAsync(codigo, request, cancellationToken);
+
+        return resultado.ToActionResult();
+    }
 }

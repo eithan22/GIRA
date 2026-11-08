@@ -5,8 +5,7 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace GIRA.Api.Common.Reservas;
 
 /// <summary>
-/// Límites de intentos para los endpoints públicos de Reservas (RNF-06). Las políticas de
-/// consultar por código y cancelar se agregan después en este mismo archivo.
+/// Límites de intentos para los endpoints públicos de Reservas (RNF-06).
 /// </summary>
 public static class LimiteReservasExtensions
 {
@@ -16,7 +15,16 @@ public static class LimiteReservasExtensions
     /// <summary>Nombre de la política de creación (POST /api/reservas) para <c>[EnableRateLimiting]</c>.</summary>
     public const string PoliticaCreacion = "reservas-creacion";
 
-    /// <summary>Registra las políticas de consulta (20/min) y creación (5/min), cada una por IP.</summary>
+    /// <summary>Nombre de la política de consulta por código (POST /api/reservas/consultar) para <c>[EnableRateLimiting]</c>.</summary>
+    public const string PoliticaConsultaCodigo = "reservas-consulta-codigo";
+
+    /// <summary>Nombre de la política de cancelación (PATCH /api/reservas/codigo/{codigo}/cancelar) para <c>[EnableRateLimiting]</c>.</summary>
+    public const string PoliticaCancelacion = "reservas-cancelacion";
+
+    /// <summary>
+    /// Registra las políticas de consulta de disponibilidad (20/min), creación (5/min),
+    /// consulta por código (10/min) y cancelación (5/min), cada una por IP.
+    /// </summary>
     public static IServiceCollection AddLimiteReservas(this IServiceCollection services)
     {
         // Se configura solo la política, con su propio OnRejected (ver LimiteReservasConsultaPolicy
@@ -26,6 +34,8 @@ public static class LimiteReservasExtensions
         {
             options.AddPolicy<string, LimiteReservasConsultaPolicy>(PoliticaConsulta);
             options.AddPolicy<string, LimiteReservasCreacionPolicy>(PoliticaCreacion);
+            options.AddPolicy<string, LimiteReservasConsultaCodigoPolicy>(PoliticaConsultaCodigo);
+            options.AddPolicy<string, LimiteReservasCancelacionPolicy>(PoliticaCancelacion);
         });
 
         return services;
@@ -62,6 +72,57 @@ public sealed class LimiteReservasConsultaPolicy : IRateLimiterPolicy<string>
 /// consulta porque escribe en la base de datos.
 /// </summary>
 public sealed class LimiteReservasCreacionPolicy : IRateLimiterPolicy<string>
+{
+    /// <summary>Responde 429 con un ProblemDetails y el mensaje neutro compartido.</summary>
+    public Func<OnRejectedContext, CancellationToken, ValueTask>? OnRejected =>
+        (context, _) => new ValueTask(Results.Problem(
+            statusCode: StatusCodes.Status429TooManyRequests,
+            detail: MensajesRateLimiting.Neutro)
+            .ExecuteAsync(context.HttpContext));
+
+    /// <summary>Agrupa por IP de origen; 5 solicitudes por minuto, sin cola.</summary>
+    public RateLimitPartition<string> GetPartition(HttpContext httpContext) =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "desconocida",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            });
+}
+
+/// <summary>
+/// Política de ventana fija por IP para <c>POST /api/reservas/consultar</c>. Más estricta
+/// que la de disponibilidad porque el código de 8 caracteres es adivinable; en la práctica
+/// este endpoint funciona como una autenticación por código+teléfono.
+/// </summary>
+public sealed class LimiteReservasConsultaCodigoPolicy : IRateLimiterPolicy<string>
+{
+    /// <summary>Responde 429 con un ProblemDetails y el mensaje neutro compartido.</summary>
+    public Func<OnRejectedContext, CancellationToken, ValueTask>? OnRejected =>
+        (context, _) => new ValueTask(Results.Problem(
+            statusCode: StatusCodes.Status429TooManyRequests,
+            detail: MensajesRateLimiting.Neutro)
+            .ExecuteAsync(context.HttpContext));
+
+    /// <summary>Agrupa por IP de origen; 10 solicitudes por minuto, sin cola.</summary>
+    public RateLimitPartition<string> GetPartition(HttpContext httpContext) =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "desconocida",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            });
+}
+
+/// <summary>
+/// Política de ventana fija por IP para <c>PATCH /api/reservas/codigo/{codigo}/cancelar</c>,
+/// igual de estricta que la de creación porque también escribe en la base de datos.
+/// </summary>
+public sealed class LimiteReservasCancelacionPolicy : IRateLimiterPolicy<string>
 {
     /// <summary>Responde 429 con un ProblemDetails y el mensaje neutro compartido.</summary>
     public Func<OnRejectedContext, CancellationToken, ValueTask>? OnRejected =>
