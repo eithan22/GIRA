@@ -1,6 +1,7 @@
 using GIRA.Application.Interfaces.Repository.Reservas;
 using GIRA.Domain.Entities.Reservas;
 using GIRA.Domain.Enums.Reservas;
+using GIRA.Domain.Exceptions.Reservas;
 using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 
@@ -24,5 +25,41 @@ public class ReservaRepository : IReservaRepository
             .Where(r => r.Fecha == fecha
                 && (r.Estado == EstadoReserva.Confirmada || r.Estado == EstadoReserva.EnCurso))
             .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<int> ContarVigentesPorTelefonoAsync(string telefono, CancellationToken cancellationToken)
+    {
+        return _contexto.Reservas
+            .Join(_contexto.Clientes, r => r.ClienteId, c => c.Id, (r, c) => new { r, c })
+            .Where(x => x.c.Telefono == telefono
+                && (x.r.Estado == EstadoReserva.Confirmada || x.r.Estado == EstadoReserva.EnCurso))
+            .CountAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<bool> ExisteCodigoAsync(string codigo, CancellationToken cancellationToken)
+    {
+        return _contexto.Reservas.AnyAsync(r => r.Codigo == codigo, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public void Agregar(Reserva reserva)
+    {
+        _contexto.Reservas.Add(reserva);
+    }
+
+    /// <inheritdoc />
+    public async Task GuardarCambiosAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _contexto.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ViolacionesIndiceUnico.Es(ex, "IX_Reserva_MesaId_Fecha_FranjaHorariaId_Vigente"))
+        {
+            throw new ReservaDuplicadaException(
+                "Esa mesa ya fue tomada, intenta otra franja.", ex);
+        }
     }
 }

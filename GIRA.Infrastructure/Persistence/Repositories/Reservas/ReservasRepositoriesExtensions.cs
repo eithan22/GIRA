@@ -12,6 +12,7 @@ public static class ReservasRepositoriesExtensions
         services.AddScoped<IMesaRepository, MesaRepository>();
         services.AddScoped<IFranjaHorariaRepository, FranjaHorariaRepository>();
         services.AddScoped<IReservaRepository, ReservaRepository>();
+        services.AddScoped<IClienteRepository, ClienteRepository>();
         return services;
     }
 }

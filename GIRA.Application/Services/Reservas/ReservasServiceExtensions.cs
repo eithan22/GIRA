@@ -12,6 +12,8 @@ public static class ReservasServiceExtensions
         services.AddSingleton<IParametrosReservaService, ParametrosReservaService>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IDisponibilidadService, DisponibilidadService>();
+        services.AddSingleton<GeneradorCodigoReserva>();
+        services.AddScoped<IReservaService, ReservaService>();
         return services;
     }
 }
