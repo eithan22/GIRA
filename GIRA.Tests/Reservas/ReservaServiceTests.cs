@@ -1,5 +1,6 @@
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Reservas;
+using GIRA.Application.Events.Reservas;
 using GIRA.Application.Interfaces.Repository.Reservas;
 using GIRA.Application.Services.Reservas;
 using GIRA.Application.Validations.Reservas;
@@ -344,6 +345,179 @@ public class ReservaServiceTests
         Assert.Equal(porCodigoMalo.Type, porTelefonoMalo.Type);
         Assert.Equal(porCodigoMalo.Error, porTelefonoMalo.Error);
     }
+
+    [Fact]
+    public async Task CancelarPorCodigoAsync_ExactamenteEnElLimite_PermiteCancelar()
+    {
+        var cliente = new Cliente { Id = Guid.NewGuid(), Nombre = "Ana Pérez", Telefono = "8095551234" };
+        var reserva = new Reserva
+        {
+            Id = Guid.NewGuid(), Codigo = "12345678", ClienteId = cliente.Id,
+            FranjaHorariaId = Almuerzo.Id, Fecha = Fecha, Personas = 2
+        };
+        var reservaRepo = new ReservaRepositoryFake
+        {
+            ReservaPorCodigoYTelefono = reserva,
+            ClienteDeLaReservaPorCodigoYTelefono = cliente
+        };
+        // Franja empieza a las 12:00 local; "ahora" son las 10:00 local: justo el límite de
+        // 2h, inclusivo (no debe rechazarse).
+        var ahoraUtc = new DateTimeOffset(Fecha.Year, Fecha.Month, Fecha.Day, 14, 0, 0, TimeSpan.Zero); // 10:00 RD
+        var servicio = CrearServicio(reservaRepo: reservaRepo, ahoraUtc: ahoraUtc);
+
+        var resultado = await servicio.CancelarPorCodigoAsync("12345678", new CancelarReservaRequest("8095551234"), default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal(EstadoReserva.Cancelada, reserva.Estado);
+    }
+
+    [Fact]
+    public async Task CancelarPorCodigoAsync_UnMinutoDespuesDelLimite_Devuelve409ConDuracionLegible()
+    {
+        var cliente = new Cliente { Id = Guid.NewGuid(), Nombre = "Ana Pérez", Telefono = "8095551234" };
+        var reserva = new Reserva
+        {
+            Id = Guid.NewGuid(), Codigo = "12345678", ClienteId = cliente.Id,
+            FranjaHorariaId = Almuerzo.Id, Fecha = Fecha, Personas = 2
+        };
+        var reservaRepo = new ReservaRepositoryFake
+        {
+            ReservaPorCodigoYTelefono = reserva,
+            ClienteDeLaReservaPorCodigoYTelefono = cliente
+        };
+        // "Ahora" son las 10:01 local: 1 minuto más tarde que el límite de 2h (quedan 1h59m).
+        var ahoraUtc = new DateTimeOffset(Fecha.Year, Fecha.Month, Fecha.Day, 14, 1, 0, TimeSpan.Zero); // 10:01 RD
+        var servicio = CrearServicio(reservaRepo: reservaRepo, ahoraUtc: ahoraUtc);
+
+        var resultado = await servicio.CancelarPorCodigoAsync("12345678", new CancelarReservaRequest("8095551234"), default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(GIRA.Application.Common.ErrorType.Conflict, resultado.Type);
+        Assert.Contains("2 horas", resultado.Error);
+        Assert.Equal(EstadoReserva.Confirmada, reserva.Estado);
+    }
+
+    [Fact]
+    public async Task CancelarPorCodigoAsync_BienAntesDelLimite_PermiteCancelar()
+    {
+        var cliente = new Cliente { Id = Guid.NewGuid(), Nombre = "Ana Pérez", Telefono = "8095551234" };
+        var reserva = new Reserva
+        {
+            Id = Guid.NewGuid(), Codigo = "12345678", ClienteId = cliente.Id,
+            FranjaHorariaId = Almuerzo.Id, Fecha = Fecha, Personas = 2
+        };
+        var reservaRepo = new ReservaRepositoryFake
+        {
+            ReservaPorCodigoYTelefono = reserva,
+            ClienteDeLaReservaPorCodigoYTelefono = cliente
+        };
+        // "Ahora" por defecto de CrearServicio: la mañana del día anterior, con antelación de
+        // sobra respecto al límite de 2h.
+        var servicio = CrearServicio(reservaRepo: reservaRepo);
+
+        var resultado = await servicio.CancelarPorCodigoAsync("12345678", new CancelarReservaRequest("8095551234"), default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal(EstadoReserva.Cancelada, reserva.Estado);
+    }
+
+    [Fact]
+    public async Task CancelarPorCodigoAsync_ReservaNoConfirmada_Devuelve409()
+    {
+        var cliente = new Cliente { Id = Guid.NewGuid(), Nombre = "Ana Pérez", Telefono = "8095551234" };
+        var reserva = new Reserva
+        {
+            Id = Guid.NewGuid(), Codigo = "12345678", ClienteId = cliente.Id,
+            FranjaHorariaId = Almuerzo.Id, Fecha = Fecha, Personas = 2
+        };
+        reserva.Cancelar(null); // ya estaba cancelada antes de este intento
+        var reservaRepo = new ReservaRepositoryFake
+        {
+            ReservaPorCodigoYTelefono = reserva,
+            ClienteDeLaReservaPorCodigoYTelefono = cliente
+        };
+        var servicio = CrearServicio(reservaRepo: reservaRepo);
+
+        var resultado = await servicio.CancelarPorCodigoAsync("12345678", new CancelarReservaRequest("8095551234"), default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(GIRA.Application.Common.ErrorType.Conflict, resultado.Type);
+        Assert.Equal("Esta reserva ya no se puede cancelar.", resultado.Error);
+    }
+
+    [Fact]
+    public async Task CancelarPorCodigoAsync_TelefonoEquivocado_NoModificaLaReserva()
+    {
+        var cliente = new Cliente { Id = Guid.NewGuid(), Nombre = "Ana Pérez", Telefono = "8095551234" };
+        var reserva = new Reserva
+        {
+            Id = Guid.NewGuid(), Codigo = "12345678", ClienteId = cliente.Id,
+            FranjaHorariaId = Almuerzo.Id, Fecha = Fecha, Personas = 2
+        };
+        var reservaRepo = new ReservaRepositoryFake
+        {
+            ReservaPorCodigoYTelefono = reserva,
+            ClienteDeLaReservaPorCodigoYTelefono = cliente
+        };
+        var servicio = CrearServicio(reservaRepo: reservaRepo);
+
+        var resultado = await servicio.CancelarPorCodigoAsync("12345678", new CancelarReservaRequest("8299999999"), default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(GIRA.Application.Common.ErrorType.NotFound, resultado.Type);
+        Assert.Equal(EstadoReserva.Confirmada, reserva.Estado);
+    }
+
+    [Fact]
+    public async Task CancelarPorCodigoAsync_Exito_PublicaElEventoSinDatosPersonales()
+    {
+        var cliente = new Cliente { Id = Guid.NewGuid(), Nombre = "Ana Pérez", Telefono = "8095551234" };
+        var reserva = new Reserva
+        {
+            Id = Guid.NewGuid(), Codigo = "12345678", ClienteId = cliente.Id,
+            FranjaHorariaId = Almuerzo.Id, Fecha = Fecha, Personas = 2
+        };
+        var reservaRepo = new ReservaRepositoryFake
+        {
+            ReservaPorCodigoYTelefono = reserva,
+            ClienteDeLaReservaPorCodigoYTelefono = cliente
+        };
+        var publisher = new PublisherFalso();
+        var servicio = CrearServicio(reservaRepo: reservaRepo, publisher: publisher);
+
+        var resultado = await servicio.CancelarPorCodigoAsync("12345678", new CancelarReservaRequest("8095551234"), default);
+
+        Assert.True(resultado.IsSuccess);
+        var evento = Assert.Single(publisher.Publicados);
+        var canceladoEvento = Assert.IsType<ReservaCanceladaEvent>(evento);
+        Assert.Equal(reserva.Id, canceladoEvento.ReservaId);
+        Assert.Null(canceladoEvento.MotivoCancelacion);
+    }
+
+    [Fact]
+    public async Task CancelarPorCodigoAsync_ConflictoDeConcurrenciaAlGuardar_Devuelve409SinPublicarElEvento()
+    {
+        var cliente = new Cliente { Id = Guid.NewGuid(), Nombre = "Ana Pérez", Telefono = "8095551234" };
+        var reserva = new Reserva
+        {
+            Id = Guid.NewGuid(), Codigo = "12345678", ClienteId = cliente.Id,
+            FranjaHorariaId = Almuerzo.Id, Fecha = Fecha, Personas = 2
+        };
+        var reservaRepo = new ReservaRepositoryFake
+        {
+            ReservaPorCodigoYTelefono = reserva,
+            ClienteDeLaReservaPorCodigoYTelefono = cliente,
+            LanzarConflictoConcurrenciaAlGuardar = true
+        };
+        var publisher = new PublisherFalso();
+        var servicio = CrearServicio(reservaRepo: reservaRepo, publisher: publisher);
+
+        var resultado = await servicio.CancelarPorCodigoAsync("12345678", new CancelarReservaRequest("8095551234"), default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(GIRA.Application.Common.ErrorType.Conflict, resultado.Type);
+        Assert.Empty(publisher.Publicados);
+    }
 }
 
 class ReservaRepositoryFake : IReservaRepository
@@ -357,6 +531,7 @@ class ReservaRepositoryFake : IReservaRepository
     public Cliente? ClienteDeLaReservaPorCodigoYTelefono { get; set; }
     public string? UltimoCodigoRecibido { get; private set; }
     public string? UltimoTelefonoRecibido { get; private set; }
+    public bool LanzarConflictoConcurrenciaAlGuardar { get; set; }
 
     public Task<IReadOnlyList<Reserva>> ListarVigentesPorFechaAsync(DateOnly fecha, CancellationToken cancellationToken) =>
         Task.FromResult(VigentesPorFecha);
@@ -384,6 +559,12 @@ class ReservaRepositoryFake : IReservaRepository
 
     public Task GuardarCambiosAsync(CancellationToken cancellationToken)
     {
+        if (LanzarConflictoConcurrenciaAlGuardar)
+        {
+            throw new ReservaConflictoConcurrenciaException(
+                "La reserva cambió mientras se procesaba la cancelación; vuelve a consultarla.", new InvalidOperationException());
+        }
+
         if (LanzarConflictoAlGuardar)
         {
             throw new ReservaDuplicadaException("Esa mesa ya fue tomada, intenta otra franja.", new InvalidOperationException());

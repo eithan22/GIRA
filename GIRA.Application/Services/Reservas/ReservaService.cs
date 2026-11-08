@@ -240,10 +240,68 @@ public class ReservaService : IReservaService
     }
 
     /// <inheritdoc />
-    public Task<OperationResult> CancelarPorCodigoAsync(
+    public async Task<OperationResult> CancelarPorCodigoAsync(
         string codigo, CancelarReservaRequest request, CancellationToken cancellationToken)
     {
-        // GI-184: implementar
-        throw new NotImplementedException();
+        // Mismo 404 neutro que ConsultarPorCodigoAsync: sin tocar TelefonoRd ni la base.
+        if (request is null || string.IsNullOrWhiteSpace(codigo) || string.IsNullOrWhiteSpace(request.Telefono))
+        {
+            return OperationResult.Failure(ErrorType.NotFound, MensajeCodigoOTelefonoIncorrectos);
+        }
+
+        var codigoNormalizado = codigo.Trim();
+        var telefono = TelefonoRd.Normalizar(request.Telefono);
+
+        var reserva = await _reservaRepository.BuscarPorCodigoYTelefonoAsync(codigoNormalizado, telefono, cancellationToken);
+        if (reserva is null)
+        {
+            return OperationResult.Failure(ErrorType.NotFound, MensajeCodigoOTelefonoIncorrectos);
+        }
+
+        if (reserva.Estado != EstadoReserva.Confirmada)
+        {
+            return OperationResult.Failure(ErrorType.Conflict, "Esta reserva ya no se puede cancelar.");
+        }
+
+        // Si esto fuera null sería una violación de integridad (ver ConsultarPorCodigoAsync).
+        var franja = await _franjaHorariaRepository.BuscarPorIdAsync(reserva.FranjaHorariaId, cancellationToken)
+            ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} referencia una franja que no existe.");
+
+        var inicioFranjaLocal = reserva.Fecha.ToDateTime(franja.HoraInicio);
+        var ahoraLocal = _timeProvider.AhoraLocal();
+        if (inicioFranjaLocal - ahoraLocal < _parametros.LimiteCancelacion)
+        {
+            return OperationResult.Failure(
+                ErrorType.Conflict,
+                $"Ya no se puede cancelar esta reserva; debe hacerse con al menos {FormatearDuracion(_parametros.LimiteCancelacion)} de anticipación.");
+        }
+
+        reserva.Cancelar(null);
+
+        try
+        {
+            await _reservaRepository.GuardarCambiosAsync(cancellationToken);
+        }
+        catch (ReservaConflictoConcurrenciaException ex)
+        {
+            return OperationResult.Failure(ErrorType.Conflict, ex.Message);
+        }
+
+        await _publisher.Publish(
+            new ReservaCanceladaEvent(reserva.Id, reserva.MotivoCancelacion), cancellationToken);
+
+        return OperationResult.Success();
+    }
+
+    /// <summary>Formatea una duración como texto legible en español: "2 horas" o "90 minutos".</summary>
+    private static string FormatearDuracion(TimeSpan duracion)
+    {
+        if (duracion.Days == 0 && duracion.Minutes == 0 && duracion.Hours > 0)
+        {
+            return duracion.Hours == 1 ? "1 hora" : $"{duracion.Hours} horas";
+        }
+
+        var minutosTotales = (int)duracion.TotalMinutes;
+        return minutosTotales == 1 ? "1 minuto" : $"{minutosTotales} minutos";
     }
 }

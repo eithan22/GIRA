@@ -66,6 +66,11 @@ public class ReservaRepository : IReservaRepository
         {
             await _contexto.SaveChangesAsync(cancellationToken);
         }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new ReservaConflictoConcurrenciaException(
+                "La reserva cambió mientras se procesaba la cancelación; vuelve a consultarla.", ex);
+        }
         catch (DbUpdateException ex) when (ViolacionesIndiceUnico.Es(ex, "IX_Reserva_MesaId_Fecha_FranjaHorariaId_Vigente"))
         {
             throw new ReservaDuplicadaException(
