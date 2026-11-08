@@ -1,7 +1,10 @@
 using GIRA.Api.Common;
 using GIRA.Api.Common.Reservas;
+using GIRA.Application.Common;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Interfaces.Services.Reservas;
+using GIRA.Domain.Constants;
+using GIRA.Domain.Enums.Reservas;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -15,12 +18,16 @@ public class ReservasController : ControllerBase
 {
     private readonly IDisponibilidadService _disponibilidadService;
     private readonly IReservaService _reservaService;
+    private readonly IAuthorizationService _authorizationService;
 
-    /// <summary>Crea el controller con los servicios de disponibilidad y reservas.</summary>
-    public ReservasController(IDisponibilidadService disponibilidadService, IReservaService reservaService)
+    /// <summary>Crea el controller con los servicios de disponibilidad, reservas y autorización.</summary>
+    public ReservasController(
+        IDisponibilidadService disponibilidadService, IReservaService reservaService,
+        IAuthorizationService authorizationService)
     {
         _disponibilidadService = disponibilidadService;
         _reservaService = reservaService;
+        _authorizationService = authorizationService;
     }
 
     /// <summary>
@@ -42,26 +49,86 @@ public class ReservasController : ControllerBase
     }
 
     /// <summary>
-    /// GI-158: crea una reserva como invitado (sin cuenta), con la mesa asignada
-    /// automáticamente. Endpoint público; devuelve 200 al crear, como el resto del proyecto.
+    /// GI-158/222/235: crea una reserva. Sin cabecera Authorization: invitado, Origen = Web,
+    /// ignora cualquier Origen del cuerpo. Con token válido y política OperarReservas:
+    /// personal, Origen debe ser Telefono o Presencial; el usuario que registra se toma del
+    /// token (BaseEntity.CreatedBy), nunca del cuerpo. Devuelve 200 al crear en ambos casos,
+    /// como el resto del proyecto.
     /// </summary>
-    /// <remarks>
-    /// Esta historia es la ruta "sin token": siempre fija Origen = Web y no lee el token de
-    /// la solicitud. GI-222 agregará la lectura del token para Origen = Telefono/Presencial
-    /// y el usuario que registra, cuando el personal cree la reserva desde este mismo endpoint.
-    /// </remarks>
     [HttpPost]
     [AllowAnonymous]
     [EnableRateLimiting(LimiteReservasExtensions.PoliticaCreacion)]
     [ProducesResponseType<ReservaCreadaDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Crear(CrearReservaRequest request, CancellationToken cancellationToken)
     {
-        var resultado = await _reservaService.CrearAsync(request, cancellationToken);
+        // Sin cabecera: invitado. Nunca se lee request.Origen en esta rama, aunque el
+        // cuerpo lo traiga — se ignora por completo.
+        if (!Request.Headers.ContainsKey("Authorization"))
+        {
+            var resultadoAnonimo = await _reservaService.CrearAsync(request, cancellationToken);
+            return resultadoAnonimo.ToActionResult();
+        }
 
+        // Cabecera presente pero el token es inválido o venció: 401, nunca sigue como
+        // anónimo (si siguiera, cualquier token roto equivaldría a crear como invitado).
+        if (User.Identity?.IsAuthenticated != true)
+        {
+            return NoAutenticado();
+        }
+
+        var autorizacion = await _authorizationService.AuthorizeAsync(User, Politicas.OperarReservas);
+        if (!autorizacion.Succeeded)
+        {
+            return AccesoDenegado();
+        }
+
+        if (request.Origen is not (OrigenReserva.Telefono or OrigenReserva.Presencial))
+        {
+            return OperationResult.Failure<ReservaCreadaDto>(
+                ErrorType.Validation, "El origen es obligatorio y debe ser Telefono o Presencial.").ToActionResult();
+        }
+
+        // Token válido pero sin el claim UsuarioId: no debería pasar con nuestros propios
+        // tokens, pero nunca se crea sin saber quién registra. 401, nunca 500.
+        if (User.ObtenerUsuarioId() is null)
+        {
+            return NoAutenticado();
+        }
+
+        var resultado = await _reservaService.CrearComoPersonalAsync(request, request.Origen.Value, cancellationToken);
         return resultado.ToActionResult();
+    }
+
+    // Mismo ProblemDetails que RespuestaAutorizacionHandler para 401 — duplicado a propósito:
+    // ese handler solo se activa en el middleware de autorización, que un endpoint
+    // [AllowAnonymous] nunca atraviesa, así que no hay forma de reusarlo sin tocar Seguridad.
+    private IActionResult NoAutenticado()
+    {
+        Response.Headers.WWWAuthenticate = "Bearer";
+        return new ObjectResult(new ProblemDetails
+        {
+            Status = StatusCodes.Status401Unauthorized,
+            Title = "No autenticado",
+            Detail = "Debes iniciar sesión para acceder a este recurso."
+        })
+        { StatusCode = StatusCodes.Status401Unauthorized };
+    }
+
+    // Mismo ProblemDetails que RespuestaAutorizacionHandler para 403 (ver nota de arriba).
+    private static IActionResult AccesoDenegado()
+    {
+        return new ObjectResult(new ProblemDetails
+        {
+            Status = StatusCodes.Status403Forbidden,
+            Title = "Acceso denegado",
+            Detail = "Tu rol no tiene permiso para realizar esta acción."
+        })
+        { StatusCode = StatusCodes.Status403Forbidden };
     }
 
     /// <summary>

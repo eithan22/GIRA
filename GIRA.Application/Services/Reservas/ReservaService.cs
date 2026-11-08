@@ -51,7 +51,27 @@ public class ReservaService : IReservaService
     }
 
     /// <inheritdoc />
-    public async Task<OperationResult<ReservaCreadaDto>> CrearAsync(CrearReservaRequest request, CancellationToken cancellationToken)
+    public Task<OperationResult<ReservaCreadaDto>> CrearAsync(CrearReservaRequest request, CancellationToken cancellationToken) =>
+        CrearInternoAsync(request, OrigenReserva.Web, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<OperationResult<ReservaCreadaDto>> CrearComoPersonalAsync(
+        CrearReservaRequest request, OrigenReserva origen, CancellationToken cancellationToken)
+    {
+        if (origen is not (OrigenReserva.Telefono or OrigenReserva.Presencial))
+        {
+            return Task.FromResult(OperationResult.Failure<ReservaCreadaDto>(
+                ErrorType.Validation, "El origen debe ser Telefono o Presencial."));
+        }
+
+        return CrearInternoAsync(request, origen, cancellationToken);
+    }
+
+    // Lógica compartida por CrearAsync (invitado, Origen = Web) y CrearComoPersonalAsync
+    // (personal, Origen = Telefono/Presencial): mismas validaciones y asignación de mesa
+    // para ambos caminos; solo cambia qué Origen queda en la reserva.
+    private async Task<OperationResult<ReservaCreadaDto>> CrearInternoAsync(
+        CrearReservaRequest request, OrigenReserva origen, CancellationToken cancellationToken)
     {
         var validacion = await _validator.ValidateAsync(request, cancellationToken);
         if (!validacion.IsValid)
@@ -184,7 +204,7 @@ public class ReservaService : IReservaService
             FranjaHorariaId = franja.Id,
             Fecha = request.Fecha,
             Personas = request.Personas,
-            Origen = OrigenReserva.Web
+            Origen = origen
         };
 
         _reservaRepository.Agregar(reserva);

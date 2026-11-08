@@ -1,5 +1,6 @@
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Reservas;
+using GIRA.Domain.Enums.Reservas;
 
 namespace GIRA.Application.Interfaces.Services.Reservas;
 
@@ -8,6 +9,18 @@ public interface IReservaService
 {
     /// <summary>Crea una reserva como invitado, asignando la mesa automáticamente.</summary>
     Task<OperationResult<ReservaCreadaDto>> CrearAsync(CrearReservaRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Crea una reserva registrada por el personal (GI-222/GI-235), con las mismas
+    /// validaciones y asignación de mesa que <see cref="CrearAsync"/>. Si
+    /// <paramref name="origen"/> no es <see cref="OrigenReserva.Telefono"/> ni
+    /// <see cref="OrigenReserva.Presencial"/>, devuelve ErrorType.Validation (el controller
+    /// ya debe garantizar uno de los dos antes de llamar; esto es una segunda red de
+    /// seguridad, no el único lugar donde se valida). El usuario que registra no se recibe
+    /// aquí: lo toma BaseEntity.CreatedBy del token, vía AuditoriaSaveChangesInterceptor.
+    /// </summary>
+    Task<OperationResult<ReservaCreadaDto>> CrearComoPersonalAsync(
+        CrearReservaRequest request, OrigenReserva origen, CancellationToken cancellationToken);
 
     /// <summary>
     /// Consulta una reserva por código y teléfono. Si no coinciden los dos, devuelve

@@ -68,8 +68,10 @@ public sealed class LimiteReservasConsultaPolicy : IRateLimiterPolicy<string>
 }
 
 /// <summary>
-/// Política de ventana fija por IP para <c>POST /api/reservas</c>, más estricta que la de
-/// consulta porque escribe en la base de datos.
+/// Política para <c>POST /api/reservas</c>: por usuario autenticado (30/min, el personal
+/// puede registrar varias reservas seguidas) o por IP para invitados (5/min), más estricta
+/// que la de consulta porque escribe en la base de datos. Requiere que UseAuthentication()
+/// corra antes que UseRateLimiter() en Program.cs para que HttpContext.User esté poblado.
 /// </summary>
 public sealed class LimiteReservasCreacionPolicy : IRateLimiterPolicy<string>
 {
@@ -80,16 +82,28 @@ public sealed class LimiteReservasCreacionPolicy : IRateLimiterPolicy<string>
             detail: MensajesRateLimiting.Neutro)
             .ExecuteAsync(context.HttpContext));
 
-    /// <summary>Agrupa por IP de origen; 5 solicitudes por minuto, sin cola.</summary>
+    /// <summary>
+    /// Si hay usuario autenticado, agrupa por su UsuarioId (30/min); si no, por IP de
+    /// origen (5/min). Sin cola en ningún caso.
+    /// </summary>
     public RateLimitPartition<string> GetPartition(HttpContext httpContext) =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            httpContext.Connection.RemoteIpAddress?.ToString() ?? "desconocida",
-            _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 5,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0
-            });
+        httpContext.User.Identity?.IsAuthenticated == true
+            ? RateLimitPartition.GetFixedWindowLimiter(
+                $"usuario:{httpContext.User.ObtenerUsuarioId()}",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 30,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                })
+            : RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.Connection.RemoteIpAddress?.ToString() ?? "desconocida",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 5,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                });
 }
 
 /// <summary>

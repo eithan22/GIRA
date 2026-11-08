@@ -518,6 +518,23 @@ public class ReservaServiceTests
         Assert.Equal(GIRA.Application.Common.ErrorType.Conflict, resultado.Type);
         Assert.Empty(publisher.Publicados);
     }
+
+    [Theory]
+    [InlineData(OrigenReserva.Web)]
+    [InlineData((OrigenReserva)99)]
+    public async Task CrearComoPersonalAsync_OrigenNoPermitido_DevuelveValidationSinGuardarNiPublicar(OrigenReserva origen)
+    {
+        var reservaRepo = new ReservaRepositoryFake();
+        var publisher = new PublisherFalso();
+        var servicio = CrearServicio(reservaRepo: reservaRepo, publisher: publisher);
+
+        var resultado = await servicio.CrearComoPersonalAsync(Request(), origen, default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(GIRA.Application.Common.ErrorType.Validation, resultado.Type);
+        Assert.Empty(reservaRepo.Agregadas);
+        Assert.Empty(publisher.Publicados);
+    }
 }
 
 class ReservaRepositoryFake : IReservaRepository

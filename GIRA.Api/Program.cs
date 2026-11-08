@@ -72,8 +72,8 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseCors(CorsExtensions.Politica);
-app.UseRateLimiter();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
