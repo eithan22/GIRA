@@ -11,6 +11,12 @@ public interface IReservaRepository
     /// <summary>Cantidad de reservas vigentes (Confirmada o EnCurso) de un teléfono, sin importar si el cliente ya existe.</summary>
     Task<int> ContarVigentesPorTelefonoAsync(string telefono, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Busca la reserva con ese código Y ese teléfono (del cliente asociado) a la vez.
+    /// Null si no coinciden los dos, sin distinguir cuál falló.
+    /// </summary>
+    Task<Reserva?> BuscarPorCodigoYTelefonoAsync(string codigo, string telefono, CancellationToken cancellationToken);
+
     /// <summary>True si ya existe una reserva con ese código.</summary>
     Task<bool> ExisteCodigoAsync(string codigo, CancellationToken cancellationToken);
 

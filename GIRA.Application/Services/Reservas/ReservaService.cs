@@ -24,6 +24,9 @@ public class ReservaService : IReservaService
     private readonly IPublisher _publisher;
     private readonly TimeProvider _timeProvider;
 
+    // Mismo mensaje para "código no existe" y "teléfono no coincide": nunca se revela cuál falló.
+    private const string MensajeCodigoOTelefonoIncorrectos = "Código o teléfono incorrectos.";
+
     /// <summary>Crea el servicio con sus repositorios, dependencias y el reloj.</summary>
     public ReservaService(
         IMesaRepository mesaRepository,
@@ -203,5 +206,44 @@ public class ReservaService : IReservaService
 
         return OperationResult.Success(new ReservaCreadaDto(
             reserva.Codigo, cliente.Nombre, reserva.Fecha, franja.Nombre, franja.HoraInicio, franja.HoraFin, reserva.Personas));
+    }
+
+    /// <inheritdoc />
+    public async Task<OperationResult<ReservaConsultadaDto>> ConsultarPorCodigoAsync(
+        ConsultarReservaRequest request, CancellationToken cancellationToken)
+    {
+        // Request null, cuerpo vacío o con campos en blanco: mismo 404, sin tocar TelefonoRd ni la base.
+        if (request is null || string.IsNullOrWhiteSpace(request.Codigo) || string.IsNullOrWhiteSpace(request.Telefono))
+        {
+            return OperationResult.Failure<ReservaConsultadaDto>(ErrorType.NotFound, MensajeCodigoOTelefonoIncorrectos);
+        }
+
+        var codigo = request.Codigo.Trim();
+        var telefono = TelefonoRd.Normalizar(request.Telefono);
+
+        var reserva = await _reservaRepository.BuscarPorCodigoYTelefonoAsync(codigo, telefono, cancellationToken);
+        if (reserva is null)
+        {
+            return OperationResult.Failure<ReservaConsultadaDto>(ErrorType.NotFound, MensajeCodigoOTelefonoIncorrectos);
+        }
+
+        // Si esto fuera null sería una violación de integridad (una reserva siempre referencia
+        // un cliente y una franja válidos); se deja fallar fuerte en vez de devolver datos vacíos.
+        var cliente = await _clienteRepository.BuscarPorIdAsync(reserva.ClienteId, cancellationToken)
+            ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} referencia un cliente que no existe.");
+        var franja = await _franjaHorariaRepository.BuscarPorIdAsync(reserva.FranjaHorariaId, cancellationToken)
+            ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} referencia una franja que no existe.");
+
+        return OperationResult.Success(new ReservaConsultadaDto(
+            reserva.Codigo, cliente.Nombre, reserva.Fecha, franja.Nombre, franja.HoraInicio, franja.HoraFin,
+            reserva.Personas, reserva.Estado.ToString()));
+    }
+
+    /// <inheritdoc />
+    public Task<OperationResult> CancelarPorCodigoAsync(
+        string codigo, CancelarReservaRequest request, CancellationToken cancellationToken)
+    {
+        // GI-184: implementar
+        throw new NotImplementedException();
     }
 }

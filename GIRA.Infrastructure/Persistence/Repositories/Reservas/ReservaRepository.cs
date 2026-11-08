@@ -38,6 +38,16 @@ public class ReservaRepository : IReservaRepository
     }
 
     /// <inheritdoc />
+    public Task<Reserva?> BuscarPorCodigoYTelefonoAsync(string codigo, string telefono, CancellationToken cancellationToken)
+    {
+        return _contexto.Reservas
+            .Join(_contexto.Clientes, r => r.ClienteId, c => c.Id, (r, c) => new { r, c })
+            .Where(x => x.r.Codigo == codigo && x.c.Telefono == telefono)
+            .Select(x => x.r)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
     public Task<bool> ExisteCodigoAsync(string codigo, CancellationToken cancellationToken)
     {
         return _contexto.Reservas.AnyAsync(r => r.Codigo == codigo, cancellationToken);

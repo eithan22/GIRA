@@ -23,4 +23,10 @@ public class FranjaHorariaRepository : IFranjaHorariaRepository
             .Where(f => f.Activa)
             .ToListAsync(cancellationToken);
     }
+
+    /// <inheritdoc />
+    public Task<FranjaHoraria?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken)
+    {
+        return _contexto.FranjasHorarias.FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
+    }
 }

@@ -8,6 +8,9 @@ public interface IClienteRepository
     /// <summary>Busca un cliente por su teléfono normalizado (10 dígitos). Null si no existe.</summary>
     Task<Cliente?> BuscarPorTelefonoAsync(string telefono, CancellationToken cancellationToken);
 
+    /// <summary>Busca un cliente por su Id. Null si no existe.</summary>
+    Task<Cliente?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken);
+
     /// <summary>Deja el cliente en seguimiento; no guarda hasta llamar a <see cref="GuardarCambiosAsync"/>.</summary>
     void Agregar(Cliente cliente);
 

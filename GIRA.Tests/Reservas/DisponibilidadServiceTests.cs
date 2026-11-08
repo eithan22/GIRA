@@ -254,6 +254,9 @@ class FranjaHorariaRepositoryFalso : IFranjaHorariaRepository
     public FranjaHorariaRepositoryFalso(IReadOnlyList<FranjaHoraria> franjas) => _franjas = franjas;
     public Task<IReadOnlyList<FranjaHoraria>> ListarActivasAsync(CancellationToken cancellationToken) =>
         Task.FromResult(_franjas);
+
+    public Task<FranjaHoraria?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken) =>
+        Task.FromResult(_franjas.FirstOrDefault(f => f.Id == id));
 }
 
 class ReservaRepositoryFalso : IReservaRepository
@@ -265,6 +268,8 @@ class ReservaRepositoryFalso : IReservaRepository
 
     // No los usa DisponibilidadService; se implementan solo para satisfacer la interfaz.
     public Task<int> ContarVigentesPorTelefonoAsync(string telefono, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+    public Task<Reserva?> BuscarPorCodigoYTelefonoAsync(string codigo, string telefono, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
     public Task<bool> ExisteCodigoAsync(string codigo, CancellationToken cancellationToken) =>
         throw new NotImplementedException();

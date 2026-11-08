@@ -24,6 +24,12 @@ public class ClienteRepository : IClienteRepository
     }
 
     /// <inheritdoc />
+    public Task<Cliente?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken)
+    {
+        return _contexto.Clientes.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+    }
+
+    /// <inheritdoc />
     public void Agregar(Cliente cliente)
     {
         _contexto.Clientes.Add(cliente);

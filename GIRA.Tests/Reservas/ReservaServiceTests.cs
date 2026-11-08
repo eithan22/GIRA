@@ -229,6 +229,121 @@ public class ReservaServiceTests
         Assert.Equal(GIRA.Application.Common.ErrorType.Conflict, resultado.Type);
         Assert.Contains("código único", resultado.Error);
     }
+
+    [Fact]
+    public async Task ConsultarPorCodigoAsync_RequestNulo_Devuelve404Neutro()
+    {
+        var servicio = CrearServicio();
+
+        var resultado = await servicio.ConsultarPorCodigoAsync(null!, default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(GIRA.Application.Common.ErrorType.NotFound, resultado.Type);
+        Assert.Equal("Código o teléfono incorrectos.", resultado.Error);
+    }
+
+    [Fact]
+    public async Task ConsultarPorCodigoAsync_CodigoNulo_Devuelve404Neutro()
+    {
+        var servicio = CrearServicio();
+
+        var resultado = await servicio.ConsultarPorCodigoAsync(new ConsultarReservaRequest(null!, "8095551234"), default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(GIRA.Application.Common.ErrorType.NotFound, resultado.Type);
+        Assert.Equal("Código o teléfono incorrectos.", resultado.Error);
+    }
+
+    [Fact]
+    public async Task ConsultarPorCodigoAsync_TelefonoNulo_Devuelve404Neutro()
+    {
+        var servicio = CrearServicio();
+
+        var resultado = await servicio.ConsultarPorCodigoAsync(new ConsultarReservaRequest("12345678", null!), default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(GIRA.Application.Common.ErrorType.NotFound, resultado.Type);
+        Assert.Equal("Código o teléfono incorrectos.", resultado.Error);
+    }
+
+    [Fact]
+    public async Task ConsultarPorCodigoAsync_TelefonoVacio_Devuelve404Neutro()
+    {
+        var servicio = CrearServicio();
+
+        var resultado = await servicio.ConsultarPorCodigoAsync(new ConsultarReservaRequest("12345678", "   "), default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(GIRA.Application.Common.ErrorType.NotFound, resultado.Type);
+        Assert.Equal("Código o teléfono incorrectos.", resultado.Error);
+    }
+
+    [Fact]
+    public async Task ConsultarPorCodigoAsync_CodigoYTelefonoConGuionesCoinciden_NormalizaYRecortaAntesDeBuscar()
+    {
+        var cliente = new Cliente { Id = Guid.NewGuid(), Nombre = "Ana Pérez", Telefono = "8095551234" };
+        var reserva = new Reserva
+        {
+            Id = Guid.NewGuid(),
+            Codigo = "12345678",
+            ClienteId = cliente.Id,
+            FranjaHorariaId = Almuerzo.Id,
+            Fecha = Fecha,
+            Personas = 3
+        };
+
+        var reservaRepo = new ReservaRepositoryFake
+        {
+            ReservaPorCodigoYTelefono = reserva,
+            ClienteDeLaReservaPorCodigoYTelefono = cliente
+        };
+        var clienteRepo = new ClienteRepositoryFake { ClientePorId = cliente };
+        var servicio = CrearServicio(reservaRepo: reservaRepo, clienteRepo: clienteRepo);
+
+        // Código con espacios y teléfono con guiones: si el servicio dejara de recortar o
+        // normalizar, el fake recibiría los valores "sucios" y esta prueba fallaría.
+        var resultado = await servicio.ConsultarPorCodigoAsync(
+            new ConsultarReservaRequest(" 12345678 ", "809-555-1234"), default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal("12345678", reservaRepo.UltimoCodigoRecibido);
+        Assert.Equal("8095551234", reservaRepo.UltimoTelefonoRecibido);
+        Assert.Equal("12345678", resultado.Value!.Codigo);
+        Assert.Equal("Ana Pérez", resultado.Value.NombreCliente);
+        Assert.Equal("Almuerzo", resultado.Value.FranjaNombre);
+        Assert.Equal("Confirmada", resultado.Value.Estado);
+    }
+
+    [Fact]
+    public async Task ConsultarPorCodigoAsync_CodigoMaloOTelefonoMalo_DevuelveElMismoMensajeYTipoDeError()
+    {
+        var cliente = new Cliente { Id = Guid.NewGuid(), Nombre = "Ana Pérez", Telefono = "8095551234" };
+        var reserva = new Reserva
+        {
+            Id = Guid.NewGuid(),
+            Codigo = "12345678",
+            ClienteId = cliente.Id,
+            FranjaHorariaId = Almuerzo.Id,
+            Fecha = Fecha,
+            Personas = 2
+        };
+
+        var reservaRepo = new ReservaRepositoryFake
+        {
+            ReservaPorCodigoYTelefono = reserva,
+            ClienteDeLaReservaPorCodigoYTelefono = cliente
+        };
+        var servicio = CrearServicio(reservaRepo: reservaRepo);
+
+        var porCodigoMalo = await servicio.ConsultarPorCodigoAsync(
+            new ConsultarReservaRequest("00000000", "8095551234"), default);
+        var porTelefonoMalo = await servicio.ConsultarPorCodigoAsync(
+            new ConsultarReservaRequest("12345678", "8299999999"), default);
+
+        Assert.Equal(GIRA.Application.Common.ErrorType.NotFound, porCodigoMalo.Type);
+        Assert.Equal(porCodigoMalo.Type, porTelefonoMalo.Type);
+        Assert.Equal(porCodigoMalo.Error, porTelefonoMalo.Error);
+    }
 }
 
 class ReservaRepositoryFake : IReservaRepository
@@ -238,9 +353,26 @@ class ReservaRepositoryFake : IReservaRepository
     public bool CodigoSiempreExiste { get; set; }
     public bool LanzarConflictoAlGuardar { get; set; }
     public List<Reserva> Agregadas { get; } = [];
+    public Reserva? ReservaPorCodigoYTelefono { get; set; }
+    public Cliente? ClienteDeLaReservaPorCodigoYTelefono { get; set; }
+    public string? UltimoCodigoRecibido { get; private set; }
+    public string? UltimoTelefonoRecibido { get; private set; }
 
     public Task<IReadOnlyList<Reserva>> ListarVigentesPorFechaAsync(DateOnly fecha, CancellationToken cancellationToken) =>
         Task.FromResult(VigentesPorFecha);
+
+    public Task<Reserva?> BuscarPorCodigoYTelefonoAsync(string codigo, string telefono, CancellationToken cancellationToken)
+    {
+        UltimoCodigoRecibido = codigo;
+        UltimoTelefonoRecibido = telefono;
+
+        var coincide = ReservaPorCodigoYTelefono is not null
+            && ClienteDeLaReservaPorCodigoYTelefono is not null
+            && ReservaPorCodigoYTelefono.Codigo == codigo
+            && ClienteDeLaReservaPorCodigoYTelefono.Telefono == telefono;
+
+        return Task.FromResult(coincide ? ReservaPorCodigoYTelefono : null);
+    }
 
     public Task<int> ContarVigentesPorTelefonoAsync(string telefono, CancellationToken cancellationToken) =>
         Task.FromResult(VigentesPorTelefono);
@@ -267,6 +399,7 @@ class ClienteRepositoryFake : IClienteRepository
 
     public bool LanzarDuplicadoAlGuardar { get; set; }
     public Cliente? Agregado { get; private set; }
+    public Cliente? ClientePorId { get; set; }
 
     public ClienteRepositoryFake(params Cliente?[] resultadosBusqueda)
     {
@@ -275,6 +408,9 @@ class ClienteRepositoryFake : IClienteRepository
 
     public Task<Cliente?> BuscarPorTelefonoAsync(string telefono, CancellationToken cancellationToken) =>
         Task.FromResult(_resultadosBusqueda.Count > 0 ? _resultadosBusqueda.Dequeue() : null);
+
+    public Task<Cliente?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken) =>
+        Task.FromResult(ClientePorId);
 
     public void Agregar(Cliente cliente) => Agregado = cliente;
 
