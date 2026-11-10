@@ -1,0 +1,135 @@
+/* Cabecera de Mi reserva · Detalle: código a la izquierda, pastilla de estado
+   a la derecha (layout distinto al bloque centrado de 09-confirmacion.css). */
+.reservas-detalle-cabecera {
+  padding: 28px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--reservas-gradiente-ticket-exito);
+  color: var(--reservas-blanco);
+  position: relative;
+}
+
+.reservas-detalle-codigo-etiqueta {
+  display: block;
+  color: #b3a7ff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.35px;
+}
+
+/* clamp + letter-spacing en em, igual razón que .reservas-codigo-valor en
+   09-confirmacion.css: el código nunca desborda entre 390 y 720px. */
+.reservas-detalle-codigo-valor {
+  display: block;
+  margin-top: 6px;
+  font: 800 clamp(26px, 8vw, 34px) var(--reservas-fuente-titulo);
+  letter-spacing: 0.14em;
+}
+
+.reservas-estado-pill {
+  padding: 9px 16px;
+  border-radius: var(--reservas-radio-pill);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* El color real lo fija el componente en línea, con el valor de
+   ESTADOS_RESERVA[estado].punto de reservasTextos.js — no se duplica aquí. */
+.reservas-estado-punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--reservas-punto-color, currentColor);
+}
+
+/* Aviso de éxito tras cancelar, antes de la cabecera del código. */
+.reservas-detalle-aviso-cancelada { padding: 18px 32px 0; }
+
+/* Grid de datos de Detalle: mismo .reservas-detalle-grid que Confirmación,
+   pero con su propio padding (Confirmación lo hereda de su wrapper). */
+.reservas-detalle-grid--acolchada { padding: 28px 32px; }
+
+/* Nota "cancelación gratis..." + botón Cancelar, junto al grid de datos. */
+.reservas-detalle-nota-cancelar {
+  margin: 0 32px 32px;
+  padding: 18px 20px;
+  border-radius: var(--reservas-radio-grande);
+  background: var(--reservas-fondo-tenue);
+  border: 1px solid var(--reservas-borde-linea);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.reservas-detalle-nota-cancelar-texto {
+  flex: 1 1 280px;
+  color: var(--reservas-texto-medio);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.reservas-alertdialog {
+  padding: 24px;
+  border-radius: var(--reservas-radio-grande);
+  background: var(--reservas-error-fondo);
+  border: 1px solid var(--reservas-error-borde);
+}
+
+/* Envoltura de margen del <div role="alertdialog">; separada de
+   .reservas-alertdialog (que es el fondo/borde) para no mezclar layout
+   externo con apariencia interna. */
+.reservas-detalle-dialogo-envoltura { margin: 0 32px 32px; }
+
+.reservas-alertdialog-titulo {
+  margin: 0 0 6px;
+  font: 800 19px var(--reservas-fuente-titulo);
+  color: var(--reservas-error-texto);
+}
+
+.reservas-alertdialog-texto {
+  margin: 0 0 18px;
+  color: #6b3a40;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.reservas-dialogo-acciones {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+/* Fila de "Hacer una nueva reserva" tras cancelar. */
+.reservas-detalle-accion-final {
+  margin: 0 32px 32px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (min-width: 721px) {
+  /* Detalle.dc.html monta su tarjeta con -76px en desktop, distinto a los
+     -96px de .reservas-tarjeta--angosta (que usa Confirmación). Dentro de
+     este media query para que NUNCA pise los -64px/-78px que
+     .reservas-tarjeta base ya aplica en ≤720/≤480 (02-layout.css) — los
+     mismos que --angosta hereda sin overrides propios. Se usa junto a
+     --angosta y --sola, no en su lugar. */
+  .reservas-tarjeta--detalle { margin-top: -76px; }
+}
+
+@media (max-width: 480px) {
+  .reservas-detalle-aviso-cancelada { padding: 16px 16px 0; }
+  .reservas-detalle-grid--acolchada { padding: 20px 16px; }
+  .reservas-detalle-nota-cancelar { margin: 0 16px 24px; }
+  .reservas-detalle-dialogo-envoltura { margin: 0 16px 24px; }
+  .reservas-dialogo-acciones { flex-direction: column; }
+  .reservas-detalle-accion-final { margin: 0 16px 24px; }
+}

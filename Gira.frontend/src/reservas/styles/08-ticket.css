@@ -1,0 +1,153 @@
+.reservas-ticket-decoracion {
+  position: absolute;
+  right: -60px;
+  top: -60px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #6f5bea55, transparent 70%);
+  pointer-events: none;
+}
+
+.reservas-ticket-cabecera {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reservas-ticket-eyebrow {
+  color: #b3a7ff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.35px;
+}
+
+.reservas-ticket-cambiar { color: #d7d0ff; font-size: 14px; font-weight: 700; }
+
+.reservas-ticket-titulo {
+  position: relative;
+  margin: 8px 0 22px;
+  font: 800 26px/1.15 var(--reservas-fuente-titulo);
+  letter-spacing: -0.6px;
+}
+
+.reservas-ticket-lista { position: relative; margin: 0; display: flex; flex-direction: column; }
+
+.reservas-ticket-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-top: 1px solid #ffffff1f;
+}
+
+.reservas-ticket-item-icono {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 11px;
+  background: #ffffff14;
+  display: grid;
+  place-items: center;
+}
+
+.reservas-ticket-item-etiqueta { color: #b9bfd6; font-size: 13px; }
+.reservas-ticket-item-valor { margin: 2px 0 0; font-weight: 700; font-size: 18px; }
+
+/* TicketResumen antes de elegir franja: "—" atenuado en vez del valor real. */
+.reservas-ticket-item-valor--pendiente { font-weight: 500; opacity: 0.55; }
+
+.reservas-ticket-perforado {
+  position: relative;
+  margin: 22px -32px;
+  display: flex;
+  align-items: center;
+}
+
+.reservas-ticket-perforado::before,
+.reservas-ticket-perforado::after {
+  content: '';
+  width: 18px;
+  height: 36px;
+  background: var(--reservas-fondo-pagina);
+}
+
+.reservas-ticket-perforado::before { border-radius: 0 18px 18px 0; }
+.reservas-ticket-perforado::after { border-radius: 18px 0 0 18px; }
+
+.reservas-ticket-perforado-linea { flex: 1; border-top: 2px dashed #ffffff33; }
+
+.reservas-ticket-notas {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #d6d9ea;
+}
+
+.reservas-ticket-nota { display: flex; gap: 10px; }
+
+/* Icono de 18px con flex:none + margin-top:2px, compartido por las notas de
+   TicketResumen y por la nota de seguridad de BuscarReserva (ambos sobre
+   fondo oscuro, mismo tamaño de icono). */
+.reservas-ticket-nota-icono { flex: none; margin-top: 2px; }
+
+/* Lista numerada "Cómo funciona" del aside de BuscarReserva.jsx (Consulta.dc.html). */
+.reservas-ticket-pasos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.reservas-ticket-paso { display: flex; gap: 14px; }
+
+.reservas-ticket-paso-numero {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  background: #ffffff1a;
+  border: 1px solid #ffffff33;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.reservas-ticket-paso-texto { font-size: 15px; line-height: 1.55; color: #dfe2f2; }
+.reservas-ticket-paso-titulo { display: block; color: var(--reservas-blanco); }
+
+/* Nota de seguridad al pie del mismo aside: variante oscura del aviso informativo. */
+.reservas-ticket-nota-info {
+  margin-top: 28px;
+  padding: 14px 16px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: #ffffff12;
+  border: 1px solid #ffffff1f;
+  border-radius: var(--reservas-radio-mediano);
+  font-size: 13px;
+  line-height: 1.6;
+  color: #d6d9ea;
+}
+
+/* El aside pasa a padding 22px/18px en ≤720px (02-layout.css); el perforado
+   usa el mismo -18px para que sus "mordidas" sigan tocando el borde del aside. */
+@media (max-width: 720px) {
+  .reservas-ticket-perforado { margin: 22px -18px; }
+}
+
+@media (max-width: 480px) {
+  .reservas-ticket-titulo { font: 800 20px/1.2 var(--reservas-fuente-titulo); }
+}

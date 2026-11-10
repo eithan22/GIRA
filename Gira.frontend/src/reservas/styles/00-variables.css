@@ -1,0 +1,52 @@
+.reservas-raiz {
+  --reservas-fuente-titulo: 'Manrope', 'Segoe UI', sans-serif;
+  --reservas-fuente-texto: 'DM Sans', 'Segoe UI', sans-serif;
+
+  --reservas-morado: #6f5bea;
+  --reservas-morado-fuerte: #5948d3;
+  --reservas-gradiente-boton: linear-gradient(145deg, #7a68f0, #5948d3);
+  --reservas-gradiente-logo: linear-gradient(145deg, #8978ff, #6554de);
+  --reservas-gradiente-marino: linear-gradient(160deg, #0f1626, #1a2150);
+  --reservas-gradiente-ticket: linear-gradient(170deg, #161e3b, #241d63);
+  --reservas-gradiente-ticket-exito: linear-gradient(170deg, #161e3b, #2a2170);
+  --reservas-gradiente-franja-noche: linear-gradient(145deg, #3b3f8f, #1f2457);
+  --reservas-gradiente-franja-dia: linear-gradient(145deg, #ffd37a, #ffb02e);
+  --reservas-gradiente-exito-icono: linear-gradient(145deg, #34d3b0, #0f9f84);
+
+  --reservas-fondo-pagina: #f4f3fa;
+  --reservas-blanco: #ffffff;
+  --reservas-texto: #202a3a;
+  --reservas-texto-medio: #4b5669;
+  --reservas-texto-suave: #5d687c;
+  --reservas-borde: #cfd4df;
+  --reservas-borde-suave: #dfe2ec;
+  --reservas-borde-linea: #eff0f5;
+  --reservas-fondo-tenue: #f7f8fc;
+
+  --reservas-exito-fondo: #d9f3e8;
+  --reservas-exito-texto: #0b5a43;
+  --reservas-exito-punto: #20a77d;
+  --reservas-error-fondo: #fff5f5;
+  --reservas-error-borde: #f4dfe0;
+  --reservas-error-texto: #7d2a32;
+  --reservas-error-boton: #b8404a;
+  --reservas-aviso-fondo: #fff8e8;
+  --reservas-aviso-borde: #f4ebce;
+  --reservas-aviso-texto: #6b5a28;
+  --reservas-neutro-fondo: #e9ebf2;
+  --reservas-neutro-texto: #3d485b;
+
+  --reservas-foco: #b9aef5;
+
+  --reservas-radio-tarjeta: 22px;
+  --reservas-radio-grande: 16px;
+  --reservas-radio-mediano: 12px;
+  --reservas-radio-chip: 14px;
+  --reservas-radio-pill: 20px;
+
+  --reservas-sombra-tarjeta: 0 30px 80px #1a215033, 0 2px 6px #1a215014;
+  --reservas-sombra-boton: 0 10px 24px #6f5bea40;
+  --reservas-sombra-chip: 0 8px 20px #6f5bea40;
+  --reservas-sombra-logo: 0 6px 18px #6f5bea66;
+  --reservas-sombra-franja: 0 10px 26px #6f5bea1f;
+}

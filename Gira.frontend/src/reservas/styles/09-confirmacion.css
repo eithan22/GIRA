@@ -1,0 +1,183 @@
+.reservas-hero-titulo--exito {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+  font-weight: 800;
+  font-size: clamp(28px, 6vw, 42px);
+  line-height: 1.1;
+  letter-spacing: -1.1px;
+  color: var(--reservas-blanco);
+}
+
+.reservas-hero-eyebrow--exito {
+  display: block;
+  text-align: center;
+  color: #7ff0d6;
+}
+
+.reservas-exito-icono {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: var(--reservas-gradiente-exito-icono);
+  color: var(--reservas-blanco);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 8px #34d3b033, 0 10px 26px #0f9f8466;
+}
+
+/* Puntos de confeti decorativos: cada uno recibe su posición/color/rotación
+   por estilo en línea desde el componente (son ~6 puntos únicos, no vale la
+   pena una clase por cada uno). */
+.reservas-confeti { position: absolute; pointer-events: none; }
+
+.reservas-codigo-panel {
+  padding: 34px 32px 30px;
+  text-align: center;
+  background: var(--reservas-gradiente-ticket-exito);
+  color: var(--reservas-blanco);
+  position: relative;
+  overflow: hidden;
+}
+
+.reservas-codigo-etiqueta {
+  position: relative;
+  display: block;
+  margin-bottom: 9px;
+  color: #b3a7ff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.35px;
+}
+
+/* clamp + letter-spacing en em: a 390px el tamaño baja solo, y el espaciado
+   entre letras baja con él, así "4827 1936" nunca desborda su contenedor.
+   padding-left compensa el letter-spacing, que deja un hueco a la derecha
+   del último carácter pero no a la izquierda del primero. */
+.reservas-codigo-valor {
+  position: relative;
+  display: block;
+  font: 800 clamp(36px, 9vw, 56px) var(--reservas-fuente-titulo);
+  letter-spacing: 0.14em;
+  padding-left: 0.14em;
+  color: var(--reservas-blanco);
+  text-shadow: 0 4px 24px #6f5bea88;
+}
+
+.reservas-codigo-copiar {
+  position: relative;
+  margin-top: 16px;
+  min-height: 48px;
+  padding: 0 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: var(--reservas-radio-mediano);
+  border: 1px solid #ffffff40;
+  background: #ffffff1a;
+  color: var(--reservas-blanco);
+  font: 700 15px var(--reservas-fuente-texto);
+}
+
+/* Divisor perforado sobre fondo blanco (distinto del de 08-ticket, que es
+   sobre fondo oscuro): lo reutiliza también DetalleReserva.jsx. */
+.reservas-codigo-perforado { position: relative; height: 0; }
+
+.reservas-codigo-perforado::before,
+.reservas-codigo-perforado::after {
+  content: '';
+  position: absolute;
+  top: -18px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--reservas-fondo-pagina);
+}
+
+.reservas-codigo-perforado::before { left: -18px; }
+.reservas-codigo-perforado::after { right: -18px; }
+
+.reservas-codigo-perforado-linea {
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  top: 0;
+  border-top: 2px dashed #d9dbe8;
+}
+
+.reservas-confirmacion-cuerpo { padding: 0 32px 32px; }
+
+.reservas-detalle-grid {
+  margin: 24px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.reservas-detalle-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border-radius: var(--reservas-radio-grande);
+  background: var(--reservas-fondo-tenue);
+}
+
+.reservas-detalle-icono {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: var(--reservas-radio-mediano);
+  background: #ebe8ff;
+  display: grid;
+  place-items: center;
+  color: var(--reservas-morado-fuerte);
+}
+
+.reservas-detalle-etiqueta { color: var(--reservas-texto-suave); font-size: 13px; }
+.reservas-detalle-valor { margin: 2px 0 0; font-weight: 700; font-size: 16px; }
+
+.reservas-confirmacion-acciones {
+  margin-top: 26px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.reservas-confirmacion-acciones .reservas-boton { flex: 1 1 200px; }
+
+/* Reutilizado también por DetalleReserva.jsx para el mismo recordatorio.
+   max-width + margin:auto en vez de depender de un <main> contenedor: así se
+   alinea con la tarjeta angosta aunque sea hija directa de .reservas-pagina. */
+.reservas-pie-nota {
+  max-width: 640px;
+  margin: 20px auto 0;
+  padding: 0 24px;
+  text-align: center;
+  color: var(--reservas-texto-suave);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+@media (max-width: 480px) {
+  .reservas-confirmacion-cuerpo { padding: 0 16px 22px; }
+
+  .reservas-confirmacion-acciones { flex-direction: column; gap: 10px; }
+  .reservas-confirmacion-acciones .reservas-boton { flex: initial; }
+
+  .reservas-codigo-panel { padding: 28px 18px 26px; }
+
+  .reservas-codigo-copiar {
+    width: 100%;
+    max-width: 260px;
+    margin-top: 16px;
+    min-height: 50px;
+  }
+
+  .reservas-detalle-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .reservas-detalle-icono { display: none; }
+  .reservas-detalle-item { padding: 12px; }
+  .reservas-detalle-valor { font-size: 15px; }
+}

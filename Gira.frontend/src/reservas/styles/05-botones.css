@@ -1,0 +1,71 @@
+.reservas-boton {
+  min-height: 54px;
+  padding: 0 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: var(--reservas-radio-mediano);
+  font-size: 17px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* 48px es el mínimo de alto para CUALQUIER variante, incluida esta chica. */
+.reservas-boton--chico {
+  min-height: 48px;
+  padding: 0 24px;
+  font-size: 15px;
+}
+
+.reservas-boton--primario {
+  background: var(--reservas-gradiente-boton);
+  color: var(--reservas-blanco);
+  box-shadow: var(--reservas-sombra-boton);
+}
+
+.reservas-boton--secundario {
+  background: var(--reservas-blanco);
+  color: var(--reservas-texto-medio);
+  border: 1px solid var(--reservas-borde);
+}
+
+.reservas-boton--peligro {
+  background: var(--reservas-error-boton);
+  color: var(--reservas-blanco);
+  box-shadow: 0 8px 20px #b8404a33;
+}
+
+.reservas-boton--fantasma-error {
+  background: var(--reservas-blanco);
+  color: #a63f48;
+  border: 1px solid #e3b3b7;
+}
+
+.reservas-boton--ancho { width: 100%; }
+
+.reservas-boton:disabled {
+  box-shadow: none;
+}
+
+@media (hover: hover) {
+  .reservas-boton {
+    transition: filter 0.15s ease, transform 0.15s ease;
+  }
+
+  .reservas-boton--primario:hover,
+  .reservas-boton--peligro:hover {
+    filter: brightness(1.06);
+  }
+
+  .reservas-boton--secundario:hover,
+  .reservas-boton--fantasma-error:hover {
+    border-color: var(--reservas-morado);
+  }
+}
+
+@media (max-width: 720px) {
+  .reservas-boton {
+    width: 100%;
+  }
+}

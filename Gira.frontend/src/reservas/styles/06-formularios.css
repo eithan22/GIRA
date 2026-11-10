@@ -1,0 +1,78 @@
+.reservas-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reservas-campo--separado { margin-bottom: 22px; }
+
+.reservas-campo-etiqueta {
+  font-size: 14px;
+  font-weight: 700;
+  color: #3d485b;
+}
+
+.reservas-campo-control { position: relative; }
+
+.reservas-campo-icono {
+  position: absolute;
+  left: 16px;
+  top: 17px;
+  color: #7a8498;
+  pointer-events: none;
+}
+
+/* font-size 16px es el mínimo en TODOS los inputs: por debajo de eso, Safari
+   en iOS hace zoom automático al enfocar el campo. */
+.reservas-input {
+  width: 100%;
+  height: 56px;
+  padding: 0 16px;
+  border: 2px solid var(--reservas-borde);
+  border-radius: var(--reservas-radio-mediano);
+  background: var(--reservas-blanco);
+  font-size: 16px;
+  font-family: var(--reservas-fuente-texto);
+  color: var(--reservas-texto);
+}
+
+.reservas-input--con-icono { padding-left: 46px; }
+
+.reservas-input--codigo {
+  height: 62px;
+  background: #fbfbfe;
+  font: 800 28px var(--reservas-fuente-titulo);
+  letter-spacing: 8px;
+  color: #2d2470;
+}
+
+/* Especificidad real, sin !important: gana sobre el borde base de .reservas-input
+   y sobre cualquier :focus suelto del CSS global. */
+.reservas-input:focus-visible {
+  border-color: var(--reservas-morado);
+  box-shadow: 0 0 0 3px #6f5bea22;
+}
+
+.reservas-campo-ayuda {
+  font-size: 13px;
+  color: var(--reservas-texto-suave);
+  line-height: 1.5;
+}
+
+.reservas-campo-ayuda--error {
+  color: var(--reservas-error-texto);
+  font-weight: 700;
+}
+
+.reservas-input[aria-invalid="true"] {
+  border-color: var(--reservas-error-boton);
+}
+
+.reservas-input[aria-invalid="true"]:focus-visible {
+  border-color: var(--reservas-error-boton);
+  box-shadow: 0 0 0 3px #b8404a26;
+}
+
+@media (max-width: 480px) {
+  .reservas-campo--separado { margin-bottom: 18px; }
+}

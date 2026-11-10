@@ -1,0 +1,241 @@
+.reservas-pagina {
+  width: 100%;
+  min-height: 100vh;
+  background: var(--reservas-fondo-pagina);
+  display: flex;
+  flex-direction: column;
+}
+
+.reservas-portada {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(900px 420px at 88% -10%, #6f5bea66, transparent),
+    radial-gradient(700px 420px at 0% 110%, #3b2fa055, transparent),
+    var(--reservas-gradiente-marino);
+  padding: 0 48px 150px;
+}
+
+.reservas-portada--corta { padding-bottom: 120px; }
+
+.reservas-portada-decoracion {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.reservas-portada-decoracion--a { right: -120px; top: -140px; width: 520px; height: 520px; border: 1px solid #ffffff14; }
+.reservas-portada-decoracion--b { right: -30px; top: -50px; width: 340px; height: 340px; border: 1px solid #ffffff1f; }
+
+.reservas-header {
+  position: relative;
+  height: 84px;
+  max-width: 1104px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.reservas-marca { display: flex; align-items: center; gap: 10px; }
+
+.reservas-marca-icono {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--reservas-radio-mediano);
+  background: var(--reservas-gradiente-logo);
+  color: var(--reservas-blanco);
+  display: grid;
+  place-items: center;
+  font: 800 20px var(--reservas-fuente-titulo);
+  box-shadow: var(--reservas-sombra-logo);
+}
+
+.reservas-marca-nombre {
+  font: 800 24px var(--reservas-fuente-titulo);
+  letter-spacing: 1.2px;
+  color: var(--reservas-blanco);
+}
+
+.reservas-marca-punto { color: #a99bff; }
+
+.reservas-nav {
+  display: flex;
+  gap: 6px;
+  padding: 5px;
+  border-radius: var(--reservas-radio-mediano);
+  background: #ffffff14;
+  border: 1px solid #ffffff1f;
+}
+
+.reservas-nav-link {
+  padding: 10px 18px;
+  border-radius: 9px;
+  font-weight: 500;
+  font-size: 15px;
+  color: #dcd8f7;
+}
+
+.reservas-nav-link--activo {
+  background: var(--reservas-blanco);
+  color: #2d2470;
+  font-weight: 700;
+}
+
+.reservas-hero { position: relative; max-width: 1104px; margin: 36px auto 0; }
+.reservas-hero--corta { margin-top: 16px; }
+
+.reservas-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: var(--reservas-radio-pill);
+  background: #ffffff14;
+  border: 1px solid #ffffff26;
+  color: #d7d0ff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.35px;
+}
+
+.reservas-hero-punto {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #5eead4;
+}
+
+.reservas-hero-titulo {
+  margin: 18px 0 14px;
+  max-width: 640px;
+  font: 800 52px/1.08 var(--reservas-fuente-titulo);
+  letter-spacing: -1.6px;
+  color: var(--reservas-blanco);
+}
+
+.reservas-hero-titulo--acento { color: #b3a7ff; }
+
+/* Paso2/Consulta/Detalle usan un h1 más chico (40px) que el de Main/MovilReservar
+   (52px). Se combina con .reservas-hero-titulo, nunca sola. */
+.reservas-hero-titulo--compacta { font-size: 40px; }
+
+.reservas-hero-subtitulo {
+  margin: 0 0 26px;
+  max-width: 520px;
+  color: #c9cde0;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.reservas-hero-eyebrow {
+  color: #b3a7ff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.35px;
+}
+
+.reservas-tarjeta {
+  position: relative;
+  width: 100%;
+  max-width: 1104px;
+  margin: -104px auto 48px;
+  display: flex;
+  flex-wrap: wrap;
+  background: var(--reservas-blanco);
+  border-radius: var(--reservas-radio-tarjeta);
+  box-shadow: var(--reservas-sombra-tarjeta);
+  overflow: hidden;
+}
+
+.reservas-tarjeta--angosta { max-width: 640px; margin-top: -96px; }
+
+/* Confirmación y Detalle reutilizan .reservas-tarjeta como tarjeta blanca de
+   una sola columna (sin aside): display:flex con un único hijo no lo
+   estiraría al ancho completo, así que aquí se vuelve a block. */
+.reservas-tarjeta--sola { display: block; }
+
+/* Enlace "← Buscar otra reserva" sobre el fondo oscuro de la portada, en
+   Mi reserva · Detalle (Detalle.dc.html). Es un <button>, no un <a>: el reset
+   de botón de 01-base.css ya le da cursor y quita borde/fondo. */
+.reservas-portada-volver {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #c9cde0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Cabecera de sección de PasoFecha (título + control "Otra fecha"). En
+   móvil se apila para que el input de fecha tenga ancho propio. */
+.reservas-seccion-cabecera {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.reservas-tarjeta-principal { flex: 999 1 600px; min-width: 0; padding: 36px 40px 40px; }
+
+.reservas-tarjeta-ticket {
+  flex: 1 1 320px;
+  min-width: 0;
+  padding: 36px 32px 40px;
+  background: var(--reservas-gradiente-ticket);
+  color: var(--reservas-blanco);
+  position: relative;
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .reservas-portada { padding: 0 16px 96px; }
+  .reservas-header { height: 64px; }
+
+  .reservas-hero-titulo {
+    font: 800 32px/1.1 var(--reservas-fuente-titulo);
+    letter-spacing: -0.9px;
+  }
+
+  /* width: calc(100% - 32px) + margin:auto le da 16px de gutter a cada lado,
+     igual que el padding de MovilReservar.dc.html: sin esto, la tarjeta toca
+     el borde de la pantalla porque .reservas-pagina no tiene padding propio
+     (no se le puede dar: rompería el fondo a sangre de .reservas-portada). */
+  .reservas-tarjeta {
+    width: calc(100% - 32px);
+    flex-direction: column;
+    margin: -64px auto 24px;
+    border-radius: 20px;
+  }
+
+  .reservas-tarjeta-principal,
+  .reservas-tarjeta-ticket {
+    flex-basis: auto;
+    padding: 22px 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .reservas-portada { padding-bottom: 110px; }
+
+  .reservas-hero-titulo { font: 800 28px/1.12 var(--reservas-fuente-titulo); }
+  .reservas-hero-subtitulo { font-size: 15px; }
+
+  .reservas-marca-icono { width: 34px; height: 34px; font-size: 17px; }
+  .reservas-marca-nombre { font-size: 20px; letter-spacing: 1px; }
+
+  .reservas-nav { padding: 4px; }
+  .reservas-nav-link { padding: 9px 12px; font-size: 13px; }
+
+  .reservas-tarjeta { margin-top: -78px; border-radius: 20px; }
+
+  .reservas-seccion-cabecera { flex-direction: column; align-items: flex-start; }
+
+  /* Siguen clipeadas por overflow:hidden de .reservas-portada; se reducen
+     para no verse desproporcionadas en una pantalla de 390px. */
+  .reservas-portada-decoracion--a { width: 320px; height: 320px; right: -80px; top: -90px; }
+  .reservas-portada-decoracion--b { width: 220px; height: 220px; right: -20px; top: -30px; }
+}

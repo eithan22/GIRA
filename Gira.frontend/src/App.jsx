@@ -10,6 +10,8 @@ import Users from './security/pages/Users.jsx';
 import AppLayout from './security/components/AppLayout.jsx';
 import RequireRole from './security/components/RequireRole.jsx';
 import Icon from './security/components/Icon.jsx';
+import Reservar from './reservas/pages/Reservar.jsx';
+import MiReserva from './reservas/pages/MiReserva.jsx';
 
 function Home() {
   const { user } = useAuth();
@@ -35,6 +37,8 @@ function AuthenticatedApp() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/recuperar-password" element={<ForgotPassword />} />
+      <Route path="/reservar" element={<Reservar />} />
+      <Route path="/mi-reserva" element={<MiReserva />} />
       <Route element={<RequireRole />}>
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to={home} replace />} />

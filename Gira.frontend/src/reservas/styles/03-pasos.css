@@ -1,0 +1,75 @@
+.reservas-pasos {
+  list-style: none;
+  margin: 0 0 30px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.reservas-paso {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--reservas-texto-suave);
+}
+
+.reservas-paso--activo { color: var(--reservas-texto); }
+
+.reservas-paso-numero {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: #eff0f5;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.reservas-paso-numero--activo {
+  background: var(--reservas-gradiente-boton);
+  color: var(--reservas-blanco);
+}
+
+.reservas-paso-numero--hecho {
+  background: var(--reservas-exito-fondo);
+  color: var(--reservas-exito-texto);
+}
+
+.reservas-paso-separador {
+  flex: 0 0 44px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--reservas-borde-linea);
+}
+
+.reservas-paso-separador--hecho { background: var(--reservas-morado); }
+
+.reservas-acciones-paso {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-top: 30px;
+  padding-top: 22px;
+  border-top: 1px solid var(--reservas-borde-linea);
+  flex-wrap: wrap;
+}
+
+.reservas-paso-contador {
+  color: var(--reservas-texto-suave);
+  font-size: 14px;
+}
+
+@media (max-width: 720px) {
+  .reservas-acciones-paso {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 480px) {
+  .reservas-paso-separador { flex: 1 1 16px; }
+}
