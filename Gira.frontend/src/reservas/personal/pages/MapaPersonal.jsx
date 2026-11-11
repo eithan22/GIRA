@@ -178,6 +178,8 @@ export default function MapaPersonal() {
       {mapa && (
         <div className="reservas-personal-mapa" aria-busy={mesas.estado === 'cargando' ? 'true' : 'false'}>
           <ResumenMapa mapa={mapa} />
+          {/* Encabezado de nivel 2 (oculto) para que las zonas (h3) no salten desde el h1 de la página. */}
+          <h2 className="reservas-solo-lectores">Mesas</h2>
           {!puedeVisita && <p className="reservas-campo-ayuda">{TEXTO_VISITA_NO_DISPONIBLE}</p>}
           {zonas.length === 0 && <EstadoPagina estado="vacio" mensaje={TEXTO_SIN_ZONAS} />}
           {zonas.map((zona) => (

@@ -28,7 +28,8 @@ export default function ReservaCreada({ reserva, origen, mesa, onVerEnAgenda, on
   return (
     <div className="reservas-personal-creada">
       <div ref={exitoRef} tabIndex={-1} className="reservas-personal-bloque">
-        <Aviso tipo="exito" titulo={`${TITULO_RESERVA_CREADA}.`}>
+        {/* El contenedor recibe el foco: el Aviso va sin rol de región en vivo para no leerlo dos veces. */}
+        <Aviso tipo="exito" rol="none" titulo={`${TITULO_RESERVA_CREADA}.`}>
           Código <strong>{formatearCodigoVisual(reserva.codigo)}</strong>
         </Aviso>
       </div>

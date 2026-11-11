@@ -18,7 +18,7 @@ function etiquetaFranja(franja) {
 
 /**
  * Filtros de la agenda: fecha, estado (uno), franja y teléfono. El teléfono se envía con el botón
- * «Buscar» o con Enter; los demás filtros se aplican al cambiar. El campo no lleva `name` y usa
+ * «Buscar» o con Enter en ese campo; los demás filtros se aplican al cambiar. El campo no lleva `name` y usa
  * autoComplete="off": el valor vive solo en el estado de la página.
  */
 export default function FiltrosAgenda({ agenda }) {
@@ -33,8 +33,11 @@ export default function FiltrosAgenda({ agenda }) {
     buscarPorTelefono();
   }
 
+  // Solo el teléfono y «Buscar» pertenecen al <form> (por el atributo `form`): pulsar Enter en la fecha o
+  // en un selector no dispara la búsqueda por teléfono. El resto de filtros se aplica al cambiar.
   return (
-    <form className="reservas-personal-tarjeta reservas-personal-filtros" onSubmit={alEnviar} noValidate>
+    <div className="reservas-personal-tarjeta reservas-personal-filtros">
+      <form id="agenda-form-telefono" onSubmit={alEnviar} noValidate />
       <div className="reservas-personal-filtros-grid">
         <div className="reservas-campo">
           <label className="reservas-campo-etiqueta" htmlFor="agenda-fecha">Fecha</label>
@@ -107,6 +110,7 @@ export default function FiltrosAgenda({ agenda }) {
           <label className="reservas-campo-etiqueta" htmlFor="agenda-telefono">Teléfono del cliente</label>
           <input
             id="agenda-telefono"
+            form="agenda-form-telefono"
             type="tel"
             inputMode="tel"
             autoComplete="off"
@@ -127,7 +131,11 @@ export default function FiltrosAgenda({ agenda }) {
       </div>
 
       <div className="reservas-personal-filtros-acciones">
-        <button type="submit" className="reservas-boton reservas-boton--chico reservas-boton--primario reservas-personal-boton-auto">
+        <button
+          type="submit"
+          form="agenda-form-telefono"
+          className="reservas-boton reservas-boton--chico reservas-boton--primario reservas-personal-boton-auto"
+        >
           Buscar
         </button>
         <button
@@ -138,6 +146,6 @@ export default function FiltrosAgenda({ agenda }) {
       </div>
 
       {franjasFallaron && <Aviso tipo="advertencia">{TEXTO_FRANJAS_NO_DISPONIBLES}</Aviso>}
-    </form>
+    </div>
   );
 }

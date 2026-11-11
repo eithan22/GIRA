@@ -124,14 +124,12 @@ export default function SeccionSalon({
         {filtroZona && zonas.truncado && <Aviso tipo="advertencia">{AVISO_ZONAS_TRUNCADAS}</Aviso>}
       </div>
 
+      {/* Con la lista vacía solo se anuncia el aviso de «no hay…», no también el conteo (sería doble). */}
       <p className="reservas-personal-conteo" role="status" aria-live="polite">
-        {lista.estado === 'listo' ? textoConteoSalon(lista.total, textos.singular, textos.plural) : ''}
+        {lista.estado === 'listo' && lista.items.length > 0 ? textoConteoSalon(lista.total, textos.singular, textos.plural) : ''}
       </p>
-      {mensaje && (
-        <div role="status">
-          <Aviso tipo="exito">{mensaje}</Aviso>
-        </div>
-      )}
+      {/* Aviso ya es una región role="status": sin envoltura, para no anidar regiones en vivo. */}
+      {mensaje && <Aviso tipo="exito">{mensaje}</Aviso>}
 
       {lista.estado === 'cargando' && lista.items.length === 0 && <EstadoPagina estado="cargando" />}
       {lista.estado === 'error' && <EstadoPagina estado="error" mensaje={lista.error} onReintentar={lista.recargar} />}

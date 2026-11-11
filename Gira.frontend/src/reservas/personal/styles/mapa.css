@@ -5,7 +5,10 @@
 /* --- Pestañas de Reservas --- */
 .reservas-personal-pestanas { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--reservas-borde-suave); }
 .reservas-personal-pestana {
-  padding: 10px 16px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
   margin-bottom: -1px;
   font-weight: 700;
   color: var(--reservas-texto-suave);
@@ -24,12 +27,22 @@
 }
 
 /* --- Controles del mapa --- */
-.reservas-personal-auto { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--reservas-texto-medio); cursor: pointer; }
-.reservas-personal-auto input { margin-top: 3px; accent-color: var(--reservas-morado); }
+/* Casilla de actualización automática: la etiqueta entera es el objetivo táctil (mínimo 44 px de alto). */
+.reservas-personal-auto {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 14px;
+  color: var(--reservas-texto-medio);
+  cursor: pointer;
+}
+.reservas-personal-auto input { flex: none; width: 20px; height: 20px; accent-color: var(--reservas-morado-fuerte); }
 .reservas-personal-auto small { display: block; }
 
 .reservas-personal-mapa { display: flex; flex-direction: column; gap: 20px; }
-.reservas-personal-mapa[aria-busy="true"] { opacity: 0.75; }
+/* Mientras recarga no se atenúa el texto (bajaba el contraste): solo cambia el cursor. */
+.reservas-personal-mapa[aria-busy="true"] { cursor: progress; }
 
 /* --- Resumen --- */
 .reservas-personal-contadores { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; padding: 0; list-style: none; }
@@ -44,15 +57,19 @@
 }
 .reservas-personal-contador-simbolo { font-size: 16px; }
 
-/* Colores por estado (compartidos por contadores y mesas). */
-.reservas-personal-mesa--libre { background: var(--reservas-exito-fondo); color: var(--reservas-exito-texto); border-color: var(--reservas-exito-punto); }
-.reservas-personal-mesa--reservada { background: var(--reservas-aviso-fondo); color: var(--reservas-aviso-texto); border-color: #d9c78a; }
-.reservas-personal-mesa--ocupada { background: #ebe7ff; color: var(--reservas-morado-fuerte); border-color: var(--reservas-morado); }
-.reservas-personal-mesa--inactiva { background: var(--reservas-neutro-fondo); color: var(--reservas-neutro-texto); border-color: var(--reservas-borde); border-style: dashed; }
+/* Colores por estado (compartidos por contadores y mesas). El borde usa el color del texto del propio
+   estado (5,79 a 8,37 de contraste contra el fondo de página) para que la tarjeta se distinga como
+   botón; los bordes claros anteriores daban 1,59:1. */
+.reservas-personal-mesa--libre { background: var(--reservas-exito-fondo); color: var(--reservas-exito-texto); border-color: var(--reservas-exito-texto); }
+.reservas-personal-mesa--reservada { background: var(--reservas-aviso-fondo); color: var(--reservas-aviso-texto); border-color: var(--reservas-aviso-texto); }
+.reservas-personal-mesa--ocupada { background: #ebe7ff; color: var(--reservas-morado-fuerte); border-color: var(--reservas-morado-fuerte); }
+.reservas-personal-mesa--inactiva { background: var(--reservas-neutro-fondo); color: var(--reservas-neutro-texto); border-color: var(--reservas-neutro-texto); border-style: dashed; }
 
 /* --- Zonas --- */
 .reservas-personal-zona { display: flex; flex-direction: column; gap: 12px; }
-.reservas-personal-zona--inactiva { opacity: 0.65; }
+/* Zona inactiva: sin opacity (bajaba el texto secundario a 2,73:1). Se distingue por la etiqueta «Zona
+   inactiva», el título en gris y las mesas, que ya salen como Inactiva (borde punteado). */
+.reservas-personal-zona--inactiva .reservas-personal-zona-titulo { color: var(--reservas-texto-suave); }
 .reservas-personal-zona-cabecera { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
 .reservas-personal-zona-titulo { margin: 0; font: 800 18px var(--reservas-fuente-titulo); color: var(--reservas-texto); }
 .reservas-personal-etiqueta-inactiva { font-size: 14px; font-weight: 700; color: var(--reservas-neutro-texto); }
@@ -88,7 +105,8 @@
 .reservas-personal-mesa-conflicto { font-weight: 700; color: var(--reservas-error-texto); overflow-wrap: anywhere; }
 .reservas-personal-mesa--conflicto { border-color: var(--reservas-error-boton); }
 .reservas-personal-mesa-accion { margin-top: auto; font-weight: 800; text-decoration: underline; }
-.reservas-personal-mesa .reservas-personal-secundario { color: inherit; opacity: 0.85; }
+/* El texto secundario hereda el color del estado, sin opacity (a .85 bajaba Ocupada a 3,99:1). */
+.reservas-personal-mesa .reservas-personal-secundario { color: inherit; }
 button.reservas-personal-mesa:focus-visible { outline: 3px solid var(--reservas-foco); outline-offset: 2px; }
 @media (hover: hover) {
   button.reservas-personal-mesa:hover { filter: brightness(0.97); box-shadow: var(--reservas-sombra-franja); }
@@ -100,5 +118,5 @@ button.reservas-personal-mesa:focus-visible { outline: 3px solid var(--reservas-
 
 @media (max-width: 720px) {
   .reservas-personal-mesas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .reservas-personal-pestana { padding: 10px 12px; }
+  .reservas-personal-pestana { padding: 0 12px; }
 }

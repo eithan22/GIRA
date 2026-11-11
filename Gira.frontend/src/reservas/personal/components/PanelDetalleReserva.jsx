@@ -176,7 +176,8 @@ export default function PanelDetalleReserva({
 
   const bloqueAviso = aviso && (
     <div className="reservas-personal-panel-bloque" ref={avisoRef} tabIndex={-1}>
-      <Aviso tipo={aviso.tipo === 'exito' ? 'exito' : 'error'}>{aviso.texto}</Aviso>
+      {/* El éxito recibe el foco: su Aviso va sin rol de región en vivo para no leerlo dos veces. */}
+      <Aviso tipo={aviso.tipo === 'exito' ? 'exito' : 'error'} rol={aviso.tipo === 'exito' ? 'none' : undefined}>{aviso.texto}</Aviso>
     </div>
   );
 

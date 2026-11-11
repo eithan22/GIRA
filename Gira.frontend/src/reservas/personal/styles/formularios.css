@@ -23,7 +23,7 @@
   gap: 10px;
   padding: 12px 14px;
   background: var(--reservas-blanco);
-  border: 1px solid var(--reservas-borde);
+  border: 1px solid #737d92;
   border-radius: var(--reservas-radio-mediano);
   cursor: pointer;
 }
@@ -32,7 +32,10 @@
 .reservas-personal-opcion small { display: block; font-size: 13px; color: var(--reservas-texto-suave); }
 .reservas-personal-opcion:has(input:checked) { border-color: var(--reservas-morado); background: #faf9ff; }
 .reservas-personal-opcion:has(input:focus-visible) { outline: 3px solid var(--reservas-foco); outline-offset: 2px; }
-.reservas-personal-opcion--deshabilitada { cursor: not-allowed; opacity: 0.65; background: var(--reservas-fondo-tenue); }
+/* Opción deshabilitada: sin opacity. Su motivo («Empieza a las 18:00», «Sin disponibilidad…») es
+   información y con opacity .65 bajaba a 2,66:1; así queda en 5,30:1. Se distingue por el fondo gris, el
+   borde punteado y el radio deshabilitado. */
+.reservas-personal-opcion--deshabilitada { cursor: not-allowed; background: var(--reservas-fondo-tenue); border-style: dashed; color: var(--reservas-texto-suave); }
 
 /* --- Buscador de cliente --- */
 .reservas-personal-clientes { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }

@@ -144,7 +144,8 @@ export default function FormularioVisita({
     return (
       <div className="reservas-personal-creada">
         <div ref={exitoRef} tabIndex={-1} className="reservas-personal-bloque">
-          <Aviso tipo="exito" titulo={`${TITULO_VISITA_REGISTRADA}.`}>
+          {/* El contenedor recibe el foco: el Aviso va sin rol de región en vivo para no leerlo dos veces. */}
+          <Aviso tipo="exito" rol="none" titulo={`${TITULO_VISITA_REGISTRADA}.`}>
             {textoPersonas(registrada.personas)} · {registrada.franjaNombre} · {registrada.mesaNumero ? `Mesa ${registrada.mesaNumero}` : OPCION_SIN_MESA.toLowerCase()}
           </Aviso>
         </div>

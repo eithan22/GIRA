@@ -57,8 +57,6 @@
 
 /* --- Filas inactivas atenuadas (siguen legibles) --- */
 .reservas-personal-fila-inactiva { color: var(--reservas-texto-suave); background: var(--reservas-fondo-tenue); }
-.reservas-personal-fila-inactiva .reservas-personal-pill-activa,
-.reservas-personal-fila-inactiva .reservas-personal-etiqueta-zona-inactiva { opacity: 1; }
 
 /* --- Tarjetas (móvil) --- */
 .reservas-personal-tarjeta-datos { display: grid; gap: 6px; margin: 0; }

@@ -89,7 +89,8 @@ export default function AgendaPersonal() {
     setCreando(false);
   }
 
-  const conteo = fase === 'listo' ? textoConteo(total, porTelefono, fechaLarga) : '';
+  // Con la lista vacía solo se anuncia el aviso «No hay reservas…», no también el conteo (sería doble).
+  const conteo = fase === 'listo' && items.length > 0 ? textoConteo(total, porTelefono, fechaLarga) : '';
 
   return (
     <PaginaPersonal clave="agenda" tituloRef={tituloRef}>

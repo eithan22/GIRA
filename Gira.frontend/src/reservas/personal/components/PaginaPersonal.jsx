@@ -2,6 +2,9 @@ import { useEffect, useRef } from 'react';
 import { PANTALLAS, TEXTO_PROXIMAMENTE } from '../reservasPersonalTextos.js';
 import EstadoPagina from './EstadoPagina.jsx';
 import NavegacionReservas from './NavegacionReservas.jsx';
+// El CSS de Eithan se importa desde JS (no con @import dentro de mi CSS) y ANTES que el del personal:
+// así, con carga diferida, el empaquetador lo comparte con las pantallas públicas y no lo duplica.
+import '../../styles/index.css';
 import '../styles/index.css';
 
 /**
