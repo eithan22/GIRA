@@ -1,6 +1,13 @@
 import { api } from '../../security/authService.js';
 import { extraerMensajeError, esPeticionCancelada } from '../reservasService.js';
 import { MENSAJE_ERROR_GENERICO } from '../reservasTextos.js';
+import {
+  armarCuerpoCrearReserva,
+  armarCuerpoFranja,
+  armarCuerpoMesa,
+  armarCuerpoVisita,
+  armarCuerpoZona,
+} from './reservasPersonalFormato.js';
 import { MENSAJE_SIN_PERMISO } from './reservasPersonalTextos.js';
 
 // Servicio del personal: usa el `api` de authService (token + refresh). El 401 ya
@@ -49,9 +56,17 @@ export const reservasPersonalService = {
 
   /** GET /api/reservas. Sin fecha ni teléfono devuelve hoy. `telefono`: excepción documentada (ver arriba). */
   async listarReservas({ fecha, estado, franjaId, telefono, page = 1, pageSize = 20 } = {}, { signal } = {}) {
+    // El teléfono viaja solo con dígitos; axios lo codifica en el query string.
+    const digitos = telefono ? String(telefono).replace(/\D/g, '') : undefined;
     const response = await api.get('/api/reservas', opciones(signal, {
-      params: limpiar({ fecha, estado, franjaId, telefono, page, pageSize }),
+      params: limpiar({ fecha, estado, franjaId, telefono: digitos, page, pageSize }),
     }));
+    return response.data;
+  },
+
+  /** GET /api/reservas/franjas (GI-399): todas las franjas no borradas, con `activa`, por hora de inicio. */
+  async listarFranjasOperativas({ signal } = {}) {
+    const response = await api.get('/api/reservas/franjas', opciones(signal));
     return response.data;
   },
 
@@ -82,20 +97,29 @@ export const reservasPersonalService = {
     return response.data;
   },
 
-  /** POST /api/reservas con token: `origen` debe ser Telefono o Presencial (verificar formato en el Lote 3). */
-  async crearReserva({ nombre, telefono, fecha, franjaHorariaId, personas, origen }) {
-    const response = await api.post('/api/reservas', {
-      nombre, telefono, fecha, franjaHorariaId, personas, origen,
-    }, opciones());
+  /**
+   * POST /api/reservas con token. `origen` es "Telefono" o "Presencial" y viaja como número
+   * (ORIGEN_API, única fuente); el teléfono va solo en el cuerpo, con dígitos. Devuelve ReservaCreadaDto.
+   */
+  async crearReserva(datos) {
+    const response = await api.post('/api/reservas', armarCuerpoCrearReserva(datos), opciones());
+    return response.data;
+  },
+
+  /**
+   * GET /api/reservas/disponibilidad: franjas con mesa libre para fecha y personas. Es anónima (el
+   * token se ignora) y tiene límite por IP (429); el llamador debe tolerarlo sin bloquear el formulario.
+   */
+  async consultarDisponibilidad({ fecha, personas }, { signal } = {}) {
+    const response = await api.get('/api/reservas/disponibilidad', opciones(signal, { params: { fecha, personas } }));
     return response.data;
   },
 
   // --- Visitas sin reserva ---
 
-  async registrarVisita({ franjaHorariaId, mesaId, personas }) {
-    const response = await api.post('/api/visitas', {
-      franjaHorariaId, mesaId: mesaId ?? null, personas,
-    }, opciones());
+  /** POST /api/visitas: la fecha la pone el servidor (hoy). Sin datos personales; devuelve VisitaDto. */
+  async registrarVisita(datos) {
+    const response = await api.post('/api/visitas', armarCuerpoVisita(datos), opciones());
     return response.data;
   },
 
@@ -123,15 +147,18 @@ export const reservasPersonalService = {
   listarMesas: (filtros = {}, { signal } = {}) => listarSalon('mesas', filtros, signal),
   listarFranjas: (filtros = {}, { signal } = {}) => listarSalon('franjas', filtros, signal),
 
+  // Crear (POST, sin id) o editar (PUT /{id}). Los cuerpos salen de los armadores puros (recorte,
+  // tipos y horas "HH:mm:ss"). Sin RowVersion: ningún DTO lo expone, no hay nada que reenviar.
   async guardarZona(datos, id) {
+    const cuerpo = armarCuerpoZona(datos);
     const response = id
-      ? await api.put(`/api/zonas/${id}`, { nombre: datos.nombre }, opciones())
-      : await api.post('/api/zonas', { nombre: datos.nombre }, opciones());
+      ? await api.put(`/api/zonas/${id}`, cuerpo, opciones())
+      : await api.post('/api/zonas', cuerpo, opciones());
     return response.data;
   },
 
   async guardarMesa(datos, id) {
-    const cuerpo = { numero: datos.numero, capacidad: datos.capacidad, zonaId: datos.zonaId };
+    const cuerpo = armarCuerpoMesa(datos);
     const response = id
       ? await api.put(`/api/mesas/${id}`, cuerpo, opciones())
       : await api.post('/api/mesas', cuerpo, opciones());
@@ -139,7 +166,7 @@ export const reservasPersonalService = {
   },
 
   async guardarFranja(datos, id) {
-    const cuerpo = { nombre: datos.nombre, horaInicio: datos.horaInicio, horaFin: datos.horaFin };
+    const cuerpo = armarCuerpoFranja(datos);
     const response = id
       ? await api.put(`/api/franjas/${id}`, cuerpo, opciones())
       : await api.post('/api/franjas', cuerpo, opciones());

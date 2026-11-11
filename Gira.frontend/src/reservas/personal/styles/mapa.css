@@ -1,0 +1,104 @@
+/* Mapa de mesas, visitas y pestañas (GI-396). Solo clases reservas-personal-*; los colores salen de
+   las variables --reservas-* de Eithan. El estado de una mesa nunca depende solo del color: lleva
+   símbolo y texto. */
+
+/* --- Pestañas de Reservas --- */
+.reservas-personal-pestanas { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--reservas-borde-suave); }
+.reservas-personal-pestana {
+  padding: 10px 16px;
+  margin-bottom: -1px;
+  font-weight: 700;
+  color: var(--reservas-texto-suave);
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--reservas-radio-mediano) var(--reservas-radio-mediano) 0 0;
+}
+.reservas-personal-pestana--activa {
+  color: var(--reservas-morado-fuerte);
+  background: var(--reservas-blanco);
+  border-color: var(--reservas-borde-suave);
+  box-shadow: inset 0 3px 0 var(--reservas-morado);
+}
+@media (hover: hover) {
+  .reservas-personal-pestana:hover { color: var(--reservas-morado-fuerte); }
+}
+
+/* --- Controles del mapa --- */
+.reservas-personal-auto { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--reservas-texto-medio); cursor: pointer; }
+.reservas-personal-auto input { margin-top: 3px; accent-color: var(--reservas-morado); }
+.reservas-personal-auto small { display: block; }
+
+.reservas-personal-mapa { display: flex; flex-direction: column; gap: 20px; }
+.reservas-personal-mapa[aria-busy="true"] { opacity: 0.75; }
+
+/* --- Resumen --- */
+.reservas-personal-contadores { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.reservas-personal-contador {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  border: 1px solid transparent;
+  border-radius: var(--reservas-radio-pill);
+}
+.reservas-personal-contador-simbolo { font-size: 16px; }
+
+/* Colores por estado (compartidos por contadores y mesas). */
+.reservas-personal-mesa--libre { background: var(--reservas-exito-fondo); color: var(--reservas-exito-texto); border-color: var(--reservas-exito-punto); }
+.reservas-personal-mesa--reservada { background: var(--reservas-aviso-fondo); color: var(--reservas-aviso-texto); border-color: #d9c78a; }
+.reservas-personal-mesa--ocupada { background: #ebe7ff; color: var(--reservas-morado-fuerte); border-color: var(--reservas-morado); }
+.reservas-personal-mesa--inactiva { background: var(--reservas-neutro-fondo); color: var(--reservas-neutro-texto); border-color: var(--reservas-borde); border-style: dashed; }
+
+/* --- Zonas --- */
+.reservas-personal-zona { display: flex; flex-direction: column; gap: 12px; }
+.reservas-personal-zona--inactiva { opacity: 0.65; }
+.reservas-personal-zona-cabecera { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.reservas-personal-zona-titulo { margin: 0; font: 800 18px var(--reservas-fuente-titulo); color: var(--reservas-texto); }
+.reservas-personal-etiqueta-inactiva { font-size: 14px; font-weight: 700; color: var(--reservas-neutro-texto); }
+
+/* --- Mesas: cuadrícula sin scroll horizontal --- */
+.reservas-personal-mesas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.reservas-personal-mesas > li { min-width: 0; }
+.reservas-personal-mesa {
+  width: 100%;
+  height: 100%;
+  min-height: 132px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px;
+  text-align: left;
+  font-size: 14px;
+  border-width: 2px;
+  border-style: solid;
+  border-radius: var(--reservas-radio-grande);
+}
+.reservas-personal-mesa--inactiva { border-width: 2px; border-style: dashed; }
+.reservas-personal-mesa-numero { font: 800 18px var(--reservas-fuente-titulo); }
+.reservas-personal-mesa-estado { font-weight: 700; }
+.reservas-personal-mesa-conflicto { font-weight: 700; color: var(--reservas-error-texto); overflow-wrap: anywhere; }
+.reservas-personal-mesa--conflicto { border-color: var(--reservas-error-boton); }
+.reservas-personal-mesa-accion { margin-top: auto; font-weight: 800; text-decoration: underline; }
+.reservas-personal-mesa .reservas-personal-secundario { color: inherit; opacity: 0.85; }
+button.reservas-personal-mesa:focus-visible { outline: 3px solid var(--reservas-foco); outline-offset: 2px; }
+@media (hover: hover) {
+  button.reservas-personal-mesa:hover { filter: brightness(0.97); box-shadow: var(--reservas-sombra-franja); }
+}
+
+/* --- Visitas --- */
+.reservas-personal-tarjeta--formulario { max-width: 560px; }
+.reservas-personal-sesion { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 14px; }
+
+@media (max-width: 720px) {
+  .reservas-personal-mesas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .reservas-personal-pestana { padding: 10px 12px; }
+}

@@ -2,6 +2,10 @@
    avisos, indicador de carga) en vez de duplicarlo, y solo agrega clases con el
    prefijo reservas-personal-. Sin estilos globales. */
 @import '../../styles/index.css';
+@import './agenda.css';
+@import './formularios.css';
+@import './mapa.css';
+@import './configuracion.css';
 
 .reservas-personal {
   background: var(--reservas-fondo-pagina);

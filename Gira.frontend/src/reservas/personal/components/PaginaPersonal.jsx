@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { PANTALLAS, TEXTO_PROXIMAMENTE } from '../reservasPersonalTextos.js';
 import EstadoPagina from './EstadoPagina.jsx';
+import NavegacionReservas from './NavegacionReservas.jsx';
 import '../styles/index.css';
 
 /**
@@ -10,9 +11,11 @@ import '../styles/index.css';
  * `clave` es una de las claves de PANTALLAS; `fase` cambia cuando la pantalla
  * cambia de paso; `children` reemplaza el «Próximamente».
  */
-export default function PaginaPersonal({ clave, fase, children }) {
+export default function PaginaPersonal({ clave, fase, tituloRef: tituloExterno, children }) {
   const pantalla = PANTALLAS[clave];
-  const tituloRef = useRef(null);
+  const tituloInterno = useRef(null);
+  // La página puede pasar su propio ref (por ejemplo, para devolver el foco al h1 al cerrar un panel).
+  const tituloRef = tituloExterno ?? tituloInterno;
   const primerMontajeRef = useRef(true);
 
   useEffect(() => {
@@ -30,6 +33,7 @@ export default function PaginaPersonal({ clave, fase, children }) {
   return (
     <div className="reservas-raiz reservas-personal">
       <section className="reservas-personal-pagina">
+        <NavegacionReservas />
         <header className="reservas-personal-encabezado">
           <span className="reservas-personal-eyebrow">{pantalla.eyebrow}</span>
           <h1 ref={tituloRef} tabIndex={-1} className="reservas-personal-titulo">{pantalla.titulo}</h1>

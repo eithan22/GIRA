@@ -6,6 +6,7 @@ import Icon from './Icon.jsx';
 
 const menuItems = [
   { label: 'Inicio', to: '/inicio', icon: 'grid', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
+  { label: 'Reservas', to: '/reservas', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero'] },
   { label: 'Usuarios', to: '/seguridad/usuarios', icon: 'users', roles: ['Administrador'], badge: true },
 ];
 
@@ -91,5 +92,11 @@ function locationLabel() {
   if (path.includes('/perfil/cambiar-password')) return 'Cambiar contraseña';
   if (path.includes('/usuarios')) return path.includes('nuevo') ? 'Nuevo usuario' : path.includes('editar') ? 'Editar usuario' : path.split('/').length > 3 ? 'Detalle de usuario' : 'Usuarios';
   if (path.includes('acceso-denegado')) return 'Acceso denegado';
+  if (path.startsWith('/reservas')) {
+    if (path.includes('/mapa')) return 'Mapa de mesas';
+    if (path.includes('/visitas')) return 'Visitas sin reserva';
+    if (path.includes('/configuracion')) return 'Zonas, mesas y franjas';
+    return 'Agenda de reservas';
+  }
   return 'Inicio';
 }
