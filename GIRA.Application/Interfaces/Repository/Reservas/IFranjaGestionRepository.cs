@@ -13,6 +13,12 @@ public interface IFranjaGestionRepository
     /// <summary>True si [inicio, fin) se solapa con otra franja ACTIVA; las contiguas no se solapan.</summary>
     Task<bool> ExisteSolapamientoAsync(TimeOnly inicio, TimeOnly fin, Guid? excluirId, CancellationToken cancellationToken);
     Task<PagedResult<FranjaHoraria>> ListarAsync(bool? activa, int page, int pageSize, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Todas las franjas no borradas (activas e inactivas), por hora de inicio y luego por Id, sin
+    /// paginar y sin seguimiento de cambios (GI-399).
+    /// </summary>
+    Task<IReadOnlyList<FranjaHoraria>> ListarTodasAsync(CancellationToken cancellationToken);
     void Agregar(FranjaHoraria franja);
     Task GuardarCambiosAsync(CancellationToken cancellationToken);
 }

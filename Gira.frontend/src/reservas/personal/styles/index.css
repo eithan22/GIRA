@@ -1,0 +1,55 @@
+/* Estilos del personal. Importa el index.css de Eithan (variables, base, botones,
+   avisos, indicador de carga) en vez de duplicarlo, y solo agrega clases con el
+   prefijo reservas-personal-. Sin estilos globales. */
+@import '../../styles/index.css';
+
+.reservas-personal {
+  background: var(--reservas-fondo-pagina);
+  border-radius: var(--reservas-radio-grande);
+}
+
+.reservas-personal-pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 28px;
+}
+
+.reservas-personal-encabezado {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reservas-personal-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--reservas-morado-fuerte);
+}
+
+.reservas-personal-titulo {
+  font-size: 28px;
+  line-height: 1.2;
+  color: var(--reservas-texto);
+}
+
+.reservas-personal-descripcion {
+  max-width: 62ch;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--reservas-texto-medio);
+}
+
+.reservas-personal-estado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 62ch;
+}
+
+@media (max-width: 720px) {
+  .reservas-personal-pagina { padding: 20px 16px; }
+  .reservas-personal-titulo { font-size: 24px; }
+}

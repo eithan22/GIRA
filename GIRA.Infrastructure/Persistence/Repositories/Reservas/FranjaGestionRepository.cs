@@ -66,6 +66,15 @@ public class FranjaGestionRepository : IFranjaGestionRepository
         return new PagedResult<FranjaHoraria>(items, total, page, pageSize);
     }
 
+    public async Task<IReadOnlyList<FranjaHoraria>> ListarTodasAsync(CancellationToken cancellationToken)
+    {
+        // El filtro global de IsDeleted de GiraDbContext ya deja fuera las franjas borradas.
+        return await _contexto.FranjasHorarias
+            .AsNoTracking()
+            .OrderBy(f => f.HoraInicio).ThenBy(f => f.Id)
+            .ToListAsync(cancellationToken);
+    }
+
     public void Agregar(FranjaHoraria franja)
     {
         _contexto.FranjasHorarias.Add(franja);

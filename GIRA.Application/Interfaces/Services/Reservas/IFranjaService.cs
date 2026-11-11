@@ -12,6 +12,12 @@ public interface IFranjaService
     /// <summary>Obtiene una franja por id.</summary>
     Task<OperationResult<FranjaDto>> ObtenerAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// GI-399: todas las franjas no borradas (activas e inactivas) por hora de inicio, sin paginar,
+    /// con el contrato mínimo del personal operativo.
+    /// </summary>
+    Task<OperationResult<IReadOnlyList<FranjaOperativaDto>>> ListarOperativasAsync(CancellationToken cancellationToken);
+
     /// <summary>Crea una franja validando horario, nombre único y solapamientos.</summary>
     Task<OperationResult<FranjaDto>> CrearAsync(GuardarFranjaRequest request, CancellationToken cancellationToken);
 

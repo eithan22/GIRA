@@ -47,6 +47,16 @@ public class FranjaService : IFranjaService
         return OperationResult.Success(new PagedResult<FranjaDto>(items, pagina.Total, pagina.Page, pagina.PageSize));
     }
 
+    public async Task<OperationResult<IReadOnlyList<FranjaOperativaDto>>> ListarOperativasAsync(CancellationToken cancellationToken)
+    {
+        var franjas = await _franjas.ListarTodasAsync(cancellationToken);
+        IReadOnlyList<FranjaOperativaDto> dtos = franjas
+            .Select(f => new FranjaOperativaDto(f.Id, f.Nombre, f.HoraInicio, f.HoraFin, f.Activa))
+            .ToList();
+
+        return OperationResult.Success(dtos);
+    }
+
     public async Task<OperationResult<FranjaDto>> ObtenerAsync(Guid id, CancellationToken cancellationToken)
     {
         var franja = await _franjas.BuscarPorIdAsync(id, cancellationToken);
