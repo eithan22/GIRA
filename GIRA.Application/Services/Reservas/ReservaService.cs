@@ -25,8 +25,11 @@ public class ReservaService : IReservaService
     private readonly IValidator<CrearReservaRequest> _validator;
     private readonly IValidator<ListarReservasRequest> _validadorListado;
     private readonly IValidator<CheckInRequest> _validadorCheckIn;
+    private readonly IValidator<CancelarPorPersonalRequest> _validadorCancelarPersonal;
+    private readonly IValidator<ModificarReservaRequest> _validadorModificar;
     private readonly GeneradorCodigoReserva _generadorCodigo;
     private readonly IPublisher _publisher;
+    private readonly IPublicadorEventosSeguro _publicadorSeguro;
     private readonly TimeProvider _timeProvider;
 
     // Mismo mensaje para "código no existe" y "teléfono no coincide": nunca se revela cuál falló.
@@ -43,8 +46,11 @@ public class ReservaService : IReservaService
         IValidator<CrearReservaRequest> validator,
         IValidator<ListarReservasRequest> validadorListado,
         IValidator<CheckInRequest> validadorCheckIn,
+        IValidator<CancelarPorPersonalRequest> validadorCancelarPersonal,
+        IValidator<ModificarReservaRequest> validadorModificar,
         GeneradorCodigoReserva generadorCodigo,
         IPublisher publisher,
+        IPublicadorEventosSeguro publicadorSeguro,
         TimeProvider timeProvider)
     {
         _mesaRepository = mesaRepository;
@@ -56,8 +62,11 @@ public class ReservaService : IReservaService
         _validator = validator;
         _validadorListado = validadorListado;
         _validadorCheckIn = validadorCheckIn;
+        _validadorCancelarPersonal = validadorCancelarPersonal;
+        _validadorModificar = validadorModificar;
         _generadorCodigo = generadorCodigo;
         _publisher = publisher;
+        _publicadorSeguro = publicadorSeguro;
         _timeProvider = timeProvider;
     }
 
@@ -95,53 +104,17 @@ public class ReservaService : IReservaService
         // --- Todo lo que no necesita al cliente, primero: así no se crea un cliente por una
         // reserva que de todos modos no era posible. ---
 
-        var mesas = await _mesaRepository.ListarActivasAsync(cancellationToken);
-        var capacidadMaxima = mesas.Count == 0 ? 0 : mesas.Max(m => m.Capacidad);
-        if (request.Personas > capacidadMaxima)
+        var asignacion = await ValidarYAsignarMesaAsync(
+            request.Fecha, request.FranjaHorariaId, request.Personas,
+            mesaPreferidaId: null, preferidaObligatoria: false, excluirReservaId: null,
+            exigirAntelacion: true, cancellationToken);
+        if (!asignacion.IsSuccess)
         {
-            return OperationResult.Failure<ReservaCreadaDto>(
-                ErrorType.Validation,
-                $"Para grupos de más de {capacidadMaxima} personas, llama al restaurante.");
+            return OperationResult.Failure<ReservaCreadaDto>(asignacion.Type!.Value, asignacion.Error!);
         }
 
-        var franjas = await _franjaHorariaRepository.ListarActivasAsync(cancellationToken);
-        var franja = franjas.FirstOrDefault(f => f.Id == request.FranjaHorariaId);
-        if (franja is null)
-        {
-            return OperationResult.Failure<ReservaCreadaDto>(
-                ErrorType.Validation, "La franja horaria no existe o no está activa.");
-        }
-
-        if (_parametros.DiasCerrados.Contains(request.Fecha.DayOfWeek))
-        {
-            return OperationResult.Failure<ReservaCreadaDto>(
-                ErrorType.Validation, "El restaurante está cerrado ese día.");
-        }
-
-        var ahoraLocal = _timeProvider.AhoraLocal();
-        var inicioFranjaLocal = request.Fecha.ToDateTime(franja.HoraInicio);
-        if (inicioFranjaLocal < ahoraLocal + _parametros.AntelacionMinima)
-        {
-            return OperationResult.Failure<ReservaCreadaDto>(
-                ErrorType.Validation, "Esa franja ya no tiene la antelación mínima requerida.");
-        }
-
-        var ocupadas = await _reservaRepository.ListarVigentesPorFechaAsync(request.Fecha, cancellationToken);
-        var mesasOcupadasIds = ocupadas
-            .Where(r => r.FranjaHorariaId == franja.Id)
-            .Select(r => r.MesaId)
-            .ToHashSet();
-
-        var mesaElegida = mesas
-            .Where(m => m.Capacidad >= request.Personas)
-            .OrderBy(m => m.Capacidad)
-            .FirstOrDefault(m => !mesasOcupadasIds.Contains(m.Id));
-
-        if (mesaElegida is null)
-        {
-            return OperationResult.Failure<ReservaCreadaDto>(
-                ErrorType.Conflict, "Esa mesa ya fue tomada, intenta otra franja.");
-        }
+        var franja = asignacion.Value!.Franja;
+        var mesaElegida = asignacion.Value.Mesa;
 
         // Limitación conocida y aceptada: esta cuenta y el guardado final no están en la misma
         // transacción, así que dos solicitudes del mismo teléfono a la vez podrían dejar pasar
@@ -346,6 +319,336 @@ public class ReservaService : IReservaService
         return OperationResult.Success(detalle);
     }
 
+    /// <summary>Mesa y franja resueltas por <see cref="ValidarYAsignarMesaAsync"/>.</summary>
+    private sealed record AsignacionMesa(Mesa Mesa, FranjaHoraria Franja);
+
+    // Validación y asignación de mesa compartidas por la creación (CrearInternoAsync) y la
+    // modificación (ModificarAsync): RN-RES-02, RN-RES-03, RN-RES-13 y RN-RES-14. Con
+    // excluirReservaId la reserva que se modifica no cuenta como ocupante de su propia mesa; con
+    // mesaPreferidaId se intenta esa mesa (obligatoria si la eligió el personal, o solo preferida
+    // si es la mesa actual y todavía sirve); exigirAntelacion aplica la antelación mínima.
+    private async Task<OperationResult<AsignacionMesa>> ValidarYAsignarMesaAsync(
+        DateOnly fecha, Guid franjaId, int personas, Guid? mesaPreferidaId, bool preferidaObligatoria,
+        Guid? excluirReservaId, bool exigirAntelacion, CancellationToken cancellationToken)
+    {
+        var mesas = await _mesaRepository.ListarActivasAsync(cancellationToken);
+        var capacidadMaxima = mesas.Count == 0 ? 0 : mesas.Max(m => m.Capacidad);
+        if (personas > capacidadMaxima)
+        {
+            return OperationResult.Failure<AsignacionMesa>(
+                ErrorType.Validation,
+                $"Para grupos de más de {capacidadMaxima} personas, llama al restaurante.");
+        }
+
+        var franjas = await _franjaHorariaRepository.ListarActivasAsync(cancellationToken);
+        var franja = franjas.FirstOrDefault(f => f.Id == franjaId);
+        if (franja is null)
+        {
+            return OperationResult.Failure<AsignacionMesa>(
+                ErrorType.Validation, "La franja horaria no existe o no está activa.");
+        }
+
+        if (_parametros.DiasCerrados.Contains(fecha.DayOfWeek))
+        {
+            return OperationResult.Failure<AsignacionMesa>(
+                ErrorType.Validation, "El restaurante está cerrado ese día.");
+        }
+
+        if (exigirAntelacion)
+        {
+            var ahoraLocal = _timeProvider.AhoraLocal();
+            var inicioFranjaLocal = fecha.ToDateTime(franja.HoraInicio);
+            if (inicioFranjaLocal < ahoraLocal + _parametros.AntelacionMinima)
+            {
+                return OperationResult.Failure<AsignacionMesa>(
+                    ErrorType.Validation, "Esa franja ya no tiene la antelación mínima requerida.");
+            }
+        }
+
+        var ocupadas = await _reservaRepository.ListarVigentesPorFechaAsync(fecha, cancellationToken);
+        var mesasOcupadasIds = ocupadas
+            .Where(r => r.FranjaHorariaId == franja.Id && r.Id != excluirReservaId)
+            .Select(r => r.MesaId)
+            .ToHashSet();
+
+        if (mesaPreferidaId is { } preferidaId)
+        {
+            var preferida = mesas.FirstOrDefault(m => m.Id == preferidaId);
+            if (preferidaObligatoria)
+            {
+                if (preferida is null)
+                {
+                    var existente = await _mesaGestionRepository.BuscarPorIdAsync(preferidaId, cancellationToken);
+                    return existente is null
+                        ? OperationResult.Failure<AsignacionMesa>(ErrorType.Validation, "La mesa indicada no existe.")
+                        : OperationResult.Failure<AsignacionMesa>(
+                            ErrorType.Conflict,
+                            $"La mesa {existente.Numero} no está disponible: la mesa o su zona están inactivas.");
+                }
+
+                if (preferida.Capacidad < personas)
+                {
+                    return OperationResult.Failure<AsignacionMesa>(
+                        ErrorType.Validation,
+                        $"La mesa {preferida.Numero} admite como máximo {preferida.Capacidad} personas.");
+                }
+
+                if (mesasOcupadasIds.Contains(preferida.Id))
+                {
+                    return OperationResult.Failure<AsignacionMesa>(
+                        ErrorType.Conflict, $"La mesa {preferida.Numero} ya está reservada en esa fecha y franja.");
+                }
+
+                return OperationResult.Success(new AsignacionMesa(preferida, franja));
+            }
+
+            // Mesa actual de la reserva: se conserva si todavía sirve; si no, se asigna otra.
+            if (preferida is not null && preferida.Capacidad >= personas && !mesasOcupadasIds.Contains(preferida.Id))
+            {
+                return OperationResult.Success(new AsignacionMesa(preferida, franja));
+            }
+        }
+
+        var mesaElegida = mesas
+            .Where(m => m.Capacidad >= personas)
+            .OrderBy(m => m.Capacidad)
+            .FirstOrDefault(m => !mesasOcupadasIds.Contains(m.Id));
+
+        if (mesaElegida is null)
+        {
+            return OperationResult.Failure<AsignacionMesa>(
+                ErrorType.Conflict, "Esa mesa ya fue tomada, intenta otra franja.");
+        }
+
+        return OperationResult.Success(new AsignacionMesa(mesaElegida, franja));
+    }
+
+    /// <inheritdoc />
+    public async Task<OperationResult<ReservaDetalleDto>> ModificarAsync(
+        Guid id, ModificarReservaRequest request, CancellationToken cancellationToken)
+    {
+        var validacion = await _validadorModificar.ValidateAsync(request, cancellationToken);
+        if (!validacion.IsValid)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.Validation, validacion.ToString());
+        }
+
+        var reserva = await _reservaRepository.BuscarPorIdAsync(id, cancellationToken);
+        if (reserva is null)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.NotFound, "No encontramos esa reserva.");
+        }
+
+        if (reserva.Estado != EstadoReserva.Confirmada)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.Conflict, MensajeModificarNoPermitido(reserva.Estado));
+        }
+
+        // Si esto fuera null sería una violación de integridad (ver ConsultarPorCodigoAsync).
+        var franjaOriginal = await _franjaHorariaRepository.BuscarPorIdAsync(reserva.FranjaHorariaId, cancellationToken)
+            ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} referencia una franja que no existe.");
+
+        // RN-RES-04: el personal modifica hasta el inicio de la franja original (en el inicio exacto ya no).
+        var ahoraLocal = _timeProvider.AhoraLocal();
+        if (ahoraLocal >= reserva.Fecha.ToDateTime(franjaOriginal.HoraInicio))
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(
+                ErrorType.Conflict, "La franja de esta reserva ya empezó; no se puede modificar.");
+        }
+
+        // RN-RES-05: un horario nuevo se valida como reserva nueva (ventana de fechas y antelación mínima);
+        // si solo cambian las personas o la mesa, basta con que la franja original no haya empezado.
+        var cambiaHorario = request.Fecha != reserva.Fecha || request.FranjaHorariaId != reserva.FranjaHorariaId;
+        if (cambiaHorario)
+        {
+            var hoy = _timeProvider.HoyLocal();
+            if (request.Fecha < hoy)
+            {
+                return OperationResult.Failure<ReservaDetalleDto>(ErrorType.Validation, "La fecha no puede ser en el pasado.");
+            }
+
+            if (request.Fecha > hoy.AddDays(_parametros.AntelacionMaxima.Days))
+            {
+                return OperationResult.Failure<ReservaDetalleDto>(
+                    ErrorType.Validation, "La fecha supera la ventana máxima de anticipación.");
+            }
+        }
+
+        var asignacion = await ValidarYAsignarMesaAsync(
+            request.Fecha, request.FranjaHorariaId, request.Personas,
+            mesaPreferidaId: request.MesaId ?? reserva.MesaId, preferidaObligatoria: request.MesaId is not null,
+            excluirReservaId: reserva.Id, exigirAntelacion: cambiaHorario, cancellationToken);
+        if (!asignacion.IsSuccess)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(asignacion.Type!.Value, asignacion.Error!);
+        }
+
+        var mesa = asignacion.Value!.Mesa;
+        var fechaAnterior = reserva.Fecha;
+        var franjaAnteriorId = reserva.FranjaHorariaId;
+
+        var hayCambios = cambiaHorario || request.Personas != reserva.Personas || mesa.Id != reserva.MesaId;
+        if (hayCambios)
+        {
+            reserva.Modificar(request.Fecha, request.FranjaHorariaId, mesa.Id, request.Personas);
+
+            try
+            {
+                await _reservaRepository.GuardarCambiosAsync(cancellationToken);
+            }
+            catch (ReservaDuplicadaException ex)
+            {
+                // Otra reserva tomó la mesa entre la comprobación y el guardado (índice único filtrado, RN-RES-01).
+                return OperationResult.Failure<ReservaDetalleDto>(ErrorType.Conflict, ex.Message);
+            }
+            catch (ReservaConflictoConcurrenciaException)
+            {
+                // Mensaje propio: el del repositorio habla de la cancelación y la pantalla pública lo compara por subcadena.
+                return OperationResult.Failure<ReservaDetalleDto>(
+                    ErrorType.Conflict, "La reserva cambió mientras se modificaba; vuelve a consultarla.");
+            }
+
+            // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
+            await _publicadorSeguro.PublicarAsync(
+                new ReservaModificadaEvent(
+                    reserva.Id, fechaAnterior, franjaAnteriorId, reserva.Fecha, reserva.FranjaHorariaId, reserva.Personas),
+                $"ReservaId={reserva.Id}",
+                cancellationToken);
+        }
+
+        var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken)
+            ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} desapareció después de modificarla.");
+
+        return OperationResult.Success(detalle);
+    }
+
+    private static string MensajeModificarNoPermitido(EstadoReserva estado) => estado switch
+    {
+        EstadoReserva.EnCurso => "Esta reserva ya tiene el check-in registrado; no se puede modificar.",
+        EstadoReserva.Cancelada => "La reserva fue cancelada; no se puede modificar.",
+        EstadoReserva.NoAsistio => "La reserva fue marcada como no asistida; no se puede modificar.",
+        EstadoReserva.Completada => "La reserva ya fue completada; no se puede modificar.",
+        _ => "Solo se puede modificar una reserva Confirmada."
+    };
+
+    /// <inheritdoc />
+    public async Task<OperationResult<ReservaDetalleDto>> CancelarPorPersonalAsync(
+        Guid id, CancelarPorPersonalRequest request, CancellationToken cancellationToken)
+    {
+        var validacion = await _validadorCancelarPersonal.ValidateAsync(request, cancellationToken);
+        if (!validacion.IsValid)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.Validation, validacion.ToString());
+        }
+
+        var reserva = await _reservaRepository.BuscarPorIdAsync(id, cancellationToken);
+        if (reserva is null)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.NotFound, "No encontramos esa reserva.");
+        }
+
+        if (reserva.Estado != EstadoReserva.Confirmada)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.Conflict, MensajeCancelarPorPersonalNoPermitido(reserva.Estado));
+        }
+
+        // Si esto fuera null sería una violación de integridad (ver ConsultarPorCodigoAsync).
+        var franja = await _franjaHorariaRepository.BuscarPorIdAsync(reserva.FranjaHorariaId, cancellationToken)
+            ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} referencia una franja que no existe.");
+
+        // RN-RES-04: el personal cancela hasta el inicio de la franja (en el inicio exacto ya no).
+        if (_timeProvider.AhoraLocal() >= reserva.Fecha.ToDateTime(franja.HoraInicio))
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(
+                ErrorType.Conflict, "La franja de esta reserva ya empezó; no se puede cancelar.");
+        }
+
+        reserva.Cancelar(request.Motivo.Trim());
+
+        try
+        {
+            await _reservaRepository.GuardarCambiosAsync(cancellationToken);
+        }
+        catch (ReservaConflictoConcurrenciaException)
+        {
+            // Mensaje propio: el del repositorio habla de la cancelación por código y la pantalla pública lo compara por subcadena.
+            return OperationResult.Failure<ReservaDetalleDto>(
+                ErrorType.Conflict, "La reserva cambió mientras se cancelaba; vuelve a consultarla.");
+        }
+
+        // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
+        await _publicadorSeguro.PublicarAsync(
+            new ReservaCanceladaEvent(reserva.Id, reserva.Fecha, reserva.FranjaHorariaId, reserva.Personas),
+            $"ReservaId={reserva.Id}",
+            cancellationToken);
+
+        var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken)
+            ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} desapareció después de cancelarla.");
+
+        return OperationResult.Success(detalle);
+    }
+
+    private static string MensajeCancelarPorPersonalNoPermitido(EstadoReserva estado) => estado switch
+    {
+        EstadoReserva.EnCurso => "Esta reserva ya tiene el check-in registrado; no se puede cancelar.",
+        EstadoReserva.Cancelada => "La reserva ya fue cancelada.",
+        EstadoReserva.NoAsistio => "La reserva fue marcada como no asistida; no se puede cancelar.",
+        EstadoReserva.Completada => "La reserva ya fue completada; no se puede cancelar.",
+        _ => "Solo se puede cancelar una reserva Confirmada."
+    };
+
+    /// <inheritdoc />
+    public async Task<OperationResult<ReservaDetalleDto>> CompletarAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var reserva = await _reservaRepository.BuscarPorIdAsync(id, cancellationToken);
+        if (reserva is null)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.NotFound, "No encontramos esa reserva.");
+        }
+
+        if (reserva.Estado != EstadoReserva.EnCurso)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.Conflict, MensajeCompletarNoPermitido(reserva.Estado));
+        }
+
+        // EnCurso implica que HacerCheckIn guardó las personas reales; si faltaran sería una violación de integridad.
+        var personasReales = reserva.PersonasReales
+            ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} está EnCurso sin personas reales registradas.");
+
+        reserva.Completar();
+
+        try
+        {
+            await _reservaRepository.GuardarCambiosAsync(cancellationToken);
+        }
+        catch (ReservaConflictoConcurrenciaException)
+        {
+            // Mensaje propio: el del repositorio habla de la cancelación y la pantalla pública lo compara por subcadena.
+            return OperationResult.Failure<ReservaDetalleDto>(
+                ErrorType.Conflict, "La reserva cambió mientras se completaba la visita; vuelve a consultarla.");
+        }
+
+        // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
+        await _publicadorSeguro.PublicarAsync(
+            new VisitaCompletadaEvent(reserva.Fecha, reserva.FranjaHorariaId, personasReales, ConReserva: true),
+            $"ReservaId={reserva.Id}",
+            cancellationToken);
+
+        var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken)
+            ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} desapareció después de completarla.");
+
+        return OperationResult.Success(detalle);
+    }
+
+    private static string MensajeCompletarNoPermitido(EstadoReserva estado) => estado switch
+    {
+        EstadoReserva.Confirmada => "Aún no se hizo el check-in; no se puede completar.",
+        EstadoReserva.Completada => "La reserva ya fue completada.",
+        EstadoReserva.Cancelada => "La reserva fue cancelada; no se puede completar.",
+        EstadoReserva.NoAsistio => "La reserva fue marcada como no asistida; no se puede completar.",
+        _ => "Solo se puede completar una reserva que está EnCurso."
+    };
+
     private static string MensajeCheckInNoPermitido(EstadoReserva estado) => estado switch
     {
         EstadoReserva.EnCurso => "Esta reserva ya tiene el check-in registrado.",
@@ -435,7 +738,8 @@ public class ReservaService : IReservaService
         }
 
         await _publisher.Publish(
-            new ReservaCanceladaEvent(reserva.Id, reserva.MotivoCancelacion), cancellationToken);
+            new ReservaCanceladaEvent(reserva.Id, reserva.Fecha, reserva.FranjaHorariaId, reserva.Personas),
+            cancellationToken);
 
         return OperationResult.Success();
     }

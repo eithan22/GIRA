@@ -15,6 +15,8 @@ public static class ReservasServiceExtensions
         services.AddSingleton<GeneradorCodigoReserva>();
         services.AddScoped<IReservaService, ReservaService>();
         services.AddScoped<IClienteService, ClienteService>();
+        services.AddScoped<IVisitaService, VisitaService>();
+        services.AddScoped<IProcesoAutomaticoReservasService, ProcesoAutomaticoReservasService>();
         services.AddScoped<IZonaService, ZonaService>();
         services.AddScoped<IMesaService, MesaService>();
         services.AddScoped<IFranjaService, FranjaService>();

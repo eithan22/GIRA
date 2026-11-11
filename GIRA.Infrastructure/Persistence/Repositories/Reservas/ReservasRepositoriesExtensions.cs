@@ -17,6 +17,7 @@ public static class ReservasRepositoriesExtensions
         services.AddScoped<IMesaGestionRepository, MesaGestionRepository>();
         services.AddScoped<IFranjaGestionRepository, FranjaGestionRepository>();
         services.AddScoped<IReservasFuturasRepository, ReservasFuturasRepository>();
+        services.AddScoped<IVisitaRepository, VisitaRepository>();
         return services;
     }
 }

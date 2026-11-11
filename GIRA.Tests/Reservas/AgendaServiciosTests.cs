@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using GIRA.Infrastructure.Services.Reservas;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Services.Reservas;
@@ -55,8 +57,11 @@ public class AgendaServiciosTests
                 new CrearReservaRequestValidator(parametros, reloj),
                 new ListarReservasRequestValidator(),
                 new CheckInRequestValidator(),
+                new CancelarPorPersonalRequestValidator(),
+                new ModificarReservaRequestValidator(),
                 new GeneradorCodigoReserva(),
                 new PublisherFalso(),
+                new PublicadorEventosSeguro(new PublisherFalso(), NullLogger<PublicadorEventosSeguro>.Instance),
                 reloj);
             Clientes = new ClienteService(clientes, new BuscarClientesRequestValidator());
         }

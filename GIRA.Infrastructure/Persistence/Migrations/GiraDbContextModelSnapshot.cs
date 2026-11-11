@@ -320,7 +320,7 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<Guid>("MesaId")
+                    b.Property<Guid?>("MesaId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("PersonasReales")
@@ -759,8 +759,7 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.HasOne("GIRA.Domain.Entities.Reservas.Mesa", null)
                         .WithMany()
                         .HasForeignKey("MesaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

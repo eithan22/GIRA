@@ -156,6 +156,65 @@ public class ReservasController : ControllerBase
         return resultado.ToActionResult();
     }
 
+    /// <summary>
+    /// GI-160/186/187: modifica fecha, franja, personas y/o mesa de una reserva Confirmada
+    /// (RN-RES-05). Hasta el inicio de la franja original. Revalida la disponibilidad como si fuera
+    /// nueva y publica <c>ReservaModificadaEvent</c>. Devuelve el detalle actualizado.
+    /// </summary>
+    [HttpPut("{id:guid}")]
+    [Authorize(Policy = Politicas.OperarReservas)]
+    [ProducesResponseType<ReservaDetalleDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Modificar(Guid id, ModificarReservaRequest request, CancellationToken cancellationToken)
+    {
+        var resultado = await _reservaService.ModificarAsync(id, request, cancellationToken);
+
+        return resultado.ToActionResult();
+    }
+
+    /// <summary>
+    /// GI-223/237/238: cancela una reserva por el personal con motivo obligatorio (1 a 500
+    /// caracteres). El personal puede cancelar hasta el inicio de la franja. 400 si el motivo no es
+    /// válido; 409 si no está Confirmada o la franja ya empezó. Devuelve el detalle actualizado.
+    /// </summary>
+    [HttpPatch("{id:guid}/cancelar")]
+    [Authorize(Policy = Politicas.OperarReservas)]
+    [ProducesResponseType<ReservaDetalleDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CancelarPorPersonal(Guid id, CancelarPorPersonalRequest request, CancellationToken cancellationToken)
+    {
+        var resultado = await _reservaService.CancelarPorPersonalAsync(id, request, cancellationToken);
+
+        return resultado.ToActionResult();
+    }
+
+    /// <summary>
+    /// GI-166/202/204: completa la visita (EnCurso pasa a Completada) y publica una sola vez
+    /// <c>VisitaCompletadaEvent</c>. Sin ventana horaria. 409 si no está EnCurso. Devuelve el
+    /// detalle actualizado de la reserva.
+    /// </summary>
+    [HttpPatch("{id:guid}/completar")]
+    [Authorize(Policy = Politicas.OperarReservas)]
+    [ProducesResponseType<ReservaDetalleDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Completar(Guid id, CancellationToken cancellationToken)
+    {
+        var resultado = await _reservaService.CompletarAsync(id, cancellationToken);
+
+        return resultado.ToActionResult();
+    }
+
     // Mismo ProblemDetails que RespuestaAutorizacionHandler para 401 — duplicado a propósito:
     // ese handler solo se activa en el middleware de autorización, que un endpoint
     // [AllowAnonymous] nunca atraviesa, así que no hay forma de reusarlo sin tocar Seguridad.

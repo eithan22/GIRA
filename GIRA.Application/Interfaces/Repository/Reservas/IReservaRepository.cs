@@ -38,6 +38,23 @@ public interface IReservaRepository
     /// <summary>Detalle de una reserva por id (GI-164). Null si no existe.</summary>
     Task<ReservaDetalleDto?> ObtenerDetalleAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>True si la mesa tiene una reserva vigente (Confirmada o EnCurso) en esa fecha y franja (GI-166).</summary>
+    Task<bool> ExisteVigenteAsync(Guid mesaId, DateOnly fecha, Guid franjaId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reservas en el <paramref name="estado"/> indicado con fecha hasta <paramref name="fechaMaxima"/>, con seguimiento
+    /// de cambios y las horas de inicio y fin de su franja, ordenadas de la más antigua a la más reciente (fecha e inicio
+    /// de franja) y limitadas a <paramref name="limite"/> (GI-161 y GI-224). Es el insumo de los procesos automáticos.
+    /// </summary>
+    Task<IReadOnlyList<ReservaConFranja>> ListarPorEstadoHastaAsync(
+        EstadoReserva estado, DateOnly fechaMaxima, int limite, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Deja de seguir los cambios de la reserva (GI-161): si un guardado falla, evita que el siguiente la reintente
+    /// y arrastre el error a las demás reservas del ciclo.
+    /// </summary>
+    void Descartar(Reserva reserva);
+
     /// <summary>True si ya existe una reserva con ese código.</summary>
     Task<bool> ExisteCodigoAsync(string codigo, CancellationToken cancellationToken);
 

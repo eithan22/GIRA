@@ -65,6 +65,25 @@ public class Reserva : BaseEntity
         FechaCheckIn = ahora;
     }
 
+    /// <summary>
+    /// Modifica la fecha, la franja, la mesa y las personas de la reserva (GI-160, RN-RES-05). Solo
+    /// una reserva Confirmada puede modificarse y sigue Confirmada. La disponibilidad de la mesa y la
+    /// regla de tiempo las valida el servicio que llama a este método, no la entidad.
+    /// </summary>
+    public void Modificar(DateOnly fecha, Guid franjaHorariaId, Guid mesaId, int personas)
+    {
+        if (Estado != EstadoReserva.Confirmada)
+        {
+            throw new TransicionReservaInvalidaException(
+                $"No se puede modificar una reserva en estado {Estado}; debe estar Confirmada.");
+        }
+
+        Fecha = fecha;
+        FranjaHorariaId = franjaHorariaId;
+        MesaId = mesaId;
+        Personas = personas;
+    }
+
     /// <summary>Completa la visita: pasa de EnCurso a Completada.</summary>
     public void Completar()
     {

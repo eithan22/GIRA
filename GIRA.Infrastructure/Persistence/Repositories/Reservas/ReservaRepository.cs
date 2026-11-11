@@ -139,6 +139,45 @@ public class ReservaRepository : IReservaRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<ReservaConFranja>> ListarPorEstadoHastaAsync(
+        EstadoReserva estado, DateOnly fechaMaxima, int limite, CancellationToken cancellationToken)
+    {
+        var filas = await (
+                from r in _contexto.Reservas
+                where r.Estado == estado && r.Fecha <= fechaMaxima
+                join f in _contexto.FranjasHorarias on r.FranjaHorariaId equals f.Id
+                orderby r.Fecha, f.HoraInicio, r.Id
+                select new FilaFranja { Reserva = r, HoraInicio = f.HoraInicio, HoraFin = f.HoraFin })
+            .Take(limite)
+            .ToListAsync(cancellationToken);
+
+        return filas.Select(x => new ReservaConFranja(x.Reserva, x.HoraInicio, x.HoraFin)).ToList();
+    }
+
+    /// <inheritdoc />
+    public void Descartar(Reserva reserva)
+    {
+        _contexto.Entry(reserva).State = EntityState.Detached;
+    }
+
+    // Clase con inicializador (no record con constructor): EF solo traduce la proyección de entidades así.
+    private sealed class FilaFranja
+    {
+        public Reserva Reserva { get; init; } = null!;
+        public TimeOnly HoraInicio { get; init; }
+        public TimeOnly HoraFin { get; init; }
+    }
+
+    /// <inheritdoc />
+    public Task<bool> ExisteVigenteAsync(Guid mesaId, DateOnly fecha, Guid franjaId, CancellationToken cancellationToken)
+    {
+        return _contexto.Reservas.AnyAsync(
+            r => r.MesaId == mesaId && r.Fecha == fecha && r.FranjaHorariaId == franjaId
+                && (r.Estado == EstadoReserva.Confirmada || r.Estado == EstadoReserva.EnCurso),
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
     public Task<bool> ExisteCodigoAsync(string codigo, CancellationToken cancellationToken)
     {
         return _contexto.Reservas.AnyAsync(r => r.Codigo == codigo, cancellationToken);

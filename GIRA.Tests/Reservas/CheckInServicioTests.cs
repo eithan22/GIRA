@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using GIRA.Infrastructure.Services.Reservas;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Interfaces.Repository.Reservas;
@@ -59,8 +61,11 @@ public class CheckInServicioTests
                 new CrearReservaRequestValidator(parametros, reloj),
                 new ListarReservasRequestValidator(),
                 new CheckInRequestValidator(),
+                new CancelarPorPersonalRequestValidator(),
+                new ModificarReservaRequestValidator(),
                 new GeneradorCodigoReserva(),
                 Publisher,
+                new PublicadorEventosSeguro(Publisher, NullLogger<PublicadorEventosSeguro>.Instance),
                 reloj);
 
             Mesa = new Mesa { Id = Guid.NewGuid(), Numero = 2, Capacidad = 4 };
@@ -336,6 +341,11 @@ class ReservaRepositoryConConflicto : IReservaRepository
         _real.BuscarPorIdAsync(id, cancellationToken);
     public Task<ReservaDetalleDto?> ObtenerDetalleAsync(Guid id, CancellationToken cancellationToken) =>
         _real.ObtenerDetalleAsync(id, cancellationToken);
+    public Task<IReadOnlyList<ReservaConFranja>> ListarPorEstadoHastaAsync(EstadoReserva estado, DateOnly fechaMaxima, int limite, CancellationToken cancellationToken) =>
+        _real.ListarPorEstadoHastaAsync(estado, fechaMaxima, limite, cancellationToken);
+    public void Descartar(Reserva reserva) => _real.Descartar(reserva);
+    public Task<bool> ExisteVigenteAsync(Guid mesaId, DateOnly fecha, Guid franjaId, CancellationToken cancellationToken) =>
+        _real.ExisteVigenteAsync(mesaId, fecha, franjaId, cancellationToken);
     public Task<bool> ExisteCodigoAsync(string codigo, CancellationToken cancellationToken) =>
         _real.ExisteCodigoAsync(codigo, cancellationToken);
     public void Agregar(Reserva reserva) => _real.Agregar(reserva);
