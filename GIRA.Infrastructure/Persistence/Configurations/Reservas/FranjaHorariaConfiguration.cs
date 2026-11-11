@@ -9,7 +9,7 @@ namespace GIRA.Infrastructure.Persistence.Configurations.Reservas;
 /// </summary>
 public class FranjaHorariaConfiguration : IEntityTypeConfiguration<FranjaHoraria>
 {
-    /// <summary>Configura la tabla.</summary>
+    public const string IndiceNombre = "IX_FranjaHoraria_Nombre";
     public void Configure(EntityTypeBuilder<FranjaHoraria> builder)
     {
         builder.ToTable("FranjaHoraria", "reservas");
@@ -20,6 +20,7 @@ public class FranjaHorariaConfiguration : IEntityTypeConfiguration<FranjaHoraria
             .HasMaxLength(50)
             .IsRequired();
 
+        builder.HasIndex(f => f.Nombre).IsUnique().HasFilter("[IsDeleted] = 0").HasDatabaseName(IndiceNombre);
         // Activa: GI-163 la desactiva; GI-157 excluye franjas inactivas de la disponibilidad.
 
         var creadaEn = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -46,4 +47,9 @@ public class FranjaHorariaConfiguration : IEntityTypeConfiguration<FranjaHoraria
                 Activa = true
             });
     }
+
+
+
+
+
 }

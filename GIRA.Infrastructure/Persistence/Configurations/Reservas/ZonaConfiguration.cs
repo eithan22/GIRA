@@ -10,6 +10,7 @@ namespace GIRA.Infrastructure.Persistence.Configurations.Reservas;
 public class ZonaConfiguration : IEntityTypeConfiguration<Zona>
 {
     /// <summary>Configura la tabla.</summary>
+    public const string IndiceNombre = "IX_Zona_Nombre";
     public void Configure(EntityTypeBuilder<Zona> builder)
     {
         builder.ToTable("Zona", "reservas");
@@ -19,7 +20,7 @@ public class ZonaConfiguration : IEntityTypeConfiguration<Zona>
         builder.Property(z => z.Nombre)
             .HasMaxLength(100)
             .IsRequired();
-
+        builder.HasIndex(z => z.Nombre).IsUnique().HasFilter("[IsDeleted] = 0").HasDatabaseName(IndiceNombre);
         // Activa: GI-163 la desactiva; si la zona está inactiva, ninguna de sus mesas se
         // ofrece en disponibilidad aunque cada mesa esté activa (RN-RES-21).
     }
