@@ -49,8 +49,11 @@ public class ReservaServiceTests
             new FranjaHorariaRepositoryFalso([Almuerzo]),
             reservaRepo,
             clienteRepo,
+            new MesaGestionRepositoryFalso(),
             parametros,
             validador,
+            new ListarReservasRequestValidator(),
+            new CheckInRequestValidator(),
             new GeneradorCodigoReserva(),
             publisher,
             reloj);
@@ -125,8 +128,11 @@ public class ReservaServiceTests
             new FranjaHorariaRepositoryFalso([Almuerzo]),
             new ReservaRepositoryFake(),
             new ClienteRepositoryFake(),
+            new MesaGestionRepositoryFalso(),
             parametros,
             validador,
+            new ListarReservasRequestValidator(),
+            new CheckInRequestValidator(),
             new GeneradorCodigoReserva(),
             new PublisherFalso(),
             reloj);
@@ -566,6 +572,15 @@ class ReservaRepositoryFake : IReservaRepository
         return Task.FromResult(coincide ? ReservaPorCodigoYTelefono : null);
     }
 
+    public Task<PagedResult<ReservaListadoDto>> ListarAsync(DateOnly? fecha, EstadoReserva? estado, Guid? franjaId, string? telefono, int page, int pageSize, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<ReservaDetalleDto?> ObtenerDetalleAsync(Guid id, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<Reserva?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
     public Task<int> ContarVigentesPorTelefonoAsync(string telefono, CancellationToken cancellationToken) =>
         Task.FromResult(VigentesPorTelefono);
 
@@ -609,6 +624,9 @@ class ClienteRepositoryFake : IClienteRepository
 
     public Task<Cliente?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken) =>
         Task.FromResult(ClientePorId);
+
+    public Task<PagedResult<Cliente>> BuscarAsync(string texto, int page, int pageSize, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
 
     public void Agregar(Cliente cliente) => Agregado = cliente;
 

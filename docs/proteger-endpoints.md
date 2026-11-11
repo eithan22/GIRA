@@ -56,6 +56,17 @@ public async Task<IActionResult> Crear(...) { ... }
 | `/api/usuarios/{id}/roles` | PUT | `GestionarUsuarios` |
 | `/api/usuarios/{id}/accesos` | GET | `GestionarUsuarios`. Paginado (`page`, `pageSize` máximo 100), lo más reciente primero; filtros opcionales `exitoso`, `desde`, `hasta` |
 
+### Reservas: agenda del personal (GI-164)
+
+Todos con `OperarReservas` (Administrador, Gerente, Supervisor, Mesero). El estado y el origen salen como texto (por ejemplo `"Confirmada"`).
+
+| Endpoint | Verbo | Acceso |
+|---|---|---|
+| `/api/reservas` | GET | `OperarReservas`. Paginado (`page`, `pageSize` máximo 100); filtros opcionales `fecha`, `estado` (nombre), `franjaId` y `telefono` (10 dígitos). Sin `fecha` ni `telefono` devuelve el día de hoy |
+| `/api/reservas/{id}` | GET | `OperarReservas`. Detalle con cliente, mesa, franja, estado y motivo de cancelación; 404 si no existe |
+| `/api/reservas/{id}/check-in` | PATCH | `OperarReservas`. Body `{ "personasReales": n }`. Desde 30 minutos antes de la franja y hasta que termina; 400 si supera la capacidad de la mesa; 409 si el estado o la hora no lo permiten. Devuelve el detalle |
+| `/api/clientes` | GET | `OperarReservas`. `buscar` (nombre o teléfono, mínimo 3 caracteres), paginado |
+
 ### Reservas: zonas, mesas y franjas (GI-163)
 
 Todos con `GestionarSalon` (Administrador, Gerente). `{recurso}` es `zonas`, `mesas` o `franjas`.

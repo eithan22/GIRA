@@ -1,3 +1,5 @@
+using GIRA.Application.Common;
+using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Interfaces.Repository.Reservas;
 using GIRA.Domain.Entities.Reservas;
 using GIRA.Domain.Enums.Reservas;
@@ -45,6 +47,95 @@ public class ReservaRepository : IReservaRepository
             .Where(x => x.r.Codigo == codigo && x.c.Telefono == telefono)
             .Select(x => x.r)
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<PagedResult<ReservaListadoDto>> ListarAsync(
+        DateOnly? fecha, EstadoReserva? estado, Guid? franjaId, string? telefono,
+        int page, int pageSize, CancellationToken cancellationToken)
+    {
+        var consulta = ConsultaCompleta();
+
+        if (fecha is not null)
+        {
+            consulta = consulta.Where(x => x.Reserva.Fecha == fecha);
+        }
+
+        if (estado is not null)
+        {
+            consulta = consulta.Where(x => x.Reserva.Estado == estado);
+        }
+
+        if (franjaId is not null)
+        {
+            consulta = consulta.Where(x => x.Reserva.FranjaHorariaId == franjaId);
+        }
+
+        if (!string.IsNullOrEmpty(telefono))
+        {
+            consulta = consulta.Where(x => x.Cliente.Telefono == telefono);
+        }
+
+        var total = await consulta.CountAsync(cancellationToken);
+        var filas = await consulta
+            .OrderByDescending(x => x.Reserva.Fecha)
+            .ThenBy(x => x.Franja.HoraInicio)
+            .ThenBy(x => x.Mesa.Numero)
+            .ThenBy(x => x.Reserva.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        var items = filas.Select(x => new ReservaListadoDto(
+            x.Reserva.Id, x.Reserva.Codigo, x.Reserva.Estado.ToString(), x.Reserva.Fecha,
+            x.Franja.Id, x.Franja.Nombre, x.Franja.HoraInicio, x.Franja.HoraFin,
+            x.Mesa.Numero, x.Zona.Nombre, x.Reserva.Personas, x.Reserva.PersonasReales,
+            x.Cliente.Nombre, x.Cliente.Telefono, x.Reserva.Origen.ToString())).ToList();
+
+        return new PagedResult<ReservaListadoDto>(items, total, page, pageSize);
+    }
+
+    /// <inheritdoc />
+    public Task<Reserva?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken)
+    {
+        return _contexto.Reservas.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<ReservaDetalleDto?> ObtenerDetalleAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var x = await ConsultaCompleta().FirstOrDefaultAsync(f => f.Reserva.Id == id, cancellationToken);
+        if (x is null)
+        {
+            return null;
+        }
+
+        return new ReservaDetalleDto(
+            x.Reserva.Id, x.Reserva.Codigo, x.Reserva.Estado.ToString(), x.Reserva.Fecha,
+            x.Franja.Id, x.Franja.Nombre, x.Franja.HoraInicio, x.Franja.HoraFin,
+            x.Mesa.Id, x.Mesa.Numero, x.Mesa.Capacidad, x.Zona.Nombre,
+            x.Reserva.Personas, x.Reserva.PersonasReales, x.Reserva.FechaCheckIn,
+            x.Cliente.Id, x.Cliente.Nombre, x.Cliente.Telefono, x.Reserva.Origen.ToString(),
+            x.Reserva.MotivoCancelacion, x.Reserva.CreatedAt);
+    }
+
+    // Reserva solo guarda claves (sin navegaciones): se une explícitamente con cliente, mesa, zona y franja.
+    private IQueryable<FilaAgenda> ConsultaCompleta() =>
+        from r in _contexto.Reservas
+        join c in _contexto.Clientes on r.ClienteId equals c.Id
+        join m in _contexto.Mesas on r.MesaId equals m.Id
+        join z in _contexto.Zonas on m.ZonaId equals z.Id
+        join f in _contexto.FranjasHorarias on r.FranjaHorariaId equals f.Id
+        select new FilaAgenda { Reserva = r, Cliente = c, Mesa = m, Zona = z, Franja = f };
+
+    // Clase con inicializador (no record con constructor): EF solo traduce la proyección de entidades así.
+    private sealed class FilaAgenda
+    {
+        public Reserva Reserva { get; init; } = null!;
+        public Cliente Cliente { get; init; } = null!;
+        public Mesa Mesa { get; init; } = null!;
+        public Zona Zona { get; init; } = null!;
+        public FranjaHoraria Franja { get; init; } = null!;
     }
 
     /// <inheritdoc />

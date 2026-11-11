@@ -1,9 +1,11 @@
+using System.Globalization;
 using FluentValidation;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Events.Reservas;
 using GIRA.Application.Interfaces.Repository.Reservas;
 using GIRA.Application.Interfaces.Services.Reservas;
+using GIRA.Application.Validations.Reservas;
 using GIRA.Domain.Entities.Reservas;
 using GIRA.Domain.Enums.Reservas;
 using GIRA.Domain.Exceptions.Reservas;
@@ -18,8 +20,11 @@ public class ReservaService : IReservaService
     private readonly IFranjaHorariaRepository _franjaHorariaRepository;
     private readonly IReservaRepository _reservaRepository;
     private readonly IClienteRepository _clienteRepository;
+    private readonly IMesaGestionRepository _mesaGestionRepository;
     private readonly IParametrosReservaService _parametros;
     private readonly IValidator<CrearReservaRequest> _validator;
+    private readonly IValidator<ListarReservasRequest> _validadorListado;
+    private readonly IValidator<CheckInRequest> _validadorCheckIn;
     private readonly GeneradorCodigoReserva _generadorCodigo;
     private readonly IPublisher _publisher;
     private readonly TimeProvider _timeProvider;
@@ -33,8 +38,11 @@ public class ReservaService : IReservaService
         IFranjaHorariaRepository franjaHorariaRepository,
         IReservaRepository reservaRepository,
         IClienteRepository clienteRepository,
+        IMesaGestionRepository mesaGestionRepository,
         IParametrosReservaService parametros,
         IValidator<CrearReservaRequest> validator,
+        IValidator<ListarReservasRequest> validadorListado,
+        IValidator<CheckInRequest> validadorCheckIn,
         GeneradorCodigoReserva generadorCodigo,
         IPublisher publisher,
         TimeProvider timeProvider)
@@ -43,8 +51,11 @@ public class ReservaService : IReservaService
         _franjaHorariaRepository = franjaHorariaRepository;
         _reservaRepository = reservaRepository;
         _clienteRepository = clienteRepository;
+        _mesaGestionRepository = mesaGestionRepository;
         _parametros = parametros;
         _validator = validator;
+        _validadorListado = validadorListado;
+        _validadorCheckIn = validadorCheckIn;
         _generadorCodigo = generadorCodigo;
         _publisher = publisher;
         _timeProvider = timeProvider;
@@ -227,6 +238,122 @@ public class ReservaService : IReservaService
         return OperationResult.Success(new ReservaCreadaDto(
             reserva.Codigo, cliente.Nombre, reserva.Fecha, franja.Nombre, franja.HoraInicio, franja.HoraFin, reserva.Personas));
     }
+
+    /// <inheritdoc />
+    public async Task<OperationResult<PagedResult<ReservaListadoDto>>> ListarAsync(
+        ListarReservasRequest request, CancellationToken cancellationToken)
+    {
+        var validacion = await _validadorListado.ValidateAsync(request, cancellationToken);
+        if (!validacion.IsValid)
+        {
+            return OperationResult.Failure<PagedResult<ReservaListadoDto>>(ErrorType.Validation, validacion.ToString());
+        }
+
+        var telefono = string.IsNullOrWhiteSpace(request.Telefono) ? null : TelefonoRd.Normalizar(request.Telefono);
+
+        // Sin fecha ni teléfono, la agenda es la de hoy: nunca se devuelve toda la historia por accidente.
+        var fecha = request.Fecha ?? (telefono is null ? _timeProvider.HoyLocal() : null);
+
+        EstadoReserva? estado = ListarReservasRequestValidator.TryParseEstado(request.Estado, out var parseado) ? parseado : null;
+
+        var pagina = await _reservaRepository.ListarAsync(
+            fecha, estado, request.FranjaId, telefono, request.Page, request.PageSize, cancellationToken);
+
+        return OperationResult.Success(pagina);
+    }
+
+    /// <inheritdoc />
+    public async Task<OperationResult<ReservaDetalleDto>> ObtenerAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken);
+
+        return detalle is null
+            ? OperationResult.Failure<ReservaDetalleDto>(ErrorType.NotFound, "No encontramos esa reserva.")
+            : OperationResult.Success(detalle);
+    }
+
+    /// <inheritdoc />
+    public async Task<OperationResult<ReservaDetalleDto>> CheckInAsync(
+        Guid id, CheckInRequest request, CancellationToken cancellationToken)
+    {
+        var validacion = await _validadorCheckIn.ValidateAsync(request, cancellationToken);
+        if (!validacion.IsValid)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.Validation, validacion.ToString());
+        }
+
+        var reserva = await _reservaRepository.BuscarPorIdAsync(id, cancellationToken);
+        if (reserva is null)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.NotFound, "No encontramos esa reserva.");
+        }
+
+        if (reserva.Estado != EstadoReserva.Confirmada)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.Conflict, MensajeCheckInNoPermitido(reserva.Estado));
+        }
+
+        // Si esto fuera null sería una violación de integridad (ver ConsultarPorCodigoAsync).
+        var franja = await _franjaHorariaRepository.BuscarPorIdAsync(reserva.FranjaHorariaId, cancellationToken)
+            ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} referencia una franja que no existe.");
+
+        var ahoraLocal = _timeProvider.AhoraLocal();
+        var aperturaCheckIn = reserva.Fecha.ToDateTime(franja.HoraInicio) - _parametros.VentanaCheckIn;
+        if (ahoraLocal < aperturaCheckIn)
+        {
+            var hora = aperturaCheckIn.ToString("HH:mm", CultureInfo.InvariantCulture);
+            var mensaje = aperturaCheckIn.Date == ahoraLocal.Date
+                ? $"El check-in se habilita a partir de las {hora}."
+                : $"El check-in se habilita el {aperturaCheckIn.ToString("dd/MM", CultureInfo.InvariantCulture)} a partir de las {hora}.";
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.Conflict, mensaje);
+        }
+
+        // Límite superior: desde el fin de la franja ya no se puede (el cierre automático la completaría).
+        if (ahoraLocal >= reserva.Fecha.ToDateTime(franja.HoraFin))
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(
+                ErrorType.Conflict, "La franja de esta reserva ya terminó; no se puede hacer check-in.");
+        }
+
+        // Si esto fuera null sería una violación de integridad: la reserva siempre tiene mesa
+        // (la mesa borrada lógicamente tampoco aparece, y una reserva no puede quedar huérfana).
+        var mesa = await _mesaGestionRepository.BuscarPorIdAsync(reserva.MesaId, cancellationToken)
+            ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} referencia una mesa que no existe.");
+
+        if (request.PersonasReales > mesa.Capacidad)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(
+                ErrorType.Validation, $"La mesa {mesa.Numero} admite como máximo {mesa.Capacidad} personas.");
+        }
+
+        reserva.HacerCheckIn(request.PersonasReales, _timeProvider.GetUtcNow().UtcDateTime);
+
+        try
+        {
+            await _reservaRepository.GuardarCambiosAsync(cancellationToken);
+        }
+        catch (ReservaConflictoConcurrenciaException)
+        {
+            // Mensaje propio: el del repositorio habla de la cancelación y la pantalla pública lo
+            // compara por subcadena, así que no se toca.
+            return OperationResult.Failure<ReservaDetalleDto>(
+                ErrorType.Conflict, "La reserva cambió mientras se procesaba el check-in; vuelve a consultarla.");
+        }
+
+        var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken)
+            ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} desapareció después del check-in.");
+
+        return OperationResult.Success(detalle);
+    }
+
+    private static string MensajeCheckInNoPermitido(EstadoReserva estado) => estado switch
+    {
+        EstadoReserva.EnCurso => "Esta reserva ya tiene el check-in registrado.",
+        EstadoReserva.Cancelada => "La reserva fue cancelada; no se puede hacer check-in.",
+        EstadoReserva.NoAsistio => "La reserva fue marcada como no asistida. Si el cliente llegó, regístralo como visita sin reserva.",
+        EstadoReserva.Completada => "La reserva ya fue completada.",
+        _ => "Solo se puede hacer check-in a una reserva Confirmada."
+    };
 
     /// <inheritdoc />
     public async Task<OperationResult<ReservaConsultadaDto>> ConsultarPorCodigoAsync(

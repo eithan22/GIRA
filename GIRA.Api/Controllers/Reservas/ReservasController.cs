@@ -104,6 +104,58 @@ public class ReservasController : ControllerBase
         return resultado.ToActionResult();
     }
 
+    /// <summary>
+    /// GI-164/197/199: agenda del personal, paginada (page/pageSize, máximo 100), filtrable por
+    /// fecha, estado, franja y teléfono. Sin fecha ni teléfono muestra el día de hoy.
+    /// </summary>
+    [HttpGet]
+    [Authorize(Policy = Politicas.OperarReservas)]
+    [ProducesResponseType<PagedResult<ReservaListadoDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> Listar([FromQuery] ListarReservasRequest request, CancellationToken cancellationToken)
+    {
+        var resultado = await _reservaService.ListarAsync(request, cancellationToken);
+
+        return resultado.ToActionResult();
+    }
+
+    /// <summary>GI-164/198/199: detalle de una reserva para el personal. 404 si no existe.</summary>
+    [HttpGet("{id:guid}")]
+    [Authorize(Policy = Politicas.OperarReservas)]
+    [ProducesResponseType<ReservaDetalleDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Obtener(Guid id, CancellationToken cancellationToken)
+    {
+        var resultado = await _reservaService.ObtenerAsync(id, cancellationToken);
+
+        return resultado.ToActionResult();
+    }
+
+    /// <summary>
+    /// GI-165/200/201: check-in de una reserva con las personas que llegaron. Solo desde 30
+    /// minutos antes de la franja (parámetro configurable) y hasta que termina; 400 si las
+    /// personas superan la capacidad de la mesa; 409 si el estado o la hora no lo permiten.
+    /// Devuelve el detalle actualizado de la reserva.
+    /// </summary>
+    [HttpPatch("{id:guid}/check-in")]
+    [Authorize(Policy = Politicas.OperarReservas)]
+    [ProducesResponseType<ReservaDetalleDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CheckIn(Guid id, CheckInRequest request, CancellationToken cancellationToken)
+    {
+        var resultado = await _reservaService.CheckInAsync(id, request, cancellationToken);
+
+        return resultado.ToActionResult();
+    }
+
     // Mismo ProblemDetails que RespuestaAutorizacionHandler para 401 — duplicado a propósito:
     // ese handler solo se activa en el middleware de autorización, que un endpoint
     // [AllowAnonymous] nunca atraviesa, así que no hay forma de reusarlo sin tocar Seguridad.

@@ -1,3 +1,4 @@
+using GIRA.Application.Common;
 using GIRA.Application.Interfaces.Repository.Reservas;
 using GIRA.Domain.Entities.Reservas;
 using GIRA.Domain.Exceptions.Reservas;
@@ -27,6 +28,26 @@ public class ClienteRepository : IClienteRepository
     public Task<Cliente?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken)
     {
         return _contexto.Clientes.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<PagedResult<Cliente>> BuscarAsync(string texto, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        var buscado = texto.Trim().ToLower();
+        var digitos = new string(buscado.Where(char.IsDigit).ToArray());
+        var buscaTelefono = digitos.Length > 0;
+
+        var consulta = _contexto.Clientes.Where(c =>
+            c.Nombre.ToLower().Contains(buscado) || (buscaTelefono && c.Telefono.Contains(digitos)));
+
+        var total = await consulta.CountAsync(cancellationToken);
+        var items = await consulta
+            .OrderBy(c => c.Nombre).ThenBy(c => c.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<Cliente>(items, total, page, pageSize);
     }
 
     /// <inheritdoc />

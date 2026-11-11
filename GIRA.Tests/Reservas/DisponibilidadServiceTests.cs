@@ -1,9 +1,11 @@
+using GIRA.Application.Common;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Interfaces.Repository.Reservas;
 using GIRA.Application.Interfaces.Services.Reservas;
 using GIRA.Application.Services.Reservas;
 using GIRA.Application.Validations.Reservas;
 using GIRA.Domain.Entities.Reservas;
+using GIRA.Domain.Enums.Reservas;
 using GIRA.Tests.Common;
 
 namespace GIRA.Tests.Reservas;
@@ -270,6 +272,12 @@ class ReservaRepositoryFalso : IReservaRepository
     public Task<int> ContarVigentesPorTelefonoAsync(string telefono, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
     public Task<Reserva?> BuscarPorCodigoYTelefonoAsync(string codigo, string telefono, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+    public Task<PagedResult<ReservaListadoDto>> ListarAsync(DateOnly? fecha, EstadoReserva? estado, Guid? franjaId, string? telefono, int page, int pageSize, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+    public Task<ReservaDetalleDto?> ObtenerDetalleAsync(Guid id, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+    public Task<Reserva?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
     public Task<bool> ExisteCodigoAsync(string codigo, CancellationToken cancellationToken) =>
         throw new NotImplementedException();

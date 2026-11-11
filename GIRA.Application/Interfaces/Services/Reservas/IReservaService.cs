@@ -23,6 +23,26 @@ public interface IReservaService
         CrearReservaRequest request, OrigenReserva origen, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Agenda del personal (GI-164): lista paginada filtrable por fecha, estado, franja y
+    /// teléfono. Sin fecha ni teléfono usa el día de hoy (hora de Santo Domingo). ErrorType.Validation
+    /// si la paginación, el estado o el teléfono no son válidos.
+    /// </summary>
+    Task<OperationResult<PagedResult<ReservaListadoDto>>> ListarAsync(ListarReservasRequest request, CancellationToken cancellationToken);
+
+    /// <summary>Detalle de una reserva para el personal (GI-164). ErrorType.NotFound si no existe.</summary>
+    Task<OperationResult<ReservaDetalleDto>> ObtenerAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Check-in de una reserva (GI-165, RN-RES-06 y RN-RES-15): pasa de Confirmada a EnCurso y
+    /// guarda las personas reales y la hora. Solo desde la ventana configurable antes del inicio
+    /// de la franja y hasta que la franja termina. ErrorType.NotFound si no existe,
+    /// ErrorType.Validation si las personas son menos de 1 o superan la capacidad de la mesa, y
+    /// ErrorType.Conflict si el estado, la hora o una modificación concurrente lo impiden.
+    /// No publica eventos (el SRS no define uno para el check-in).
+    /// </summary>
+    Task<OperationResult<ReservaDetalleDto>> CheckInAsync(Guid id, CheckInRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Consulta una reserva por código y teléfono. Si no coinciden los dos, devuelve
     /// ErrorType.NotFound con el mismo mensaje, sin revelar cuál estaba mal.
     /// </summary>
