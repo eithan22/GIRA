@@ -1,3 +1,5 @@
+﻿using System.Net;
+using System.Net.Http.Json;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad.Usuarios;
 using GIRA.Application.Validations.Seguridad.Usuarios;
@@ -11,8 +13,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
-using System.Net;
-using System.Net.Http.Json;
 
 namespace GIRA.Tests.Seguridad.Usuarios;
 

@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Http.Json;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad.Roles;
 using GIRA.Application.DTOs.Seguridad.Usuarios;
@@ -9,8 +11,6 @@ using GIRA.Tests.Api;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
-using System.Net;
-using System.Net.Http.Json;
 
 namespace GIRA.Tests.Seguridad.Usuarios;
 

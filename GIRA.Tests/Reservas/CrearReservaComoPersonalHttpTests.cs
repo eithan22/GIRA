@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Security.Claims;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Interfaces.Services.Seguridad.Auth;
 using GIRA.Domain.Constants;
@@ -10,9 +13,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
-using System.Net;
-using System.Net.Http.Json;
-using System.Security.Claims;
 
 namespace GIRA.Tests.Reservas;
 
