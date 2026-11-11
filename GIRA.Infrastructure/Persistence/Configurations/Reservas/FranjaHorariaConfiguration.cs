@@ -9,7 +9,10 @@ namespace GIRA.Infrastructure.Persistence.Configurations.Reservas;
 /// </summary>
 public class FranjaHorariaConfiguration : IEntityTypeConfiguration<FranjaHoraria>
 {
+    /// <summary>Nombre del índice único (filtrado por no eliminadas) sobre el nombre de la franja.</summary>
     public const string IndiceNombre = "IX_FranjaHoraria_Nombre";
+
+    /// <summary>Configura la tabla, el índice único y las franjas sembradas.</summary>
     public void Configure(EntityTypeBuilder<FranjaHoraria> builder)
     {
         builder.ToTable("FranjaHoraria", "reservas");
@@ -47,9 +50,4 @@ public class FranjaHorariaConfiguration : IEntityTypeConfiguration<FranjaHoraria
                 Activa = true
             });
     }
-
-
-
-
-
 }

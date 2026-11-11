@@ -56,6 +56,18 @@ public async Task<IActionResult> Crear(...) { ... }
 | `/api/usuarios/{id}/roles` | PUT | `GestionarUsuarios` |
 | `/api/usuarios/{id}/accesos` | GET | `GestionarUsuarios`. Paginado (`page`, `pageSize` máximo 100), lo más reciente primero; filtros opcionales `exitoso`, `desde`, `hasta` |
 
+### Reservas: zonas, mesas y franjas (GI-163)
+
+Todos con `GestionarSalon` (Administrador, Gerente). `{recurso}` es `zonas`, `mesas` o `franjas`.
+
+| Endpoint | Verbo | Acceso |
+|---|---|---|
+| `/api/{recurso}` | GET | `GestionarSalon`. Paginado (`page`, `pageSize` máximo 100); filtro opcional `activa` (mesas también `zonaId`) |
+| `/api/{recurso}/{id}` | GET | `GestionarSalon` |
+| `/api/{recurso}` | POST | `GestionarSalon`. 409 si el nombre o número ya existe |
+| `/api/{recurso}/{id}` | PUT | `GestionarSalon` |
+| `/api/{recurso}/{id}/estado` | PATCH | `GestionarSalon`. Body `{ "activa": bool }`; 409 si hay reservas futuras vigentes (reasignarlas primero) |
+
 ## Respuestas de error
 
 Las dos usan `application/problem+json`, igual que el resto de la API.

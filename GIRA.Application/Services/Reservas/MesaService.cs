@@ -78,9 +78,9 @@ public class MesaService : IMesaService
             return errorZona;
         }
 
-        if (await _mesas.ExisteNumeroEnZonaAsync(request.ZonaId, request.Numero, null, cancellationToken))
+        if (await _mesas.ExisteNumeroAsync(request.Numero, null, cancellationToken))
         {
-            return NumeroDuplicado(request.Numero, zona!.Nombre);
+            return NumeroDuplicado(request.Numero);
         }
 
         var mesa = new Mesa
@@ -125,9 +125,9 @@ public class MesaService : IMesaService
             return OperationResult.Failure<MesaDto>(ErrorType.Validation, "La zona indicada no existe.");
         }
 
-        if (await _mesas.ExisteNumeroEnZonaAsync(request.ZonaId, request.Numero, id, cancellationToken))
+        if (await _mesas.ExisteNumeroAsync(request.Numero, id, cancellationToken))
         {
-            return NumeroDuplicado(request.Numero, zona!.Nombre);
+            return NumeroDuplicado(request.Numero);
         }
 
         if (request.Capacidad < mesa.Capacidad)
@@ -193,7 +193,7 @@ public class MesaService : IMesaService
         }
         catch (SalonDuplicadoException)
         {
-            return NumeroDuplicado(mesa.Numero, zonaNombre);
+            return NumeroDuplicado(mesa.Numero);
         }
         catch (SalonConflictoConcurrenciaException)
         {
@@ -214,8 +214,8 @@ public class MesaService : IMesaService
     private static OperationResult<MesaDto> NoExiste() =>
         OperationResult.Failure<MesaDto>(ErrorType.NotFound, "La mesa no existe.");
 
-    private static OperationResult<MesaDto> NumeroDuplicado(int numero, string zonaNombre) =>
-        OperationResult.Failure<MesaDto>(ErrorType.Conflict, $"Ya existe la mesa {numero} en la zona {zonaNombre}.");
+    private static OperationResult<MesaDto> NumeroDuplicado(int numero) =>
+        OperationResult.Failure<MesaDto>(ErrorType.Conflict, $"Ya existe la mesa {numero}.");
 
     private static MesaDto ToDto(Mesa mesa, string zonaNombre) =>
         new(mesa.Id, mesa.Numero, mesa.Capacidad, mesa.ZonaId, zonaNombre, mesa.Activa);

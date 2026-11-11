@@ -225,7 +225,7 @@ public class SalonServiciosTests
     }
 
     [Fact]
-    public async Task Mesa_Crear_Numero_Repetido_En_La_Misma_Zona_Es_Conflict_Pero_En_Otra_Zona_No()
+    public async Task Mesa_Crear_Numero_Repetido_En_Cualquier_Zona_Es_Conflict()
     {
         using var e = new Entorno();
         var salon = await e.SembrarZonaAsync("Salón");
@@ -236,7 +236,22 @@ public class SalonServiciosTests
         var otraZona = await e.Mesas.CrearAsync(new GuardarMesaRequest(1, 4, terraza.Id), default);
 
         EsFallo(repetida, ErrorType.Conflict);
-        Assert.True(otraZona.IsSuccess);
+        EsFallo(otraZona, ErrorType.Conflict);
+        Assert.Equal("Ya existe la mesa 1.", otraZona.Error);
+    }
+
+    [Fact]
+    public async Task Mesa_Actualizar_A_Numero_De_Otra_Zona_Es_Conflict()
+    {
+        using var e = new Entorno();
+        var salon = await e.SembrarZonaAsync("Salón");
+        var terraza = await e.SembrarZonaAsync("Terraza");
+        await e.SembrarMesaAsync(salon.Id, numero: 1);
+        var mesaTerraza = await e.SembrarMesaAsync(terraza.Id, numero: 2);
+
+        var resultado = await e.Mesas.ActualizarAsync(mesaTerraza.Id, new GuardarMesaRequest(1, 4, terraza.Id), default);
+
+        EsFallo(resultado, ErrorType.Conflict);
     }
 
     [Theory]

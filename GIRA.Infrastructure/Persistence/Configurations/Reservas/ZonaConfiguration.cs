@@ -9,8 +9,10 @@ namespace GIRA.Infrastructure.Persistence.Configurations.Reservas;
 /// </summary>
 public class ZonaConfiguration : IEntityTypeConfiguration<Zona>
 {
-    /// <summary>Configura la tabla.</summary>
+    /// <summary>Nombre del índice único (filtrado por no eliminadas) sobre el nombre de la zona.</summary>
     public const string IndiceNombre = "IX_Zona_Nombre";
+
+    /// <summary>Configura la tabla y el índice único del nombre.</summary>
     public void Configure(EntityTypeBuilder<Zona> builder)
     {
         builder.ToTable("Zona", "reservas");

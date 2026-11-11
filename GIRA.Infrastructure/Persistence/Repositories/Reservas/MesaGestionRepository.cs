@@ -25,10 +25,10 @@ public class MesaGestionRepository : IMesaGestionRepository
         return _contexto.Mesas.FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
     }
 
-    public Task<bool> ExisteNumeroEnZonaAsync(Guid zonaId, int numero, Guid? excluirId, CancellationToken cancellationToken)
+    public Task<bool> ExisteNumeroAsync(int numero, Guid? excluirId, CancellationToken cancellationToken)
     {
         return _contexto.Mesas.AnyAsync(
-            m => m.ZonaId == zonaId && m.Numero == numero && (excluirId == null || m.Id != excluirId),
+            m => m.Numero == numero && (excluirId == null || m.Id != excluirId),
             cancellationToken);
     }
 
@@ -73,9 +73,9 @@ public class MesaGestionRepository : IMesaGestionRepository
         {
             throw new SalonConflictoConcurrenciaException("La mesa cambió mientras se guardaba.", ex);
         }
-        catch (DbUpdateException ex) when (ViolacionesIndiceUnico.Es(ex, MesaConfiguration.IndiceZonaNumero))
+        catch (DbUpdateException ex) when (ViolacionesIndiceUnico.Es(ex, MesaConfiguration.IndiceNumero))
         {
-            throw new SalonDuplicadoException("Ya existe una mesa con ese número en la zona.", ex);
+            throw new SalonDuplicadoException("Ya existe una mesa con ese número.", ex);
         }
     }
 }
