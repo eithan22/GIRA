@@ -3,7 +3,11 @@ import {
   MENSAJE_NOMBRE_MUY_LARGO,
   MENSAJE_NOMBRE_OBLIGATORIO,
 } from '../reservasTextos.js';
-import { MENSAJE_TELEFONO_INVALIDO } from './reservasPersonalTextos.js';
+import {
+  MENSAJE_TELEFONO_INVALIDO,
+  TEXTO_ORIGEN_PRESENCIAL,
+  TEXTO_ORIGEN_TELEFONO,
+} from './reservasPersonalTextos.js';
 
 // Funciones puras del personal (sin React, sin DOM): se prueban con `node --test`
 // (reservasPersonalFormato.test.js) y no se empaquetan salvo que un componente las importe.
@@ -87,8 +91,9 @@ export function formatearTelefono(telefono) {
   return `${digitos.slice(0, 3)} ${digitos.slice(3, 6)} ${digitos.slice(6)}`;
 }
 
-const ETIQUETAS_ORIGEN = { Web: 'Web', Telefono: 'Teléfono', Presencial: 'Presencial' };
+const ETIQUETAS_ORIGEN = { Web: 'Web', Telefono: TEXTO_ORIGEN_TELEFONO, Presencial: TEXTO_ORIGEN_PRESENCIAL };
 
+/** Etiqueta del origen para el personal: Telefono -> "Por llamada", Presencial -> "En persona" (el valor guardado no cambia). */
 export function etiquetaOrigen(origen) {
   return ETIQUETAS_ORIGEN[origen] ?? String(origen ?? '');
 }
@@ -336,6 +341,22 @@ export function estadoFranja(franja, hora) {
   if (ahora < minutosDeHora(franja.horaInicio)) return 'noEmpezo';
   if (ahora >= minutosDeHora(franja.horaFin)) return 'terminada';
   return 'enCurso';
+}
+
+// Replica ParametrosReservaService.AntelacionMinima del backend (hoy fija en 2 h, provisional hasta que
+// Configuración la entregue, GI-226). Solo sirve para el aviso informativo de la pantalla: quien decide
+// si se puede reservar es siempre el servidor.
+const MINUTOS_ANTELACION_WEB = 120;
+
+/**
+ * GI-403: true si la franja de HOY solo la puede reservar el personal: ya empezó o empieza en menos de
+ * MINUTOS_ANTELACION_WEB (el cliente web ya no puede) y todavía no terminó. Informativa; el servidor decide.
+ * `fecha` y `hoy` son "aaaa-mm-dd", `hora` es "HH:mm" en Santo Domingo.
+ */
+export function esFranjaSoloPersonal({ fecha, hoy, hora, franja }) {
+  if (!franja || fecha !== hoy) return false;
+  if (estadoFranja(franja, hora) === 'terminada') return false;
+  return minutosDeHora(franja.horaInicio) < minutosDeHora(hora) + MINUTOS_ANTELACION_WEB;
 }
 
 function activasPorInicio(franjas) {

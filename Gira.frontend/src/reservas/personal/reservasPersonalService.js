@@ -107,11 +107,12 @@ export const reservasPersonalService = {
   },
 
   /**
-   * GET /api/reservas/disponibilidad: franjas con mesa libre para fecha y personas. Es anónima (el
-   * token se ignora) y tiene límite por IP (429); el llamador debe tolerarlo sin bloquear el formulario.
+   * GET /api/reservas/disponibilidad-personal (GI-403): franjas con mesa libre para fecha y personas,
+   * con la regla del personal: incluye la franja de hoy en curso o a menos de 2 h y solo excluye las que
+   * ya terminaron. Va con token (OperarReservas) y sin límite por IP; un error no debe bloquear el formulario.
    */
   async consultarDisponibilidad({ fecha, personas }, { signal } = {}) {
-    const response = await api.get('/api/reservas/disponibilidad', opciones(signal, { params: { fecha, personas } }));
+    const response = await api.get('/api/reservas/disponibilidad-personal', opciones(signal, { params: { fecha, personas } }));
     return response.data;
   },
 

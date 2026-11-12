@@ -108,9 +108,12 @@ export const ETIQUETA_ACTUALIZADO = 'Actualizado a las';
 // Los mensajes del servidor se muestran tal cual (algunos están redactados con voz de cliente).
 
 export const TEXTO_NUEVA_RESERVA = 'Nueva reserva';
-export const TEXTO_ORIGEN_LEYENDA = '¿Cómo llegó la reserva?';
-export const TEXTO_ORIGEN_TELEFONO = 'Teléfono';
-export const TEXTO_ORIGEN_PRESENCIAL = 'Presencial';
+export const TEXTO_ORIGEN_LEYENDA = '¿Cómo llegó esta reserva?';
+// Única fuente de las etiquetas del origen (formulario, agenda y detalle); el valor guardado sigue siendo Telefono/Presencial.
+export const TEXTO_ORIGEN_TELEFONO = 'Por llamada';
+export const TEXTO_ORIGEN_PRESENCIAL = 'En persona';
+export const AYUDA_ORIGEN_TELEFONO = 'El cliente llamó por teléfono.';
+export const AYUDA_ORIGEN_PRESENCIAL = 'El cliente está en el restaurante ahora.';
 export const MENSAJE_ORIGEN_OBLIGATORIO = 'Elige cómo llegó la reserva.';
 export const MENSAJE_FECHA_FUERA_DE_RANGO = 'Elige una fecha desde hoy hasta 30 días adelante.';
 export const MENSAJE_FRANJA_OBLIGATORIA = 'Elige una franja con disponibilidad.';
@@ -133,7 +136,11 @@ export const TEXTO_ELIGE_FECHA_Y_PERSONAS = 'Elige una fecha y las personas para
 export const TEXTO_CONSULTANDO_DISPONIBILIDAD = 'Consultando disponibilidad…';
 export const TEXTO_SIN_FRANJAS_ACTIVAS = 'No hay franjas activas configuradas.';
 export const TEXTO_SIN_DISPONIBILIDAD_PERSONAL = 'No hay franjas con disponibilidad para esa fecha y esas personas. Prueba otro día.';
-export const TEXTO_FRANJA_SIN_DISPONIBILIDAD = 'Sin disponibilidad (llena o a menos de 2 h de antelación)';
+export const TEXTO_FRANJA_SIN_DISPONIBILIDAD = 'Sin disponibilidad (llena o ya terminó)';
+export const TEXTO_FRANJA_SOLO_PERSONAL = 'Disponible solo para el personal';
+export const AVISO_FRANJA_SOLO_PERSONAL =
+  'La franja de hoy está disponible solo para el personal: el cliente web ya no puede reservarla porque '
+  + 'faltan menos de 2 horas o ya empezó. Puedes registrarla mientras no haya terminado.';
 export const TEXTO_FRANJA_SIN_CONFIRMAR = 'Disponibilidad sin confirmar';
 export const TEXTO_FRANJA_DISPONIBLE = 'Disponible';
 export const TEXTO_ACTUALIZAR_DISPONIBILIDAD = 'Actualizar disponibilidad';
@@ -168,7 +175,7 @@ export const TEXTO_VOLVER_A_EDITAR = 'Volver a editar';
 export const TITULO_CONFIRMAR_MODIFICAR = '¿Modificar esta reserva?';
 export const CUERPO_CONFIRMAR_MODIFICAR = 'Se guardan los cambios marcados. El servidor valida la disponibilidad otra vez al guardar.';
 export const EXITO_MODIFICAR = 'Reserva modificada.';
-export const AYUDA_NUEVO_HORARIO = 'Un horario nuevo se valida como reserva nueva: hasta 30 días adelante y con 2 h de antelación.';
+export const AYUDA_NUEVO_HORARIO = 'Un horario nuevo se valida como reserva nueva: hasta 30 días adelante y con la franja sin terminar.';
 export const ETIQUETA_MESA = 'Mesa';
 export const OPCION_MESA_AUTOMATICA = 'Automática (conserva la actual si sirve)';
 export const TEXTO_MESA_ACTUAL = 'actual';

@@ -37,6 +37,7 @@ import {
   esConflictoMesaInactiva,
   esFechaIso,
   estadoFranja,
+  esFranjaSoloPersonal,
   etiquetaOrigen,
   fechaEnRango,
   filaDesdeMesa,
@@ -128,10 +129,38 @@ test('formatearTelefono agrupa 3-3-4 y no toca lo que no tiene 10 dígitos', () 
   assert.equal(formatearTelefono(undefined), '');
 });
 
-test('etiquetaOrigen traduce Telefono y deja el resto', () => {
-  assert.equal(etiquetaOrigen('Telefono'), 'Teléfono');
+test('etiquetaOrigen muestra "Por llamada" y "En persona" y deja Web y lo desconocido', () => {
+  assert.equal(etiquetaOrigen('Telefono'), 'Por llamada');
+  assert.equal(etiquetaOrigen('Presencial'), 'En persona');
   assert.equal(etiquetaOrigen('Web'), 'Web');
-  assert.equal(etiquetaOrigen('Presencial'), 'Presencial');
+  assert.equal(etiquetaOrigen('Otro'), 'Otro');
+  assert.equal(etiquetaOrigen(undefined), '');
+});
+
+const ALMUERZO_HOY = { horaInicio: '12:00:00', horaFin: '15:00:00' };
+const soloPersonal = (hora, extra = {}) =>
+  esFranjaSoloPersonal({ fecha: '2026-12-01', hoy: '2026-12-01', hora, franja: ALMUERZO_HOY, ...extra });
+
+test('esFranjaSoloPersonal: a 2 h exactas del inicio todavía puede reservar la web; un minuto después, solo el personal', () => {
+  assert.equal(soloPersonal('10:00'), false);
+  assert.equal(soloPersonal('10:01'), true);
+});
+
+test('esFranjaSoloPersonal: en curso es solo del personal hasta un minuto antes del fin', () => {
+  assert.equal(soloPersonal('12:00'), true);
+  assert.equal(soloPersonal('13:30'), true);
+  assert.equal(soloPersonal('14:59'), true);
+});
+
+test('esFranjaSoloPersonal: desde el fin exacto la franja terminó y ya no cuenta', () => {
+  assert.equal(soloPersonal('15:00'), false);
+  assert.equal(soloPersonal('16:00'), false);
+});
+
+test('esFranjaSoloPersonal: otra fecha o sin franja no aplica', () => {
+  assert.equal(soloPersonal('13:00', { fecha: '2026-12-02' }), false);
+  assert.equal(soloPersonal('13:00', { franja: undefined }), false);
+  assert.equal(soloPersonal('08:00'), false);
 });
 
 test('ESTADOS_FILTRO son exactamente los nombres del enum del backend', () => {

@@ -56,15 +56,23 @@ public async Task<IActionResult> Crear(...) { ... }
 | `/api/usuarios/{id}/roles` | PUT | `GestionarUsuarios` |
 | `/api/usuarios/{id}/accesos` | GET | `GestionarUsuarios`. Paginado (`page`, `pageSize` máximo 100), lo más reciente primero; filtros opcionales `exitoso`, `desde`, `hasta` |
 
+### Reservas: disponibilidad y creación (GI-158, GI-403)
+
+Aquí conviven el cliente web (anónimo) y el personal (`OperarReservas`); cada fila dice quién puede usarla. Los canales y su ciclo de vida están en [reservas-canales.md](reservas-canales.md).
+
+| Endpoint | Verbo | Acceso |
+|---|---|---|
+| `/api/reservas/disponibilidad` | GET | Anónimo, con límite por IP (429). Query `fecha` y `personas`. Franjas con mesa libre para el cliente web: conserva la antelación mínima de 2 h, así que no ofrece la franja de hoy en curso ni la que empieza en menos de 2 h |
+| `/api/reservas/disponibilidad-personal` | GET | `OperarReservas` (GI-403). Query `fecha` y `personas`. Franjas con mesa libre para el personal: incluye la franja de hoy en curso y no exige la antelación de 2 h; solo excluye las franjas que ya terminaron. Sin límite por IP. El `GET /api/reservas/disponibilidad` anónimo (limitado por IP) conserva las 2 h y no cambia. La ruta va antes de `{id}` |
+| `/api/reservas` | POST | Anónimo o `OperarReservas` (GI-403). Sin `Authorization`: cliente web (origen Web, antelación mínima de 2 h; el `origen` del cuerpo se ignora). Con token y `OperarReservas`: personal, `origen` Telefono (1) o Presencial (2), **sin** antelación de 2 h pero con la franja sin terminar y fecha no pasada. Con token inválido responde 401, nunca sigue como anónimo |
+
 ### Reservas: agenda del personal (GI-164)
 
-Todos con `OperarReservas` (Administrador, Gerente, Supervisor, Mesero). El estado y el origen salen como texto (por ejemplo `"Confirmada"`).
+Todos con `OperarReservas` (Administrador, Gerente, Supervisor, Mesero), sin excepciones. El estado y el origen salen como texto (por ejemplo `"Confirmada"`).
 
 | Endpoint | Verbo | Acceso |
 |---|---|---|
 | `/api/reservas` | GET | `OperarReservas`. Paginado (`page`, `pageSize` máximo 100); filtros opcionales `fecha`, `estado` (nombre), `franjaId` y `telefono` (10 dígitos). Sin `fecha` ni `telefono` devuelve el día de hoy |
-| `/api/reservas/disponibilidad-personal` | GET | `OperarReservas` (GI-403). Query `fecha` y `personas`. Franjas con mesa libre para el personal: incluye la franja de hoy en curso y no exige la antelación de 2 h; solo excluye las franjas que ya terminaron. Sin límite por IP. El `GET /api/reservas/disponibilidad` anónimo (limitado por IP) conserva las 2 h y no cambia. La ruta va antes de `{id}` |
-| `/api/reservas` | POST | Anónimo o `OperarReservas` (GI-403). Sin `Authorization`: cliente web (origen Web, antelación mínima de 2 h; el `origen` del cuerpo se ignora). Con token y `OperarReservas`: personal, `origen` Telefono (1) o Presencial (2), **sin** antelación de 2 h pero con la franja sin terminar y fecha no pasada. Con token inválido responde 401, nunca sigue como anónimo |
 | `/api/reservas/{id}` | GET | `OperarReservas`. Detalle con cliente, mesa, franja, estado y motivo de cancelación; 404 si no existe |
 | `/api/reservas/{id}/check-in` | PATCH | `OperarReservas`. Body `{ "personasReales": n }`. Desde 30 minutos antes de la franja y hasta que termina; 400 si supera la capacidad de la mesa; 409 si el estado o la hora no lo permiten. Devuelve el detalle |
 | `/api/reservas/{id}` | PUT | `OperarReservas`. Body `{ fecha, franjaHorariaId, personas, mesaId? }`. Modifica una reserva Confirmada hasta el inicio de su franja, revalidando la disponibilidad; sin `mesaId` conserva la mesa si sirve. Publica `ReservaModificadaEvent`. Devuelve el detalle |
