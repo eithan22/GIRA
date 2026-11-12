@@ -53,12 +53,17 @@ public class ProcesoAutomaticoReservasService : IProcesoAutomaticoReservasServic
         var ahoraLocal = _reloj.AhoraLocal();
         var hoy = DateOnly.FromDateTime(ahoraLocal);
 
-        // Las más antiguas primero: las vencidas siempre quedan antes que las que aún no vencen,
-        // así que el tope nunca deja una vencida detrás de una que todavía no lo está.
+        // Se leen ordenadas por fecha e inicio de franja (las más antiguas primero), con un tope de
+        // TopePorCiclo (200). Desde GI-403 el plazo cuenta desde max(inicio, último registro), así que ese
+        // orden ya no garantiza que toda vencida quede antes que una que aún no vence: una reserva de hoy
+        // creada hace pocos minutos sobre una franja ya empezada va adelante en la lista pero todavía no
+        // vence. Solo habría retraso si hubiera 200 de esas a la vez; incluso entonces cada una vence a
+        // los 15 min de su registro, así que las vencidas de atrás se procesan en los ciclos siguientes
+        // (se retrasan, no se pierden).
         var candidatas = await _reservas.ListarPorEstadoHastaAsync(
             EstadoReserva.Confirmada, hoy, TopePorCiclo, cancellationToken);
         var vencidas = candidatas
-            .Where(c => ahoraLocal > c.Reserva.Fecha.ToDateTime(c.HoraInicio) + _parametros.ToleranciaNoShow)
+            .Where(c => ahoraLocal > InicioDelPlazo(c.Reserva, c.HoraInicio) + _parametros.ToleranciaNoShow)
             .ToList();
 
         var noAsistidas = 0;
@@ -105,6 +110,26 @@ public class ProcesoAutomaticoReservasService : IProcesoAutomaticoReservasServic
 
         return new ResultadoProcesoReservas(
             noAsistidas, omitidas, fallos, TopeAlcanzado: vencidas.Count >= TopePorCiclo, TopePorCiclo);
+    }
+
+    // Desde cuándo corre la tolerancia del no-show: el mayor entre el inicio de la franja y el último
+    // registro de la reserva (creación o modificación), en hora local. Así una reserva que el personal
+    // crea (o mueve) con la franja ya empezada tiene su plazo completo y no se marca de inmediato. Para las
+    // reservas hechas antes del inicio, el último registro es anterior y el plazo sigue siendo el inicio.
+    private static DateTime InicioDelPlazo(Domain.Entities.Reservas.Reserva reserva, TimeOnly horaInicio)
+    {
+        var inicio = reserva.Fecha.ToDateTime(horaInicio);
+        var ultimoRegistro = reserva.UpdatedAt is { } modificada && modificada > reserva.CreatedAt
+            ? modificada
+            : reserva.CreatedAt;
+        if (ultimoRegistro == default)
+        {
+            return inicio; // fila sin auditoría: se conserva el comportamiento anterior
+        }
+
+        var registroLocal = TimeZoneInfo.ConvertTimeFromUtc(
+            DateTime.SpecifyKind(ultimoRegistro, DateTimeKind.Utc), HoraLocalGira.ZonaHoraria);
+        return registroLocal > inicio ? registroLocal : inicio;
     }
 
     /// <inheritdoc />

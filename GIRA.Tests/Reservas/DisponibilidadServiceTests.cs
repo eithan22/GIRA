@@ -186,6 +186,71 @@ public class DisponibilidadServiceTests
         Assert.Single(resultado.Value!);
     }
 
+    // --- GI-403: audiencia Personal ---
+
+    private static DateTimeOffset LocalRd(int hora, int minuto) =>
+        new(Fecha.Year, Fecha.Month, Fecha.Day, hora + 4, minuto, 0, TimeSpan.Zero);
+
+    [Fact]
+    public async Task ConsultarAsync_Personal_Incluye_La_Franja_En_Curso_Y_A_Menos_De_2h()
+    {
+        var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
+        var enCurso = CrearServicio([mesa], [Almuerzo], [], ahoraUtc: LocalRd(13, 0));
+        var aPunto = CrearServicio([mesa], [Almuerzo], [], ahoraUtc: LocalRd(11, 30));
+
+        var a = await enCurso.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default, AudienciaReserva.Personal);
+        var b = await aPunto.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default, AudienciaReserva.Personal);
+
+        Assert.Single(a.Value!);
+        Assert.Single(b.Value!);
+    }
+
+    [Fact]
+    public async Task ConsultarAsync_Personal_Excluye_La_Franja_Terminada_Y_Incluye_Un_Minuto_Antes_Del_Fin()
+    {
+        var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
+
+        var terminada = await CrearServicio([mesa], [Almuerzo], [], ahoraUtc: LocalRd(15, 0))
+            .ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default, AudienciaReserva.Personal);
+        var porTerminar = await CrearServicio([mesa], [Almuerzo], [], ahoraUtc: LocalRd(14, 59))
+            .ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default, AudienciaReserva.Personal);
+
+        Assert.Empty(terminada.Value!);
+        Assert.Single(porTerminar.Value!);
+    }
+
+    [Fact]
+    public async Task ConsultarAsync_Cliente_Sigue_Excluyendo_La_Franja_En_Curso_Y_Las_De_Menos_De_2h()
+    {
+        var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
+
+        var enCurso = await CrearServicio([mesa], [Almuerzo], [], ahoraUtc: LocalRd(13, 0))
+            .ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
+        var aPunto = await CrearServicio([mesa], [Almuerzo], [], ahoraUtc: LocalRd(11, 30))
+            .ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
+        var justo = await CrearServicio([mesa], [Almuerzo], [], ahoraUtc: LocalRd(10, 0))
+            .ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
+
+        Assert.Empty(enCurso.Value!);
+        Assert.Empty(aPunto.Value!);
+        Assert.Single(justo.Value!); // inicio == ahora + 2 h exactas: todavía pasa
+    }
+
+    [Fact]
+    public async Task ConsultarAsync_Personal_Grupo_Mayor_A_La_Mesa_Mas_Grande_Usa_La_Voz_Del_Personal()
+    {
+        var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 8 };
+        var servicio = CrearServicio([mesa], [Almuerzo], []);
+
+        var personal = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 9), default, AudienciaReserva.Personal);
+        var cliente = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 9), default);
+
+        Assert.Equal(
+            "Las mesas admiten como máximo 8 personas. Los grupos más grandes se atienden por teléfono, fuera del sistema.",
+            personal.Error);
+        Assert.Equal("Para grupos de más de 8 personas, llama al restaurante.", cliente.Error);
+    }
+
     [Fact]
     public async Task ConsultarAsync_FechaPasada_DevuelveErrorDeValidacion()
     {

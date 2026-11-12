@@ -49,6 +49,26 @@ public class ReservasController : ControllerBase
     }
 
     /// <summary>
+    /// GI-403: disponibilidad para el personal. A diferencia de la pública, no exige la antelación de
+    /// 2 h: incluye la franja de hoy en curso y solo excluye las que ya terminaron. Autenticada
+    /// (<c>OperarReservas</c>) y sin límite por IP. Va antes de <c>{id:guid}</c>.
+    /// </summary>
+    [HttpGet("disponibilidad-personal")]
+    [Authorize(Policy = Politicas.OperarReservas)]
+    [ProducesResponseType<IReadOnlyList<FranjaDisponibleDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ConsultarDisponibilidadPersonal(
+        [FromQuery] DateOnly fecha, [FromQuery] int personas, CancellationToken cancellationToken)
+    {
+        var resultado = await _disponibilidadService.ConsultarAsync(
+            new ConsultarDisponibilidadRequest(fecha, personas), cancellationToken, AudienciaReserva.Personal);
+
+        return resultado.ToActionResult();
+    }
+
+    /// <summary>
     /// GI-158/222/235: crea una reserva. Sin cabecera Authorization: invitado, Origen = Web,
     /// ignora cualquier Origen del cuerpo. Con token válido y política OperarReservas:
     /// personal, Origen debe ser Telefono o Presencial; el usuario que registra se toma del

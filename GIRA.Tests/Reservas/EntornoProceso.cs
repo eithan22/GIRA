@@ -54,7 +54,7 @@ internal sealed class EntornoProceso : IDisposable
 
     public async Task<Reserva> SembrarAsync(
         DateOnly fecha, int hora = 12, int minuto = 0, EstadoReserva estado = EstadoReserva.Confirmada, int personas = 2,
-        int? personasReales = null)
+        int? personasReales = null, DateTime? creadaUtc = null, DateTime? modificadaUtc = null)
     {
         if (_mesa is null)
         {
@@ -80,7 +80,10 @@ internal sealed class EntornoProceso : IDisposable
         var reserva = new Reserva
         {
             Id = Guid.NewGuid(), Codigo = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant(), ClienteId = _cliente!.Id,
-            MesaId = _mesa.Id, FranjaHorariaId = franja.Id, Fecha = fecha, Personas = personas, Origen = OrigenReserva.Telefono
+            MesaId = _mesa.Id, FranjaHorariaId = franja.Id, Fecha = fecha, Personas = personas, Origen = OrigenReserva.Telefono,
+            // Este contexto no lleva el interceptor de auditoría: sin estos valores la reserva queda sin registro
+            // de creación (CreatedAt por defecto), como las filas anteriores a la auditoría.
+            CreatedAt = creadaUtc ?? default, UpdatedAt = modificadaUtc
         };
         switch (estado)
         {

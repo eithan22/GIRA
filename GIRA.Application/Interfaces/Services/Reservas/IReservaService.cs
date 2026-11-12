@@ -18,6 +18,12 @@ public interface IReservaService
     /// ya debe garantizar uno de los dos antes de llamar; esto es una segunda red de
     /// seguridad, no el único lugar donde se valida). El usuario que registra no se recibe
     /// aquí: lo toma BaseEntity.CreatedBy del token, vía AuditoriaSaveChangesInterceptor.
+    /// <para>
+    /// GI-403: el personal NO tiene la antelación mínima de 2 h (puede reservar para hoy), pero la fecha
+    /// no puede ser pasada ni la franja haber terminado; el flujo de <see cref="CrearAsync"/> (Web)
+    /// conserva las 2 h. El máximo de personas es el tamaño de la mesa más grande activa (hoy, 8
+    /// personas); los grupos mayores se atienden por teléfono, fuera del sistema.
+    /// </para>
     /// </summary>
     Task<OperationResult<ReservaCreadaDto>> CrearComoPersonalAsync(
         CrearReservaRequest request, OrigenReserva origen, CancellationToken cancellationToken);

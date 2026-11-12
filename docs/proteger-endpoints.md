@@ -63,6 +63,8 @@ Todos con `OperarReservas` (Administrador, Gerente, Supervisor, Mesero). El esta
 | Endpoint | Verbo | Acceso |
 |---|---|---|
 | `/api/reservas` | GET | `OperarReservas`. Paginado (`page`, `pageSize` máximo 100); filtros opcionales `fecha`, `estado` (nombre), `franjaId` y `telefono` (10 dígitos). Sin `fecha` ni `telefono` devuelve el día de hoy |
+| `/api/reservas/disponibilidad-personal` | GET | `OperarReservas` (GI-403). Query `fecha` y `personas`. Franjas con mesa libre para el personal: incluye la franja de hoy en curso y no exige la antelación de 2 h; solo excluye las franjas que ya terminaron. Sin límite por IP. El `GET /api/reservas/disponibilidad` anónimo (limitado por IP) conserva las 2 h y no cambia. La ruta va antes de `{id}` |
+| `/api/reservas` | POST | Anónimo o `OperarReservas` (GI-403). Sin `Authorization`: cliente web (origen Web, antelación mínima de 2 h; el `origen` del cuerpo se ignora). Con token y `OperarReservas`: personal, `origen` Telefono (1) o Presencial (2), **sin** antelación de 2 h pero con la franja sin terminar y fecha no pasada. Con token inválido responde 401, nunca sigue como anónimo |
 | `/api/reservas/{id}` | GET | `OperarReservas`. Detalle con cliente, mesa, franja, estado y motivo de cancelación; 404 si no existe |
 | `/api/reservas/{id}/check-in` | PATCH | `OperarReservas`. Body `{ "personasReales": n }`. Desde 30 minutos antes de la franja y hasta que termina; 400 si supera la capacidad de la mesa; 409 si el estado o la hora no lo permiten. Devuelve el detalle |
 | `/api/reservas/{id}` | PUT | `OperarReservas`. Body `{ fecha, franjaHorariaId, personas, mesaId? }`. Modifica una reserva Confirmada hasta el inicio de su franja, revalidando la disponibilidad; sin `mesaId` conserva la mesa si sirve. Publica `ReservaModificadaEvent`. Devuelve el detalle |
@@ -89,7 +91,7 @@ Todos con `GestionarSalon` (Administrador, Gerente). `{recurso}` es `zonas`, `me
 
 ### Reservas: proceso automático (no es un endpoint)
 
-Un solo `BackgroundService` (`ReservasProcesoAutomaticoService`) ejecuta cada minuto los procesos automáticos de Reservas. Hoy marca como **NoAsistio** las reservas Confirmada cuya tolerancia (`ToleranciaNoShow`, 15 min) ya venció, hasta 200 por ciclo y las más antiguas primero, y publica `ReservaNoAsistidaEvent` (GI-161). En el mismo ciclo **completa** las reservas EnCurso cuya franja ya terminó (desde el instante en que termina) y publica `VisitaCompletadaEvent` con las personas reales y `ConReserva = true` (GI-224). Cada paso procesa hasta 200 reservas por ciclo, las más antiguas primero.
+Un solo `BackgroundService` (`ReservasProcesoAutomaticoService`) ejecuta cada minuto los procesos automáticos de Reservas. Hoy marca como **NoAsistio** las reservas Confirmada cuya tolerancia (`ToleranciaNoShow`, 15 min) ya venció, contada desde el mayor entre el inicio de la franja y el último registro de la reserva (creación o modificación; GI-403, para que una reserva creada con la franja ya empezada tenga su plazo completo), hasta 200 por ciclo y las más antiguas primero, y publica `ReservaNoAsistidaEvent` (GI-161). En el mismo ciclo **completa** las reservas EnCurso cuya franja ya terminó (desde el instante en que termina) y publica `VisitaCompletadaEvent` con las personas reales y `ConReserva = true` (GI-224). Cada paso procesa hasta 200 reservas por ciclo, las más antiguas primero.
 
 Configuración (sección `Reservas:ProcesoAutomatico`; un valor inválido nunca impide arrancar: se usa el valor por defecto y se registra un Warning):
 

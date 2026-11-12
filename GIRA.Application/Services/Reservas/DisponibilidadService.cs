@@ -38,7 +38,8 @@ public class DisponibilidadService : IDisponibilidadService
 
     /// <inheritdoc />
     public async Task<OperationResult<IReadOnlyList<FranjaDisponibleDto>>> ConsultarAsync(
-        ConsultarDisponibilidadRequest request, CancellationToken cancellationToken)
+        ConsultarDisponibilidadRequest request, CancellationToken cancellationToken,
+        AudienciaReserva audiencia = AudienciaReserva.Cliente)
     {
         var validacion = await _validator.ValidateAsync(request, cancellationToken);
         if (!validacion.IsValid)
@@ -58,7 +59,7 @@ public class DisponibilidadService : IDisponibilidadService
         {
             return OperationResult.Failure<IReadOnlyList<FranjaDisponibleDto>>(
                 ErrorType.Validation,
-                $"Para grupos de más de {capacidadMaxima} personas, llama al restaurante.");
+                MensajesReservas.GrupoGrande(audiencia, capacidadMaxima));
         }
 
         if (_parametros.DiasCerrados.Contains(request.Fecha.DayOfWeek))
@@ -80,8 +81,12 @@ public class DisponibilidadService : IDisponibilidadService
 
         foreach (var franja in franjas.OrderBy(f => f.HoraInicio))
         {
-            var inicioFranjaLocal = request.Fecha.ToDateTime(franja.HoraInicio);
-            if (inicioFranjaLocal < ahoraLocal + _parametros.AntelacionMinima)
+            // Cliente: antelación mínima desde el inicio. Personal: sin antelación, solo se excluye la franja
+            // que ya terminó (el fin exacto cuenta como terminada, igual que en el check-in).
+            var excluida = audiencia == AudienciaReserva.Personal
+                ? ahoraLocal >= request.Fecha.ToDateTime(franja.HoraFin)
+                : request.Fecha.ToDateTime(franja.HoraInicio) < ahoraLocal + _parametros.AntelacionMinima;
+            if (excluida)
             {
                 continue;
             }
