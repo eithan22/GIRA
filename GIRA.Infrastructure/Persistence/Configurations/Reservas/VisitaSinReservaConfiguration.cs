@@ -9,7 +9,7 @@ namespace GIRA.Infrastructure.Persistence.Configurations.Reservas;
 /// </summary>
 public class VisitaSinReservaConfiguration : IEntityTypeConfiguration<VisitaSinReserva>
 {
-    /// <summary>Configura la tabla y las relaciones con Mesa y FranjaHoraria.</summary>
+    /// <summary>Configura la tabla y las relaciones con Mesa (opcional) y FranjaHoraria.</summary>
     public void Configure(EntityTypeBuilder<VisitaSinReserva> builder)
     {
         builder.ToTable("VisitaSinReserva", "reservas");

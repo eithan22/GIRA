@@ -1,3 +1,4 @@
+using GIRA.Application.Common;
 using GIRA.Domain.Entities.Reservas;
 
 namespace GIRA.Application.Interfaces.Repository.Reservas;
@@ -10,6 +11,12 @@ public interface IClienteRepository
 
     /// <summary>Busca un cliente por su Id. Null si no existe.</summary>
     Task<Cliente?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Busca clientes (GI-164) cuyo nombre contenga el texto (sin distinguir mayúsculas) o cuyo
+    /// teléfono contenga los dígitos del texto. Orden: nombre y luego Id.
+    /// </summary>
+    Task<PagedResult<Cliente>> BuscarAsync(string texto, int page, int pageSize, CancellationToken cancellationToken);
 
     /// <summary>Deja el cliente en seguimiento; no guarda hasta llamar a <see cref="GuardarCambiosAsync"/>.</summary>
     void Agregar(Cliente cliente);

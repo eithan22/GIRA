@@ -1,0 +1,215 @@
+/* Agenda del personal (GI-394) y pulido de GI-398. Solo clases reservas-personal-*; los colores, radios y
+   sombras salen de las variables --reservas-* de Eithan. La lista cambia de tabla a tarjetas según el
+   ancho REAL de su contenedor (consultas de contenedor), no el de la ventana: el shell de Seguridad le
+   resta la barra lateral (218-252 px) y su relleno. Cortes del contenedor: 600 px y 960 px. */
+
+.reservas-personal-pagina { width: 100%; max-width: 1180px; margin: 0 auto; }
+
+.reservas-personal-tarjeta {
+  padding: 20px;
+  background: var(--reservas-blanco);
+  border: 1px solid var(--reservas-borde-suave);
+  border-radius: var(--reservas-radio-grande);
+}
+
+/* --- Controles (contraste y foco: WCAG AA) ---
+   Los campos son más bajos que en el wizard público, pero con 16px de fuente (menos que eso, iOS hace
+   zoom al enfocar). Borde #737d92: 4,14:1 sobre blanco y 3,75:1 sobre el fondo de página (el de Eithan,
+   #cfd4df, da 1,49:1). El anillo de foco usa --reservas-foco, redefinido en index.css (6,38:1). */
+.reservas-personal .reservas-input { height: 48px; border-width: 1px; border-color: #737d92; }
+.reservas-personal .reservas-input:focus-visible { border-width: 1px; border-color: var(--reservas-foco); }
+.reservas-personal .reservas-input[aria-invalid="true"],
+.reservas-personal .reservas-input[aria-invalid="true"]:focus-visible { border-color: var(--reservas-error-boton); }
+/* La regla de foco de Eithan cubre button, a e input: select y textarea necesitan la suya. */
+.reservas-personal :is(select, textarea):focus-visible { outline: 3px solid var(--reservas-foco); outline-offset: 2px; }
+.reservas-personal .reservas-personal-textarea { height: auto; padding: 12px 16px; line-height: 1.5; resize: vertical; }
+
+.reservas-personal .reservas-personal-boton-auto { width: auto; }
+
+/* Botón primario en morado sólido (6,38:1 con texto blanco): el degradado de Eithan da 4,15:1 en su
+   extremo claro. Solo dentro de las pantallas del personal. */
+.reservas-personal .reservas-boton--primario { background: var(--reservas-morado-fuerte); }
+.reservas-personal .reservas-boton--secundario { border-color: #737d92; }
+@media (hover: hover) {
+  .reservas-personal .reservas-boton--secundario:hover { border-color: var(--reservas-morado); }
+}
+
+.reservas-personal-subtitulo { margin: 0 0 12px; font-size: 18px; color: var(--reservas-texto); }
+
+/* --- Filtros --- */
+.reservas-personal-filtros { display: flex; flex-direction: column; gap: 16px; }
+.reservas-personal-filtros-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; align-items: start; }
+.reservas-personal-filtros-acciones { display: flex; flex-wrap: wrap; gap: 10px; }
+.reservas-personal-fecha { display: flex; align-items: center; gap: 8px; }
+.reservas-personal-fecha .reservas-input { min-width: 0; flex: 1; }
+.reservas-personal-icono-boton {
+  flex: none;
+  width: 44px;
+  height: 48px;
+  border: 1px solid #737d92;
+  border-radius: var(--reservas-radio-mediano);
+  background: var(--reservas-blanco);
+  color: var(--reservas-texto-medio);
+  font-size: 22px;
+  line-height: 1;
+}
+
+/* --- Resumen --- */
+.reservas-personal-resumen { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.reservas-personal-conteo { min-height: 1.4em; font-weight: 700; color: var(--reservas-texto-medio); }
+.reservas-personal-resumen-derecha { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.reservas-personal-actualizado { font-size: 13px; color: var(--reservas-texto-suave); }
+
+/* --- Lista: contenedor de consultas, tabla y tarjetas ---
+   La lista es el contenedor (container-type: inline-size). Los paneles NO son descendientes suyos: la
+   contención de diseño que implica un contenedor volvería su `position: fixed` relativo al contenedor. */
+.reservas-personal-lista { container-type: inline-size; }
+/* Mientras recarga no se atenúa el texto (bajaba el contraste): solo se bloquea el puntero. */
+.reservas-personal-lista--ocupada { cursor: progress; pointer-events: none; }
+.reservas-personal-tabla-envoltura {
+  background: var(--reservas-blanco);
+  border: 1px solid var(--reservas-borde-suave);
+  border-radius: var(--reservas-radio-grande);
+  /* Red de seguridad: si la tabla no cupiera, se desplaza DENTRO de su caja en vez de recortarse. */
+  overflow-x: auto;
+}
+.reservas-personal-tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
+.reservas-personal-tabla th {
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--reservas-texto-suave);
+  background: var(--reservas-fondo-tenue);
+  border-bottom: 1px solid var(--reservas-borde-suave);
+}
+.reservas-personal-tabla td { padding: 14px; vertical-align: top; border-bottom: 1px solid var(--reservas-borde-linea); }
+.reservas-personal-tabla tr:last-child td { border-bottom: none; }
+.reservas-personal-tabla td strong { display: block; }
+.reservas-personal-celda-accion { text-align: right; white-space: nowrap; }
+.reservas-personal-secundario { display: block; font-size: 13px; color: var(--reservas-texto-suave); }
+.reservas-personal-ajustable { overflow-wrap: anywhere; }
+.reservas-personal-linea-extra { display: none; font-size: 13px; color: var(--reservas-texto-suave); }
+
+.reservas-personal-pill { padding: 5px 12px; font-size: 13px; white-space: nowrap; }
+
+/* Tarjetas: ocultas por defecto; se muestran cuando el contenedor es angosto. */
+.reservas-personal-tarjetas { display: none; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.reservas-personal-tarjeta-reserva {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--reservas-blanco);
+  border: 1px solid var(--reservas-borde-suave);
+  border-radius: var(--reservas-radio-grande);
+}
+.reservas-personal-tarjeta-reserva p { margin: 0; }
+.reservas-personal-tarjeta-fila { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+/* Contenedor de menos de 960 px: Origen y Código pasan a una segunda línea de la primera celda. */
+@container (max-width: 959px) {
+  .reservas-personal-col-extra { display: none; }
+  .reservas-personal-linea-extra { display: block; }
+}
+
+/* Contenedor de menos de 600 px: tarjetas en lugar de tabla. */
+@container (max-width: 599px) {
+  .reservas-personal-tabla-envoltura { display: none; }
+  .reservas-personal-tarjetas { display: grid; }
+}
+
+/* Navegadores sin consultas de contenedor: se vuelve a los cortes por ancho de ventana. */
+@supports not (container-type: inline-size) {
+  @media (max-width: 1023px) {
+    .reservas-personal-col-extra { display: none; }
+    .reservas-personal-linea-extra { display: block; }
+  }
+  @media (max-width: 720px) {
+    .reservas-personal-tabla-envoltura { display: none; }
+    .reservas-personal-tarjetas { display: grid; }
+  }
+}
+
+/* --- Paginación --- */
+.reservas-personal-paginacion { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 16px; }
+.reservas-personal-paginacion-texto { font-size: 14px; color: var(--reservas-texto-medio); }
+
+/* --- Panel lateral ---
+   Ancho con 100% (relativo al viewport, sin la barra de desplazamiento) y no con 100vw. Los márgenes de
+   zona segura evitan que el notch o la barra del sistema tapen el título o los botones. */
+.reservas-personal-panel-fondo { position: fixed; z-index: 40; inset: 0; background: #1a215066; }
+.reservas-personal-panel {
+  position: fixed;
+  z-index: 41;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(100%, 480px);
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--reservas-blanco);
+  box-shadow: var(--reservas-sombra-tarjeta);
+  animation: reservas-personal-entrar 0.2s ease both;
+}
+@keyframes reservas-personal-entrar { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.reservas-personal-panel-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 20px 12px;
+  border-bottom: 1px solid var(--reservas-borde-linea);
+}
+.reservas-personal-panel-titulo { font-size: 22px; line-height: 1.2; color: var(--reservas-texto); }
+.reservas-personal-panel-cerrar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #737d92;
+  border-radius: var(--reservas-radio-mediano);
+  background: var(--reservas-blanco);
+  color: var(--reservas-texto-medio);
+}
+.reservas-personal-panel-cuerpo { flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 20px; overflow-y: auto; }
+.reservas-personal-panel-estado { display: flex; }
+.reservas-personal-panel-bloque { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.reservas-personal-panel-bloque > .reservas-aviso { width: 100%; }
+.reservas-personal-panel-cargando { font-size: 14px; color: var(--reservas-texto-suave); }
+
+.reservas-personal-datos { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; margin: 0; }
+.reservas-personal-dato dt { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--reservas-texto-suave); }
+.reservas-personal-dato dd { margin: 2px 0 0; overflow-wrap: anywhere; color: var(--reservas-texto); }
+.reservas-personal-dato--ancho { grid-column: 1 / -1; }
+
+.reservas-personal-acciones { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* --- Confirmaciones en línea --- */
+.reservas-personal-confirmacion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  background: var(--reservas-fondo-tenue);
+  border: 1px solid var(--reservas-borde-suave);
+  border-radius: var(--reservas-radio-grande);
+}
+.reservas-personal-confirmacion--peligro { background: var(--reservas-error-fondo); border-color: var(--reservas-error-borde); }
+.reservas-personal-confirmacion-titulo { margin: 0; font: 800 17px var(--reservas-fuente-titulo); color: var(--reservas-texto); }
+.reservas-personal-confirmacion-texto { margin: 0; font-size: 14px; line-height: 1.6; color: var(--reservas-texto-medio); }
+.reservas-personal-confirmacion-botones { display: flex; flex-wrap: wrap; gap: 10px; }
+.reservas-personal-contador-fila { display: flex; justify-content: space-between; gap: 12px; }
+
+/* El panel es fijo respecto de la ventana (cubre la barra lateral), así que su diseño interno sigue el
+   ancho de la ventana. */
+@media (max-width: 720px) {
+  .reservas-personal-panel { width: 100%; }
+  .reservas-personal-datos { grid-template-columns: 1fr; }
+  .reservas-personal-resumen { align-items: flex-start; }
+}

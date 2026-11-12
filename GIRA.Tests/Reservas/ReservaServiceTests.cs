@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using GIRA.Infrastructure.Services.Reservas;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Events.Reservas;
@@ -49,10 +51,16 @@ public class ReservaServiceTests
             new FranjaHorariaRepositoryFalso([Almuerzo]),
             reservaRepo,
             clienteRepo,
+            new MesaGestionRepositoryFalso(),
             parametros,
             validador,
+            new ListarReservasRequestValidator(),
+            new CheckInRequestValidator(),
+            new CancelarPorPersonalRequestValidator(),
+            new ModificarReservaRequestValidator(),
             new GeneradorCodigoReserva(),
             publisher,
+            new PublicadorEventosSeguro(publisher, NullLogger<PublicadorEventosSeguro>.Instance),
             reloj);
     }
 
@@ -125,10 +133,16 @@ public class ReservaServiceTests
             new FranjaHorariaRepositoryFalso([Almuerzo]),
             new ReservaRepositoryFake(),
             new ClienteRepositoryFake(),
+            new MesaGestionRepositoryFalso(),
             parametros,
             validador,
+            new ListarReservasRequestValidator(),
+            new CheckInRequestValidator(),
+            new CancelarPorPersonalRequestValidator(),
+            new ModificarReservaRequestValidator(),
             new GeneradorCodigoReserva(),
             new PublisherFalso(),
+            new PublicadorEventosSeguro(new PublisherFalso(), NullLogger<PublicadorEventosSeguro>.Instance),
             reloj);
 
         var resultado = await servicio.CrearAsync(Request(), default);
@@ -490,8 +504,7 @@ public class ReservaServiceTests
         Assert.True(resultado.IsSuccess);
         var evento = Assert.Single(publisher.Publicados);
         var canceladoEvento = Assert.IsType<ReservaCanceladaEvent>(evento);
-        Assert.Equal(reserva.Id, canceladoEvento.ReservaId);
-        Assert.Null(canceladoEvento.MotivoCancelacion);
+        Assert.Equal(new ReservaCanceladaEvent(reserva.Id, Fecha, Almuerzo.Id, 2), canceladoEvento);
     }
 
     [Fact]
@@ -566,6 +579,22 @@ class ReservaRepositoryFake : IReservaRepository
         return Task.FromResult(coincide ? ReservaPorCodigoYTelefono : null);
     }
 
+    public Task<PagedResult<ReservaListadoDto>> ListarAsync(DateOnly? fecha, EstadoReserva? estado, Guid? franjaId, string? telefono, int page, int pageSize, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<ReservaDetalleDto?> ObtenerDetalleAsync(Guid id, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<Reserva?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<IReadOnlyList<ReservaConFranja>> ListarPorEstadoHastaAsync(EstadoReserva estado, DateOnly fechaMaxima, int limite, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+    public void Descartar(Reserva reserva) => throw new NotImplementedException();
+
+    public Task<bool> ExisteVigenteAsync(Guid mesaId, DateOnly fecha, Guid franjaId, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
     public Task<int> ContarVigentesPorTelefonoAsync(string telefono, CancellationToken cancellationToken) =>
         Task.FromResult(VigentesPorTelefono);
 
@@ -609,6 +638,9 @@ class ClienteRepositoryFake : IClienteRepository
 
     public Task<Cliente?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken) =>
         Task.FromResult(ClientePorId);
+
+    public Task<PagedResult<Cliente>> BuscarAsync(string texto, int page, int pageSize, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
 
     public void Agregar(Cliente cliente) => Agregado = cliente;
 

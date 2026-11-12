@@ -1,0 +1,71 @@
+/* Administración de zonas, mesas y franjas (GI-397). Solo clases reservas-personal-*; los colores salen
+   de las variables --reservas-* de Eithan. El estado activa/inactiva siempre lleva símbolo y texto. */
+
+/* --- Control segmentado (pestañas internas; distinto de las pestañas de navegación de Reservas) --- */
+.reservas-personal-segmentado {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--reservas-neutro-fondo);
+  border-radius: var(--reservas-radio-pill);
+}
+.reservas-personal-segmento {
+  min-height: 44px;
+  padding: 0 22px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--reservas-neutro-texto);
+  border-radius: var(--reservas-radio-pill);
+}
+.reservas-personal-segmento--activo {
+  background: var(--reservas-blanco);
+  color: var(--reservas-morado-fuerte);
+  box-shadow: 0 2px 8px #1a215026;
+}
+.reservas-personal-segmento:focus-visible { outline: 3px solid var(--reservas-foco); outline-offset: 2px; }
+@media (hover: hover) {
+  .reservas-personal-segmento:not(.reservas-personal-segmento--activo):hover { color: var(--reservas-morado-fuerte); }
+}
+
+.reservas-personal-seccion { display: flex; flex-direction: column; gap: 16px; padding-top: 16px; }
+
+/* --- Estado activa / inactiva --- */
+.reservas-personal-estado-activa { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.reservas-personal-pill-activa {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--reservas-exito-texto);
+  background: var(--reservas-exito-fondo);
+  border-radius: var(--reservas-radio-pill);
+}
+.reservas-personal-pill-activa--inactiva { color: var(--reservas-neutro-texto); background: var(--reservas-neutro-fondo); }
+.reservas-personal-etiqueta-zona-inactiva {
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--reservas-aviso-texto);
+  background: var(--reservas-aviso-fondo);
+  border: 1px solid var(--reservas-aviso-borde);
+  border-radius: var(--reservas-radio-pill);
+}
+
+/* --- Filas inactivas atenuadas (siguen legibles) --- */
+.reservas-personal-fila-inactiva { color: var(--reservas-texto-suave); background: var(--reservas-fondo-tenue); }
+
+/* --- Tarjetas (móvil) --- */
+.reservas-personal-tarjeta-datos { display: grid; gap: 6px; margin: 0; }
+.reservas-personal-tarjeta-datos > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.reservas-personal-tarjeta-datos dt { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--reservas-texto-suave); }
+.reservas-personal-tarjeta-datos dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.reservas-personal-tarjeta-acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+
+@media (max-width: 720px) {
+  .reservas-personal-segmentado { display: flex; width: 100%; }
+  .reservas-personal-segmento { flex: 1; padding: 0 8px; }
+}

@@ -7,7 +7,7 @@ public static class Politicas
     public const string GestionarUsuarios = nameof(GestionarUsuarios);
 
     // Reservas
-    /// <summary>Agenda del día, check-in, walk-ins y lista de espera.</summary>
+    /// <summary>Agenda del día, check-in y walk-ins.</summary>
     public const string OperarReservas = nameof(OperarReservas);
     /// <summary>Zonas, mesas y franjas horarias.</summary>
     public const string GestionarSalon = nameof(GestionarSalon);

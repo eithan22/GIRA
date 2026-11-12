@@ -121,6 +121,11 @@ namespace GIRA.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("IX_FranjaHoraria_Nombre")
+                        .HasFilter("[IsDeleted] = 0");
+
                     b.ToTable("FranjaHoraria", "reservas");
 
                     b.HasData(
@@ -191,6 +196,11 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Numero")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Mesa_Numero")
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.HasIndex("ZonaId");
 
@@ -310,7 +320,7 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<Guid>("MesaId")
+                    b.Property<Guid?>("MesaId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("PersonasReales")
@@ -377,6 +387,11 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Zona_Nombre")
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("Zona", "reservas");
                 });
@@ -744,8 +759,7 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.HasOne("GIRA.Domain.Entities.Reservas.Mesa", null)
                         .WithMany()
                         .HasForeignKey("MesaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

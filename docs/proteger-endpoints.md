@@ -56,6 +56,49 @@ public async Task<IActionResult> Crear(...) { ... }
 | `/api/usuarios/{id}/roles` | PUT | `GestionarUsuarios` |
 | `/api/usuarios/{id}/accesos` | GET | `GestionarUsuarios`. Paginado (`page`, `pageSize` máximo 100), lo más reciente primero; filtros opcionales `exitoso`, `desde`, `hasta` |
 
+### Reservas: agenda del personal (GI-164)
+
+Todos con `OperarReservas` (Administrador, Gerente, Supervisor, Mesero). El estado y el origen salen como texto (por ejemplo `"Confirmada"`).
+
+| Endpoint | Verbo | Acceso |
+|---|---|---|
+| `/api/reservas` | GET | `OperarReservas`. Paginado (`page`, `pageSize` máximo 100); filtros opcionales `fecha`, `estado` (nombre), `franjaId` y `telefono` (10 dígitos). Sin `fecha` ni `telefono` devuelve el día de hoy |
+| `/api/reservas/{id}` | GET | `OperarReservas`. Detalle con cliente, mesa, franja, estado y motivo de cancelación; 404 si no existe |
+| `/api/reservas/{id}/check-in` | PATCH | `OperarReservas`. Body `{ "personasReales": n }`. Desde 30 minutos antes de la franja y hasta que termina; 400 si supera la capacidad de la mesa; 409 si el estado o la hora no lo permiten. Devuelve el detalle |
+| `/api/reservas/{id}` | PUT | `OperarReservas`. Body `{ fecha, franjaHorariaId, personas, mesaId? }`. Modifica una reserva Confirmada hasta el inicio de su franja, revalidando la disponibilidad; sin `mesaId` conserva la mesa si sirve. Publica `ReservaModificadaEvent`. Devuelve el detalle |
+| `/api/reservas/{id}/cancelar` | PATCH | `OperarReservas`. Body `{ "motivo": "texto" }` (obligatorio, 1 a 500 caracteres). Cancela hasta el inicio de la franja; 409 si no está Confirmada o la franja ya empezó. Devuelve el detalle |
+| `/api/reservas/{id}/completar` | PATCH | `OperarReservas`. EnCurso pasa a Completada y publica `VisitaCompletadaEvent` (`ConReserva = true`, con las personas reales). Sin ventana horaria; 409 si no está EnCurso. Devuelve el detalle |
+| `/api/visitas` | POST | `OperarReservas`. Visita sin reserva de hoy (fecha del servidor). Body `{ franjaHorariaId, mesaId?, personas }`; la franja debe estar activa y haber empezado; la mesa, si se envía, activa y sin reserva vigente en esa franja. Publica `VisitaCompletadaEvent` (`ConReserva = false`) |
+| `/api/reservas/ocupacion` | GET | `OperarReservas`. Mapa de ocupación (GI-167): todas las mesas por zona, con su estado para una fecha y una franja. `fecha` opcional (aaaa-mm-dd; por defecto hoy en hora de Santo Domingo) y `franjaId` obligatoria; 400 si falta o no es válida, 404 si la franja no existe. Estado como texto: `Libre`, `Reservada` (reserva Confirmada), `Ocupada` (reserva EnCurso) o `Inactiva` (la mesa o su zona están inactivas; gana sobre la reserva, que igual se muestra con `reservaId` y `clienteNombre`). Con varias reservas vigentes en una mesa gana EnCurso. **Las visitas sin reserva no cuentan** en el mapa: no tienen hora de salida, así que una mesa con un walk-in aparece Libre. El nombre del cliente sí se incluye; el teléfono no (se obtiene con el detalle de la reserva) |
+| `/api/reservas/franjas` | GET | `OperarReservas` (GI-399, controlador `FranjasOperativasController`). Todas las franjas no borradas, **activas e inactivas**, con `id`, `nombre`, `horaInicio`, `horaFin` y `activa`; ordenadas por hora de inicio y **sin paginar**. Es la fuente de franjas para Mesero y Supervisor, que no pueden usar `/api/franjas` (`GestionarSalon`, 403). El front ofrece solo las activas para crear reservas o registrar visitas |
+| `/api/clientes` | GET | `OperarReservas`. `buscar` (nombre o teléfono, mínimo 3 caracteres), paginado |
+
+> **Excepción documentada (GI-169): teléfono en el query string.** `GET /api/reservas?telefono=` y `GET /api/clientes?buscar=` reciben el teléfono del cliente en la URL. Se acepta solo porque son endpoints del personal autenticado (`OperarReservas`) y no hay un POST de búsqueda. Reglas para el front: el teléfono vive solo en el estado de la página; nunca va en la ruta del navegador (`/reservas/...`), ni en `localStorage`/`sessionStorage`, ni en logs del cliente. Pendiente de backlog: un `POST /api/reservas/buscar` con el teléfono en el cuerpo, para quitar la excepción.
+
+### Reservas: zonas, mesas y franjas (GI-163)
+
+Todos con `GestionarSalon` (Administrador, Gerente). `{recurso}` es `zonas`, `mesas` o `franjas`.
+
+| Endpoint | Verbo | Acceso |
+|---|---|---|
+| `/api/{recurso}` | GET | `GestionarSalon`. Paginado (`page`, `pageSize` máximo 100); filtro opcional `activa` (mesas también `zonaId`) |
+| `/api/{recurso}/{id}` | GET | `GestionarSalon` |
+| `/api/{recurso}` | POST | `GestionarSalon`. 409 si el nombre o número ya existe |
+| `/api/{recurso}/{id}` | PUT | `GestionarSalon` |
+| `/api/{recurso}/{id}/estado` | PATCH | `GestionarSalon`. Body `{ "activa": bool }`; 409 si hay reservas futuras vigentes (reasignarlas primero) |
+
+### Reservas: proceso automático (no es un endpoint)
+
+Un solo `BackgroundService` (`ReservasProcesoAutomaticoService`) ejecuta cada minuto los procesos automáticos de Reservas. Hoy marca como **NoAsistio** las reservas Confirmada cuya tolerancia (`ToleranciaNoShow`, 15 min) ya venció, hasta 200 por ciclo y las más antiguas primero, y publica `ReservaNoAsistidaEvent` (GI-161). En el mismo ciclo **completa** las reservas EnCurso cuya franja ya terminó (desde el instante en que termina) y publica `VisitaCompletadaEvent` con las personas reales y `ConReserva = true` (GI-224). Cada paso procesa hasta 200 reservas por ciclo, las más antiguas primero.
+
+Configuración (sección `Reservas:ProcesoAutomatico`; un valor inválido nunca impide arrancar: se usa el valor por defecto y se registra un Warning):
+
+| Clave | Por defecto | Rango |
+|---|---|---|
+| `Habilitado` | `true` | `false` desactiva el proceso (las pruebas HTTP lo desactivan) |
+| `IntervaloSegundos` | 60 | 5 a 3600 |
+| `RetrasoInicialSegundos` | 15 | 0 a 600 (el primer ciclo espera para no competir con `Migrate()` y el seeder) |
+
 ## Respuestas de error
 
 Las dos usan `application/problem+json`, igual que el resto de la API.

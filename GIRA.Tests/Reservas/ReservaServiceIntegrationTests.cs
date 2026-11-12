@@ -71,6 +71,14 @@ public class ReservaServiceIntegrationTests : IClassFixture<ReservaServiceIntegr
     private static readonly Guid FranjaAlmuerzoId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Guid FranjaCenaId = Guid.Parse("00000000-0000-0000-0000-000000000002");
 
+    // IX_Mesa_Numero es único en toda la tabla reservas.Mesa y las pruebas de la clase comparten
+    // la misma base (el fixture solo la recrea una vez por ejecución), así que cada prueba
+    // necesita números de mesa propios que no se repitan con los de ninguna otra.
+    private const int NumeroMesaDosSolicitudesSimultaneas = 9001;
+    private const int NumeroMesaAlmuerzo = 9002;
+    private const int NumeroMesaCena = 9003;
+    private const int NumeroMesaLimiteDosReservas = 9004;
+
     private readonly string _conexion;
 
     /// <summary>Recibe la conexión ya verificada por el fixture compartido de la clase.</summary>
@@ -128,7 +136,7 @@ public class ReservaServiceIntegrationTests : IClassFixture<ReservaServiceIntegr
         {
             var db = scopeDatos.ServiceProvider.GetRequiredService<GiraDbContext>();
             var zona = new Zona { Id = Guid.NewGuid(), Nombre = $"Zona-GI228-mesa-{Guid.NewGuid():N}" };
-            var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = capacidad, ZonaId = zona.Id };
+            var mesa = new Mesa { Id = Guid.NewGuid(), Numero = NumeroMesaDosSolicitudesSimultaneas, Capacidad = capacidad, ZonaId = zona.Id };
             db.Zonas.Add(zona);
             db.Mesas.Add(mesa);
             await db.SaveChangesAsync();
@@ -184,8 +192,8 @@ public class ReservaServiceIntegrationTests : IClassFixture<ReservaServiceIntegr
             var db = scopeDatos.ServiceProvider.GetRequiredService<GiraDbContext>();
 
             var zona = new Zona { Id = Guid.NewGuid(), Nombre = $"Zona-GI228-telefono-{Guid.NewGuid():N}" };
-            var mesaAlmuerzo = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = capacidad, ZonaId = zona.Id };
-            var mesaCena = new Mesa { Id = Guid.NewGuid(), Numero = 2, Capacidad = capacidad, ZonaId = zona.Id };
+            var mesaAlmuerzo = new Mesa { Id = Guid.NewGuid(), Numero = NumeroMesaAlmuerzo, Capacidad = capacidad, ZonaId = zona.Id };
+            var mesaCena = new Mesa { Id = Guid.NewGuid(), Numero = NumeroMesaCena, Capacidad = capacidad, ZonaId = zona.Id };
 
             db.Zonas.Add(zona);
             db.Mesas.AddRange(mesaAlmuerzo, mesaCena);
@@ -233,7 +241,7 @@ public class ReservaServiceIntegrationTests : IClassFixture<ReservaServiceIntegr
         {
             var db = scopeDatos.ServiceProvider.GetRequiredService<GiraDbContext>();
             var zona = new Zona { Id = Guid.NewGuid(), Nombre = $"Zona-GI228-limite-{Guid.NewGuid():N}" };
-            var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = capacidad, ZonaId = zona.Id };
+            var mesa = new Mesa { Id = Guid.NewGuid(), Numero = NumeroMesaLimiteDosReservas, Capacidad = capacidad, ZonaId = zona.Id };
             db.Zonas.Add(zona);
             db.Mesas.Add(mesa);
             await db.SaveChangesAsync();
