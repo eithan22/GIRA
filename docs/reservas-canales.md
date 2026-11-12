@@ -12,8 +12,10 @@ parámetros provisionales (`ParametrosReservaService`) hasta que Configuración 
 - **En persona.** El personal registra la reserva con el cliente presente en el restaurante, con las mismas
   reglas que por llamada. Origen: `Presencial`.
 - **Sin reserva (visita).** Un grupo que llega y se sienta de inmediato. No es una reserva: no tiene código
-  ni cliente. Se registra la franja, las personas y, opcionalmente, la mesa. No marca la mesa como ocupada en
-  el mapa, porque no tiene hora de salida y no se sabe cuándo se libera.
+  ni cliente. Se registra la franja, las personas y, opcionalmente, la mesa; no se guardan datos personales.
+  **No marca la mesa como ocupada en el mapa**, porque no tiene hora de salida y no se sabe cuándo se libera.
+  Las visitas del día se consultan en la sección «Visitas sin reserva de hoy» de la Agenda (total de visitas y
+  de personas, y la lista con las más recientes primero; `GET /api/visitas`, hasta 200 por día en la lista).
 
 ## Reglas comunes a las reservas
 

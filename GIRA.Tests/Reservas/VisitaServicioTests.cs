@@ -44,6 +44,7 @@ public class VisitaServicioTests
                 .UseInMemoryDatabase(Guid.NewGuid().ToString())
                 .Options;
             Contexto = new GiraDbContext(Opciones);
+            var reloj = new TimeProviderFalso(ahoraUtc);
 
             Servicio = new VisitaService(
                 new VisitaRepository(Contexto),
@@ -52,8 +53,9 @@ public class VisitaServicioTests
                 new ZonaRepository(Contexto),
                 new ReservaRepository(Contexto),
                 new RegistrarVisitaRequestValidator(),
+                new ListarVisitasRequestValidator(reloj),
                 new PublicadorEventosSeguro(publisher, logger ?? NullLogger<PublicadorEventosSeguro>.Instance),
-                new TimeProviderFalso(ahoraUtc));
+                reloj);
         }
 
         public async Task SembrarAsync(bool zonaActiva = true, bool mesaActiva = true, bool almuerzoActivo = true)

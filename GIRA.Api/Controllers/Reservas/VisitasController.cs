@@ -39,4 +39,20 @@ public class VisitasController : ControllerBase
 
         return resultado.ToActionResult();
     }
+
+    /// <summary>
+    /// GI-402: visitas sin reserva de un día (<c>fecha</c>, aaaa-mm-dd; sin ella, hoy en Santo Domingo): totales del
+    /// día y las 200 más recientes primero, con <c>truncada</c> si hay más. Sin datos personales. La fecha no puede
+    /// ser futura ni de hace más de 365 días (400, igual que un formato inválido). Es solo lectura: la visita sin
+    /// reserva NO marca la mesa como ocupada en el mapa (no tiene hora de salida), y esto no lo cambia.
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType<VisitasDelDiaDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Listar([FromQuery] ListarVisitasRequest request, CancellationToken cancellationToken)
+    {
+        var resultado = await _visitas.ListarAsync(request, cancellationToken);
+
+        return resultado.ToActionResult();
+    }
 }
