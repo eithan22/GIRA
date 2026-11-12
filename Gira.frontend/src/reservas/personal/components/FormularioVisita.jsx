@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import Aviso from '../../components/Aviso.jsx';
 import { formatearHora } from '../../reservasFormato.js';
 import { useAhora } from '../hooks/useAhora.js';
 import { useMesasLibres } from '../hooks/useMesasLibres.js';
 import {
+  estadoFranjasVisita,
   franjaDefectoVisita,
   franjasParaVisita,
   inicioPrimeraFranja,
@@ -22,13 +22,15 @@ import {
   TEXTO_ACTUALIZAR_MESAS,
   TEXTO_CARGANDO_MESAS,
   TEXTO_CONFIRMAR_VISITA,
+  TEXTO_CARGANDO_FRANJAS,
+  TEXTO_ERROR_FRANJAS,
   TEXTO_FRANJA_EN_CURSO,
   TEXTO_FRANJA_TERMINADA,
   TEXTO_REGISTRANDO_VISITA,
   TEXTO_REGISTRAR_OTRA,
   TEXTO_REGISTRAR_VISITA,
+  TEXTO_REINTENTAR,
   TEXTO_SIN_FRANJAS_VISITA,
-  TEXTO_VER_MAPA,
   TEXTO_VOLVER,
   TITULO_VISITA_REGISTRADA,
   textoConfirmarVisita,
@@ -40,16 +42,20 @@ import {
 const PERSONAS_INICIALES = '2';
 
 /**
- * Formulario de visita sin reserva (POST /api/visitas), el mismo en la página /reservas/visitas y en
- * el panel que abre el mapa desde una mesa libre. No pide teléfono ni datos personales.
+ * Formulario de visita sin reserva (POST /api/visitas), el mismo en el panel de la Agenda y en el del Mapa (que
+ * además lo abre desde una mesa libre). No pide teléfono ni datos personales.
  * - «Hoy» y «ya empezó» salen de Santo Domingo con Intl (useAhora); el servidor decide y su 409
  *   se muestra tal cual.
  * - Antes de enviar hay una confirmación en línea («No se podrá editar ni borrar»); el doble
  *   envío está bloqueado con un ref y con el botón deshabilitado.
  * - Las mesas libres salen del mapa de ocupación de hoy en esa franja.
+ * - Franjas: `franjasEstado` ('cargando' | 'listo' | 'error', el de useFranjas), `franjasError` y `onReintentarFranjas`.
+ *   Mientras llegan o si fallan se dice eso (con «Reintentar»), no «No hay franjas activas»; ese aviso queda solo
+ *   para cuando llegan de verdad sin ninguna activa.
  */
 export default function FormularioVisita({
-  franjas, mesaInicialId = '', enPagina = false, onRegistrada, onCerrar, onEnviando,
+  franjas, franjasEstado = 'listo', franjasError = '', onReintentarFranjas,
+  mesaInicialId = '', onRegistrada, onCerrar, onEnviando,
 }) {
   const { hoy, hora } = useAhora();
   const franjasVisita = franjasParaVisita(franjas, hora);
@@ -130,6 +136,33 @@ export default function FormularioVisita({
     setFase('editar');
   }
 
+  const estadoFranjas = estadoFranjasVisita(franjasEstado, franjasVisita.length);
+
+  // Cargando o con error: el mismo bloque para las dos, así la región en vivo no se desmonta al pasar de una a otra
+  // (los lectores de pantalla anuncian el cambio de texto) y el foco no se mueve.
+  if (estadoFranjas === 'cargando' || estadoFranjas === 'error') {
+    const fallo = estadoFranjas === 'error';
+    return (
+      <div className="reservas-personal-bloque">
+        <p
+          className={`reservas-personal-estado-franjas${fallo ? ' reservas-campo-ayuda--error' : ''}`}
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {fallo ? (franjasError || TEXTO_ERROR_FRANJAS) : TEXTO_CARGANDO_FRANJAS}
+        </p>
+        {fallo && onReintentarFranjas && (
+          <button
+            type="button"
+            className="reservas-boton reservas-boton--chico reservas-boton--secundario reservas-personal-boton-auto"
+            onClick={onReintentarFranjas}
+          >{TEXTO_REINTENTAR}</button>
+        )}
+      </div>
+    );
+  }
+
   if (franjasVisita.length === 0) {
     return <Aviso tipo="neutro">{TEXTO_SIN_FRANJAS_VISITA}</Aviso>;
   }
@@ -156,11 +189,6 @@ export default function FormularioVisita({
             className="reservas-boton reservas-boton--chico reservas-boton--primario reservas-personal-boton-auto"
             onClick={registrarOtra}
           >{TEXTO_REGISTRAR_OTRA}</button>
-          {enPagina && (
-            <Link className="reservas-boton reservas-boton--chico reservas-boton--secundario reservas-personal-boton-auto" to="/reservas/mapa">
-              {TEXTO_VER_MAPA}
-            </Link>
-          )}
           {onCerrar && (
             <button
               type="button"

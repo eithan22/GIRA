@@ -17,12 +17,16 @@ import {
   armarCuerpoZona,
   clasificarBusqueda,
   contarMesasZona,
+  descripcionVisita,
   esConflictoReasignar,
+  estadoFranjasVisita,
   listaIncompleta,
   mesaConZonaInactiva,
   normalizarHora,
   reemplazarPorId,
   textoImpactoZona,
+  textoResumenVisitas,
+  textoVisitasTruncadas,
   validarCapacidadMesa,
   validarHorarioFranja,
   validarNombreFranja,
@@ -802,4 +806,64 @@ test('clasificarBusqueda es pura: no cambia la entrada ni devuelve el mismo obje
   assert.equal(entrada, '1234 5678');
   assert.notEqual(a, b);
   assert.deepEqual(a, b);
+});
+
+// --- GI-402: visitas sin reserva de hoy ---
+
+test('textoResumenVisitas: singular y plural de visitas y de personas', () => {
+  assert.equal(textoResumenVisitas(1, 1), '1 visita · 1 persona');
+  assert.equal(textoResumenVisitas(1, 4), '1 visita · 4 personas');
+  assert.equal(textoResumenVisitas(3, 11), '3 visitas · 11 personas');
+  assert.equal(textoResumenVisitas(0, 0), '0 visitas · 0 personas');
+});
+
+test('textoVisitasTruncadas dice cuántas se muestran y cuántas hay', () => {
+  assert.equal(textoVisitasTruncadas(200, 215), 'Se muestran las 200 más recientes de 215 visitas.');
+});
+
+test('descripcionVisita: hora, personas, franja y mesa en una línea, sin datos personales', () => {
+  const visita = { id: 'v1', horaRegistro: '14:05:30', personas: 4, franjaNombre: 'Almuerzo', mesaNumero: 7 };
+  assert.equal(descripcionVisita(visita), '14:05 · 4 personas · Almuerzo · Mesa 7');
+});
+
+test('descripcionVisita: singular, y sin mesa dice «Sin mesa»', () => {
+  assert.equal(
+    descripcionVisita({ horaRegistro: '09:00:00', personas: 1, franjaNombre: 'Cena', mesaNumero: null }),
+    '09:00 · 1 persona · Cena · Sin mesa',
+  );
+  assert.equal(
+    descripcionVisita({ horaRegistro: '09:00:00', personas: 2, franjaNombre: 'Cena' }),
+    '09:00 · 2 personas · Cena · Sin mesa',
+  );
+});
+
+test('descripcionVisita: con horaRegistro null (o ausente) dice «sin hora» en vez de inventar una', () => {
+  for (const horaRegistro of [null, undefined, '']) {
+    assert.equal(
+      descripcionVisita({ horaRegistro, personas: 3, franjaNombre: 'Almuerzo', mesaNumero: 2 }),
+      'sin hora · 3 personas · Almuerzo · Mesa 2',
+      String(horaRegistro),
+    );
+  }
+});
+
+test('estadoFranjasVisita: sin franjas, cargando y error se dicen como tales y "vacias" solo si llegaron vacías', () => {
+  assert.equal(estadoFranjasVisita('cargando', 0), 'cargando');
+  assert.equal(estadoFranjasVisita('error', 0), 'error');
+  assert.equal(estadoFranjasVisita('listo', 0), 'vacias');
+  assert.equal(estadoFranjasVisita(undefined, 0), 'vacias'); // quien no pasa estado: las franjas ya son las que hay
+});
+
+test('estadoFranjasVisita: con alguna franja siempre son "listas", aunque una recarga siga en curso o haya fallado', () => {
+  for (const estado of ['listo', 'cargando', 'error', undefined]) {
+    assert.equal(estadoFranjasVisita(estado, 1), 'listas', String(estado));
+    assert.equal(estadoFranjasVisita(estado, 5), 'listas', String(estado));
+  }
+});
+
+test('descripcionVisita: la hora de medianoche es una hora válida y no se confunde con «sin hora»', () => {
+  assert.equal(
+    descripcionVisita({ horaRegistro: '00:05:00', personas: 2, franjaNombre: 'Cena', mesaNumero: 1 }),
+    '00:05 · 2 personas · Cena · Mesa 1',
+  );
 });

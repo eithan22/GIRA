@@ -128,6 +128,16 @@ export const reservasPersonalService = {
 
   // --- Visitas sin reserva ---
 
+  /**
+   * GET /api/visitas?fecha= (GI-402): visitas sin reserva de un día, sin datos personales. La fecha va SIEMPRE explícita
+   * y como aaaa-mm-dd (el servidor rechaza cualquier otro formato). Devuelve { fecha, totalVisitas, totalPersonas,
+   * truncada, visitas: [{ id, franjaNombre, mesaNumero, personas, horaRegistro }] }; `horaRegistro` puede ser null.
+   */
+  async listarVisitas({ fecha }, { signal } = {}) {
+    const response = await api.get('/api/visitas', opciones(signal, { params: { fecha } }));
+    return response.data;
+  },
+
   /** POST /api/visitas: la fecha la pone el servidor (hoy). Sin datos personales; devuelve VisitaDto. */
   async registrarVisita(datos) {
     const response = await api.post('/api/visitas', armarCuerpoVisita(datos), opciones());

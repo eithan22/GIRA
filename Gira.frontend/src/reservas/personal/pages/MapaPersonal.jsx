@@ -22,6 +22,7 @@ import {
   ETIQUETA_ACTUALIZADO,
   TEXTO_ACTUALIZACION_DETENIDA,
   TEXTO_ACTUALIZAR_CADA_60,
+  TEXTO_BOTON_VISITA_SIN_RESERVA,
   TEXTO_CARGANDO_MAPA,
   TEXTO_ELIGE_FRANJA_MAPA,
   TEXTO_FRANJA_INACTIVA,
@@ -80,6 +81,14 @@ export default function MapaPersonal() {
   function abrirVisita(zona, mesa, boton) {
     origenRef.current = boton;
     setPanel({ tipo: 'visita', mesaId: mesa.mesaId });
+  }
+
+  // GI-402: botón general «Visita sin reserva» (el mismo PanelVisita que la Agenda), sin mesa elegida: el formulario
+  // pide franja y personas, y la mesa es opcional. No depende de la fecha ni de la franja del mapa; el formulario
+  // explica si todavía no hay una franja que haya empezado. La visita no marca la mesa, así que no hay que recargar el mapa.
+  function abrirVisitaSinMesa(evento) {
+    origenRef.current = evento.currentTarget;
+    setPanel({ tipo: 'visita', mesaId: '' });
   }
 
   const cargandoMapa = Boolean(franjaId) && !mapa && (mesas.estado === 'cargando' || mesas.estado === 'idle');
@@ -156,6 +165,11 @@ export default function MapaPersonal() {
               onClick={mesas.reintentar}
               disabled={!franjaId || mesas.estado === 'cargando'}
             >{mesas.estado === 'cargando' ? 'Actualizando…' : 'Actualizar'}</button>
+            <button
+              type="button"
+              className="reservas-boton reservas-boton--chico reservas-boton--secundario reservas-personal-boton-auto"
+              onClick={abrirVisitaSinMesa}
+            >{TEXTO_BOTON_VISITA_SIN_RESERVA}</button>
           </div>
         </div>
         {mesas.detenido && auto && <p className="reservas-campo-ayuda reservas-campo-ayuda--error" role="alert">{TEXTO_ACTUALIZACION_DETENIDA}</p>}
@@ -211,6 +225,9 @@ export default function MapaPersonal() {
       {panel?.tipo === 'visita' && (
         <PanelVisita
           franjas={franjas}
+          franjasEstado={franjasApi.estado}
+          franjasError={franjasApi.error}
+          onReintentarFranjas={franjasApi.reintentar}
           mesaInicialId={panel.mesaId}
           origenRef={origenRef}
           fallbackFocoRef={tituloRef}

@@ -22,11 +22,6 @@ export const PANTALLAS = {
     eyebrow: 'RESERVAS',
     descripcion: 'Estado de cada mesa por fecha y franja: libre, reservada, ocupada o inactiva.',
   },
-  visitas: {
-    titulo: 'Visitas sin reserva',
-    eyebrow: 'RESERVAS',
-    descripcion: 'Registro de clientes que llegan sin reserva.',
-  },
   configuracion: {
     titulo: 'Zonas, mesas y franjas',
     eyebrow: 'CONFIGURACIÓN DEL SALÓN',
@@ -211,10 +206,18 @@ export function textoMesasLibres(cantidad) {
 export const ETIQUETA_NAVEGACION_RESERVAS = 'Secciones de Reservas';
 export const TEXTO_PESTANA_AGENDA = 'Agenda';
 export const TEXTO_PESTANA_MAPA = 'Mapa';
-export const TEXTO_PESTANA_VISITAS = 'Visitas';
 export const TEXTO_PESTANA_CONFIGURACION = 'Configuración';
 
 export const TEXTO_BOTON_VISITA_SIN_RESERVA = 'Visita sin reserva';
+
+// Sección «Visitas sin reserva de hoy» de la Agenda (GI-402).
+export const TITULO_VISITAS_HOY = 'Visitas sin reserva de hoy';
+export const TEXTO_VISITAS_VACIO = 'Todavía no hay visitas sin reserva hoy.';
+export const TEXTO_VISITAS_CARGANDO = 'Cargando las visitas…';
+export const TEXTO_VISITAS_ERROR = 'No pudimos cargar las visitas de hoy.';
+export const AYUDA_VISITAS_SIN_MARCA = 'Estas visitas no marcan la mesa como ocupada en el mapa: no tienen hora de salida.';
+// Una visita sin registro de hora (no debería pasar en producción): texto neutro en vez de una hora inventada.
+export const TEXTO_VISITA_SIN_HORA = 'sin hora';
 
 // Mapa
 export const TEXTO_ACTUALIZAR_CADA_60 = 'Actualizar cada 60 s';
@@ -260,20 +263,19 @@ export const TITULO_VISITA = 'Registrar visita';
 export const TEXTO_FRANJA_EN_CURSO = 'En curso';
 export const TEXTO_FRANJA_TERMINADA = 'Ya terminó (el servidor lo permite)';
 export const TEXTO_SIN_FRANJAS_VISITA = 'No hay franjas activas configuradas.';
+export const TEXTO_CARGANDO_FRANJAS = 'Cargando las franjas…';
+export const TEXTO_ERROR_FRANJAS = 'No pudimos cargar las franjas.';
 export const ETIQUETA_PERSONAS_VISITA = 'Personas';
 export const ETIQUETA_MESA_VISITA = 'Mesa (opcional)';
 export const OPCION_SIN_MESA = 'Sin mesa';
-export const AYUDA_MESA_VISITA = 'La lista no incluye las mesas con una visita ya sentada: el sistema no las marca.';
+export const AYUDA_MESA_VISITA = 'La lista puede incluir mesas con una visita ya sentada: el sistema no las marca como ocupadas.';
 export const AVISO_VISITA_DEFINITIVA = 'Estas visitas no se pueden editar ni borrar después.';
 export const TEXTO_REGISTRAR_VISITA = 'Registrar visita';
 export const TEXTO_REGISTRANDO_VISITA = 'Registrando…';
 export const TEXTO_CONFIRMAR_VISITA = 'Sí, registrar visita';
 export const TITULO_VISITA_REGISTRADA = 'Visita registrada';
 export const TEXTO_REGISTRAR_OTRA = 'Registrar otra';
-export const TEXTO_VER_MAPA = 'Ver el mapa';
 export const AVISO_MESA_VISITA_SIN_MARCA = 'El mapa no marca como ocupadas las mesas con visitas sin reserva: la mesa seguirá viéndose Libre.';
-export const TITULO_SESION_VISITAS = 'Registradas en esta sesión';
-export const AYUDA_SESION_VISITAS = 'Solo se guardan en esta pantalla: se pierden al recargar la página.';
 
 export function textoSinFranjaEmpezada(horaInicio) {
   return `Todavía no empezó ninguna franja de hoy. La primera empieza a las ${horaInicio}.`;

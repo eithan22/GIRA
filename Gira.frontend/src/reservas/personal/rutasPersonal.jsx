@@ -1,11 +1,11 @@
 import { Component, lazy, Suspense } from 'react';
 
-// Carga diferida de las pantallas del personal (GI-398). App.jsx solo tiene que importar estos cuatro
+// Carga diferida de las pantallas del personal (GI-398). App.jsx solo tiene que importar estos tres
 // componentes en lugar de las páginas: cada uno ya trae su Suspense y su manejador de errores, así que no
 // hace falta tocar ninguna <Route>. Mientras App.jsx no los use, este archivo no entra en el paquete y todo
 // sigue funcionando con los imports estáticos de siempre.
 //
-// Las cuatro pantallas salen de un único módulo (paginasPersonal.jsx): una sola importación dinámica
+// Las tres pantallas salen de un único módulo (paginasPersonal.jsx): una sola importación dinámica
 // genera un solo chunk. El CSS de Eithan lo importa PaginaPersonal desde JS, así que se comparte con las
 // pantallas públicas y no se duplica aquí.
 
@@ -13,7 +13,6 @@ const cargarPaginas = () => import('./paginasPersonal.jsx');
 
 const Agenda = lazy(() => cargarPaginas().then((modulo) => ({ default: modulo.AgendaPersonal })));
 const Mapa = lazy(() => cargarPaginas().then((modulo) => ({ default: modulo.MapaPersonal })));
-const Visitas = lazy(() => cargarPaginas().then((modulo) => ({ default: modulo.VisitasPersonal })));
 const Configuracion = lazy(() => cargarPaginas().then((modulo) => ({ default: modulo.ConfiguracionPersonal })));
 
 // Estilos en línea a propósito: mientras llega el chunk, el CSS del personal todavía no está cargado.
@@ -67,5 +66,4 @@ function conCarga(Pagina) {
 
 export const AgendaPersonal = conCarga(Agenda);
 export const MapaPersonal = conCarga(Mapa);
-export const VisitasPersonal = conCarga(Visitas);
 export const ConfiguracionPersonal = conCarga(Configuracion);

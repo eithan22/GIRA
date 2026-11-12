@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { formatearFechaLarga } from '../../reservasFormato.js';
 import EstadoPagina from '../components/EstadoPagina.jsx';
 import FiltrosAgenda from '../components/FiltrosAgenda.jsx';
@@ -8,8 +7,11 @@ import PaginaPersonal from '../components/PaginaPersonal.jsx';
 import PaginacionPersonal from '../components/PaginacionPersonal.jsx';
 import PanelDetalleReserva from '../components/PanelDetalleReserva.jsx';
 import PanelNuevaReserva from '../components/PanelNuevaReserva.jsx';
+import PanelVisita from '../components/PanelVisita.jsx';
 import ResultadoBusquedaCodigo from '../components/ResultadoBusquedaCodigo.jsx';
+import SeccionVisitasHoy from '../components/SeccionVisitasHoy.jsx';
 import { useAgendaReservas } from '../hooks/useAgendaReservas.js';
+import { useVisitasHoy } from '../hooks/useVisitasHoy.js';
 import { TAMANO_PAGINA } from '../reservasPersonalFormato.js';
 import {
   ETIQUETA_ACTUALIZADO,
@@ -22,15 +24,19 @@ import {
 
 /**
  * Ruta /reservas/agenda: agenda del día con filtros, campo único «Código o teléfono» (GI-401) y acciones en un
- * panel lateral (Lote 2, GI-394), más «Nueva reserva» y «Modificar» (Lote 3, GI-395).
+ * panel lateral (Lote 2, GI-394), más «Nueva reserva» y «Modificar» (Lote 3, GI-395). GI-402: «Visita sin reserva»
+ * abre el panel de registro y debajo de la lista va la sección «Visitas sin reserva de hoy» (siempre de HOY, no
+ * depende de la fecha ni de los filtros de la agenda); se recarga al montar, tras registrar y con «Actualizar».
  */
 export default function AgendaPersonal() {
   const agenda = useAgendaReservas();
+  const visitas = useVisitasHoy();
   const { aplicados, items, total, fase, recargando, errorLista, actualizadoA, resaltado, cargas } = agenda;
 
   // La reserva abierta en el panel es una copia propia: el panel no depende de que la fila siga en la lista.
   const [seleccion, setSeleccion] = useState(null);
   const [creando, setCreando] = useState(false);
+  const [registrandoVisita, setRegistrandoVisita] = useState(false);
   const origenRef = useRef(null);
   const tituloRef = useRef(null);
   const resultadosRef = useRef(null);
@@ -74,13 +80,29 @@ export default function AgendaPersonal() {
   function abrirDetalle(fila, boton) {
     origenRef.current = boton;
     setCreando(false);
+    setRegistrandoVisita(false);
     setSeleccion(fila);
   }
 
   function abrirNueva(evento) {
     origenRef.current = evento.currentTarget;
     setSeleccion(null);
+    setRegistrandoVisita(false);
     setCreando(true);
+  }
+
+  // Un solo panel abierto a la vez. «Visita sin reserva» es el mismo PanelVisita que usa el Mapa.
+  function abrirVisita(evento) {
+    origenRef.current = evento.currentTarget;
+    setSeleccion(null);
+    setCreando(false);
+    setRegistrandoVisita(true);
+  }
+
+  // «Actualizar» recarga la lista de reservas, la reserva encontrada por código y las visitas de hoy.
+  function actualizarTodo() {
+    agenda.actualizar();
+    visitas.actualizar();
   }
 
   function verEnAgenda(fecha, codigo) {
@@ -106,13 +128,14 @@ export default function AgendaPersonal() {
           <button
             type="button"
             className="reservas-boton reservas-boton--chico reservas-boton--secundario reservas-personal-boton-auto"
-            onClick={agenda.actualizar}
+            onClick={actualizarTodo}
             disabled={recargando}
           >{recargando ? 'Actualizando…' : 'Actualizar'}</button>
-          <Link
-            to="/reservas/visitas"
+          <button
+            type="button"
             className="reservas-boton reservas-boton--chico reservas-boton--secundario reservas-personal-boton-auto"
-          >{TEXTO_BOTON_VISITA_SIN_RESERVA}</Link>
+            onClick={abrirVisita}
+          >{TEXTO_BOTON_VISITA_SIN_RESERVA}</button>
           <button
             type="button"
             className="reservas-boton reservas-boton--chico reservas-boton--primario reservas-personal-boton-auto"
@@ -162,6 +185,15 @@ export default function AgendaPersonal() {
         )}
       </section>
 
+      {/* GI-402: visitas sin reserva de HOY, debajo de la agenda para no empujarla hacia abajo. */}
+      <SeccionVisitasHoy
+        fase={visitas.fase}
+        recargando={visitas.recargando}
+        datos={visitas.datos}
+        error={visitas.error}
+        onReintentar={visitas.actualizar}
+      />
+
       {seleccion && (
         <PanelDetalleReserva
           key={seleccion.id}
@@ -185,6 +217,19 @@ export default function AgendaPersonal() {
           onCerrar={() => setCreando(false)}
           onCreada={agenda.actualizar}
           onVerEnAgenda={verEnAgenda}
+        />
+      )}
+
+      {registrandoVisita && (
+        <PanelVisita
+          franjas={agenda.franjas}
+          franjasEstado={agenda.franjasEstado}
+          franjasError={agenda.franjasError}
+          onReintentarFranjas={agenda.reintentarFranjas}
+          origenRef={origenRef}
+          fallbackFocoRef={tituloRef}
+          onCerrar={() => setRegistrandoVisita(false)}
+          onRegistrada={visitas.actualizar}
         />
       )}
     </PaginaPersonal>

@@ -7,8 +7,11 @@ import {
   MENSAJE_BUSQUEDA_INCOMPLETA,
   MENSAJE_BUSQUEDA_INVALIDA,
   MENSAJE_TELEFONO_INVALIDO,
+  OPCION_SIN_MESA,
   TEXTO_ORIGEN_PRESENCIAL,
   TEXTO_ORIGEN_TELEFONO,
+  TEXTO_VISITA_SIN_HORA,
+  textoPersonas,
 } from './reservasPersonalTextos.js';
 
 // Funciones puras del personal (sin React, sin DOM): se prueban con `node --test`
@@ -432,6 +435,19 @@ export function franjasParaVisita(franjas, hora) {
   });
 }
 
+/**
+ * Qué muestra el formulario de visita según la carga de las franjas y cuántas franjas hay para elegir (GI-402):
+ * 'listas' si hay alguna (aunque una recarga siga en curso o haya fallado: se usan las que ya llegaron),
+ * 'cargando' o 'error' si aún no hay ninguna y la carga está en curso o falló, y 'vacias' solo cuando las franjas
+ * llegaron de verdad sin ninguna activa. `estado` es el de useFranjas: 'cargando' | 'listo' | 'error' (sin valor = 'listo').
+ */
+export function estadoFranjasVisita(estado, cantidadFranjas) {
+  if (cantidadFranjas > 0) return 'listas';
+  if (estado === 'cargando') return 'cargando';
+  if (estado === 'error') return 'error';
+  return 'vacias';
+}
+
 /** Franja preseleccionada para una visita: la actual o, si no hay, la última ya empezada. */
 export function franjaDefectoVisita(franjasConEstado) {
   const elegibles = franjasConEstado.filter((franja) => franja.elegible);
@@ -462,6 +478,29 @@ export function validarPersonasVisita(texto, capacidadMesa = null) {
 /** Cuerpo del POST /api/visitas: sin teléfono ni datos personales; mesa vacía viaja como null. */
 export function armarCuerpoVisita({ franjaId, mesaId, personas }) {
   return { franjaHorariaId: franjaId, mesaId: mesaId || null, personas: Number(personas) };
+}
+
+/**
+ * GI-402: resumen de las visitas sin reserva del día, con singular y plural: «1 visita · 1 persona»,
+ * «3 visitas · 11 personas». Los totales vienen del servidor y cuentan todo el día.
+ */
+export function textoResumenVisitas(totalVisitas, totalPersonas) {
+  return `${totalVisitas} ${totalVisitas === 1 ? 'visita' : 'visitas'} · ${textoPersonas(totalPersonas)}`;
+}
+
+/** GI-402: aviso cuando el servidor recortó la lista (tope de 200): «Se muestran las 200 más recientes de 215 visitas.» */
+export function textoVisitasTruncadas(mostradas, total) {
+  return `Se muestran las ${mostradas} más recientes de ${total} visitas.`;
+}
+
+/**
+ * GI-402: una línea por visita, «14:05 · 4 personas · Almuerzo · Mesa 7». La hora llega como "HH:mm:ss" y puede ser
+ * null (visita sin registro de hora): entonces dice «sin hora». Sin mesa dice «Sin mesa». Sin datos personales.
+ */
+export function descripcionVisita({ horaRegistro, personas, franjaNombre, mesaNumero }) {
+  const hora = horaRegistro ? String(horaRegistro).slice(0, 5) : TEXTO_VISITA_SIN_HORA;
+  const mesa = mesaNumero != null ? `Mesa ${mesaNumero}` : OPCION_SIN_MESA;
+  return `${hora} · ${textoPersonas(personas)} · ${franjaNombre} · ${mesa}`;
 }
 
 /** Conteo de estados de las mesas de una zona. */

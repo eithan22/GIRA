@@ -7,6 +7,7 @@ import {
   hoyEnSantoDomingo,
 } from '../reservasPersonalFormato.js';
 import { esPeticionCancelada, mensajeDeError, reservasPersonalService } from '../reservasPersonalService.js';
+import { useFranjas } from './useFranjas.js';
 
 // Estado de la agenda. Lo escrito en el campo «Código o teléfono», el código y el teléfono viven SOLO aquí (estado
 // de React): no se escriben en la URL, en storage ni en la consola, y los errores se muestran sin volcar la petición.
@@ -52,22 +53,15 @@ export function useAgendaReservas() {
   // Cuenta las cargas completadas (no las canceladas): la página lo usa para enfocar una fila tras cargar.
   const [cargas, setCargas] = useState(0);
 
-  const [franjas, setFranjas] = useState([]);
-  const [franjasFallaron, setFranjasFallaron] = useState(false);
+  // Franjas operativas (las mismas que usa el Mapa): con su estado de carga, el texto del error y «reintentar», que
+  // el panel de «Visita sin reserva» muestra en vez de decir "no hay franjas" mientras llegan o si fallan.
+  const {
+    franjas, estado: franjasEstado, error: franjasError, reintentar: reintentarFranjas,
+  } = useFranjas();
+  const franjasFallaron = franjasEstado === 'error';
 
   // Código de la reserva recién creada que la agenda resalta (se quita al cambiar de filtro o página).
   const [resaltado, setResaltado] = useState('');
-
-  // Franjas: una sola vez. Si falla, el filtro por franja se deshabilita y lo demás sigue.
-  useEffect(() => {
-    const controlador = new AbortController();
-    reservasPersonalService.listarFranjasOperativas({ signal: controlador.signal })
-      .then((lista) => setFranjas(Array.isArray(lista) ? lista : []))
-      .catch((error) => {
-        if (!esPeticionCancelada(error)) setFranjasFallaron(true);
-      });
-    return () => controlador.abort();
-  }, []);
 
   // Lista: se pide al cambiar los filtros o al pulsar «Actualizar»; cambiar de filtro cancela la anterior.
   useEffect(() => {
@@ -210,6 +204,9 @@ export function useAgendaReservas() {
     actualizadoA,
     franjas,
     franjasFallaron,
+    franjasEstado,
+    franjasError,
+    reintentarFranjas,
     cambiarFecha,
     cambiarEstado,
     cambiarFranja,
