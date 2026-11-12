@@ -39,6 +39,14 @@ public interface IReservaService
     Task<OperationResult<ReservaDetalleDto>> ObtenerAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Detalle de una reserva por su código, para el personal (GI-401). Acepta espacios y guiones y lo normaliza a
+    /// 8 dígitos; devuelve cualquier estado y fecha. ErrorType.Validation si no son exactamente 8 dígitos (0-9) y
+    /// ErrorType.NotFound si no existe. No es la consulta pública (<see cref="ConsultarPorCodigoAsync"/>): no pide
+    /// teléfono porque quien llama ya es personal autenticado.
+    /// </summary>
+    Task<OperationResult<ReservaDetalleDto>> ObtenerPorCodigoAsync(string codigo, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Modificación por el personal (GI-160, RN-RES-04 y RN-RES-05): cambia fecha, franja, personas
     /// y/o mesa de una reserva Confirmada, revalidando la disponibilidad como si fuera nueva (sin
     /// contar la propia reserva) y publicando <c>ReservaModificadaEvent</c> una sola vez tras guardar.

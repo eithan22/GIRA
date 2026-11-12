@@ -680,6 +680,114 @@ public class ReservaServiceTests
         Assert.Equal(porLlamada.IsSuccess, enPersona.IsSuccess);
         Assert.Equal(terminadaLlamada.Error, terminadaPersona.Error);
     }
+
+    // --- GI-401: búsqueda por código para el personal ---
+
+    private static ReservaDetalleDto DetalleDe(string codigo, string estado = "Confirmada") =>
+        new(Guid.NewGuid(), codigo, estado, Fecha, Guid.NewGuid(), "Almuerzo", new TimeOnly(12, 0), new TimeOnly(15, 0),
+            Guid.NewGuid(), 1, 4, "Salón", 2, null, null, Guid.NewGuid(), "Ana Pérez", "8095551234", "Telefono", null,
+            DateTime.UtcNow);
+
+    [Fact]
+    public async Task ObtenerPorCodigo_Existente_DevuelveElDetalle_SinPedirTelefono()
+    {
+        var repo = new ReservaRepositoryFake();
+        var detalle = DetalleDe("12345678");
+        repo.DetallesPorCodigo["12345678"] = detalle;
+
+        var resultado = await CrearServicio(reservaRepo: repo).ObtenerPorCodigoAsync("12345678", default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Same(detalle, resultado.Value);
+    }
+
+    [Theory]
+    [InlineData("1234 5678")]
+    [InlineData("1234-5678")]
+    [InlineData("  1234 - 5678  ")]
+    [InlineData("1 2 3 4 5 6 7 8")]
+    [InlineData("\t12345678\n")]
+    public async Task ObtenerPorCodigo_ConEspaciosOGuiones_LoNormalizaA8Digitos(string escrito)
+    {
+        var repo = new ReservaRepositoryFake();
+        repo.DetallesPorCodigo["12345678"] = DetalleDe("12345678");
+
+        var resultado = await CrearServicio(reservaRepo: repo).ObtenerPorCodigoAsync(escrito, default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal(["12345678"], repo.CodigosConsultados);
+    }
+
+    [Fact]
+    public async Task ObtenerPorCodigo_ConservaLosCerosALaIzquierda()
+    {
+        var repo = new ReservaRepositoryFake();
+        repo.DetallesPorCodigo["00001234"] = DetalleDe("00001234");
+
+        var resultado = await CrearServicio(reservaRepo: repo).ObtenerPorCodigoAsync("0000 1234", default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal("00001234", resultado.Value!.Codigo);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("1234567")]      // 7 dígitos
+    [InlineData("123456789")]    // 9 dígitos
+    [InlineData("1234567A")]     // letra
+    [InlineData("ABCDEFGH")]
+    [InlineData("1234.5678")]    // otro separador
+    [InlineData("١٢٣٤٥٦٧٨")]     // 8 dígitos árabe-índicos (Unicode)
+    [InlineData("１２３４５６７８")] // 8 dígitos de ancho completo (Unicode)
+    public async Task ObtenerPorCodigo_ConFormatoInvalido_Es400SinTocarElRepositorioNiRepetirLoEscrito(string escrito)
+    {
+        var repo = new ReservaRepositoryFake();
+
+        var resultado = await CrearServicio(reservaRepo: repo).ObtenerPorCodigoAsync(escrito, default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(ErrorType.Validation, resultado.Type);
+        Assert.Equal("El código debe tener 8 dígitos.", resultado.Error);
+        Assert.Empty(repo.CodigosConsultados);
+    }
+
+    [Fact]
+    public async Task ObtenerPorCodigo_Nulo_Es400()
+    {
+        var resultado = await CrearServicio().ObtenerPorCodigoAsync(null!, default);
+
+        Assert.Equal(ErrorType.Validation, resultado.Type);
+    }
+
+    [Fact]
+    public async Task ObtenerPorCodigo_8DigitosQueNoExisten_Es404()
+    {
+        var repo = new ReservaRepositoryFake();
+
+        var resultado = await CrearServicio(reservaRepo: repo).ObtenerPorCodigoAsync("99999999", default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(ErrorType.NotFound, resultado.Type);
+        Assert.Equal("No encontramos esa reserva.", resultado.Error);
+        Assert.Equal(["99999999"], repo.CodigosConsultados);
+    }
+
+    [Theory]
+    [InlineData("Cancelada")]
+    [InlineData("NoAsistio")]
+    [InlineData("Completada")]
+    [InlineData("EnCurso")]
+    public async Task ObtenerPorCodigo_NoFiltraPorEstado(string estado)
+    {
+        var repo = new ReservaRepositoryFake();
+        repo.DetallesPorCodigo["12345678"] = DetalleDe("12345678", estado);
+
+        var resultado = await CrearServicio(reservaRepo: repo).ObtenerPorCodigoAsync("12345678", default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal(estado, resultado.Value!.Estado);
+    }
 }
 
 class ReservaRepositoryFake : IReservaRepository
@@ -716,6 +824,16 @@ class ReservaRepositoryFake : IReservaRepository
 
     public Task<ReservaDetalleDto?> ObtenerDetalleAsync(Guid id, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
+
+    // GI-401: detalles por código (ya normalizado) y cuántas veces se consultó el repositorio.
+    public Dictionary<string, ReservaDetalleDto> DetallesPorCodigo { get; } = new();
+    public List<string> CodigosConsultados { get; } = [];
+
+    public Task<ReservaDetalleDto?> ObtenerDetallePorCodigoAsync(string codigo, CancellationToken cancellationToken)
+    {
+        CodigosConsultados.Add(codigo);
+        return Task.FromResult(DetallesPorCodigo.GetValueOrDefault(codigo));
+    }
 
     public Task<Reserva?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken) =>
         throw new NotImplementedException();

@@ -38,6 +38,12 @@ public interface IReservaRepository
     /// <summary>Detalle de una reserva por id (GI-164). Null si no existe.</summary>
     Task<ReservaDetalleDto?> ObtenerDetalleAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Detalle de una reserva por su código de 8 dígitos, ya normalizado (GI-401): el mismo armado que
+    /// <see cref="ObtenerDetalleAsync"/>, de cualquier estado y fecha. Null si no existe.
+    /// </summary>
+    Task<ReservaDetalleDto?> ObtenerDetallePorCodigoAsync(string codigo, CancellationToken cancellationToken);
+
     /// <summary>True si la mesa tiene una reserva vigente (Confirmada o EnCurso) en esa fecha y franja (GI-166).</summary>
     Task<bool> ExisteVigenteAsync(Guid mesaId, DateOnly fecha, Guid franjaId, CancellationToken cancellationToken);
 

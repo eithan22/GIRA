@@ -342,6 +342,8 @@ class ReservaRepositoryFalso : IReservaRepository
         throw new NotImplementedException();
     public Task<ReservaDetalleDto?> ObtenerDetalleAsync(Guid id, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
+    public Task<ReservaDetalleDto?> ObtenerDetallePorCodigoAsync(string codigo, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
     public Task<Reserva?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
     public Task<IReadOnlyList<ReservaConFranja>> ListarPorEstadoHastaAsync(EstadoReserva estado, DateOnly fechaMaxima, int limite, CancellationToken cancellationToken) =>

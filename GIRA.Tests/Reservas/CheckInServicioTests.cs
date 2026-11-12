@@ -341,6 +341,8 @@ class ReservaRepositoryConConflicto : IReservaRepository
         _real.BuscarPorIdAsync(id, cancellationToken);
     public Task<ReservaDetalleDto?> ObtenerDetalleAsync(Guid id, CancellationToken cancellationToken) =>
         _real.ObtenerDetalleAsync(id, cancellationToken);
+    public Task<ReservaDetalleDto?> ObtenerDetallePorCodigoAsync(string codigo, CancellationToken cancellationToken) =>
+        _real.ObtenerDetallePorCodigoAsync(codigo, cancellationToken);
     public Task<IReadOnlyList<ReservaConFranja>> ListarPorEstadoHastaAsync(EstadoReserva estado, DateOnly fechaMaxima, int limite, CancellationToken cancellationToken) =>
         _real.ListarPorEstadoHastaAsync(estado, fechaMaxima, limite, cancellationToken);
     public void Descartar(Reserva reserva) => _real.Descartar(reserva);

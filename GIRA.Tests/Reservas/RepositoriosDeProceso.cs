@@ -26,6 +26,8 @@ class ReservaRepositoryDecorador : IReservaRepository
         Real.BuscarPorIdAsync(id, cancellationToken);
     public virtual Task<ReservaDetalleDto?> ObtenerDetalleAsync(Guid id, CancellationToken cancellationToken) =>
         Real.ObtenerDetalleAsync(id, cancellationToken);
+    public virtual Task<ReservaDetalleDto?> ObtenerDetallePorCodigoAsync(string codigo, CancellationToken cancellationToken) =>
+        Real.ObtenerDetallePorCodigoAsync(codigo, cancellationToken);
     public virtual Task<IReadOnlyList<ReservaConFranja>> ListarPorEstadoHastaAsync(EstadoReserva estado, DateOnly fechaMaxima, int limite, CancellationToken cancellationToken) =>
         Real.ListarPorEstadoHastaAsync(estado, fechaMaxima, limite, cancellationToken);
     public virtual void Descartar(Reserva reserva) => Real.Descartar(reserva);

@@ -141,6 +141,29 @@ public class ReservasController : ControllerBase
         return resultado.ToActionResult();
     }
 
+    /// <summary>
+    /// GI-401: detalle de una reserva por su código de 8 dígitos, para el personal, sin depender de la fecha ni del
+    /// estado. Acepta espacios y guiones y los normaliza; 400 si no son 8 dígitos (0-9); 404 si no existe; 429 por
+    /// encima de 20 búsquedas por minuto y por usuario. Es independiente de la consulta pública (código + teléfono):
+    /// no pide teléfono porque exige un rol de <c>OperarReservas</c>. El código viaja en la ruta (nunca en el cuerpo
+    /// de un error) y la aplicación no lo registra. Va antes de <c>{id:guid}</c> por orden de rutas.
+    /// </summary>
+    [HttpGet("codigo/{codigo}")]
+    [Authorize(Policy = Politicas.OperarReservas)]
+    [EnableRateLimiting(LimiteReservasExtensions.PoliticaBusquedaCodigo)]
+    [ProducesResponseType<ReservaDetalleDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ObtenerPorCodigo(string codigo, CancellationToken cancellationToken)
+    {
+        var resultado = await _reservaService.ObtenerPorCodigoAsync(codigo, cancellationToken);
+
+        return resultado.ToActionResult();
+    }
+
     /// <summary>GI-164/198/199: detalle de una reserva para el personal. 404 si no existe.</summary>
     [HttpGet("{id:guid}")]
     [Authorize(Policy = Politicas.OperarReservas)]

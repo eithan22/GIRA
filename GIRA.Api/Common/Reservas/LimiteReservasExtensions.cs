@@ -21,6 +21,9 @@ public static class LimiteReservasExtensions
     /// <summary>Nombre de la política de cancelación (PATCH /api/reservas/codigo/{codigo}/cancelar) para <c>[EnableRateLimiting]</c>.</summary>
     public const string PoliticaCancelacion = "reservas-cancelacion";
 
+    /// <summary>Nombre de la política de búsqueda por código del personal (GET /api/reservas/codigo/{codigo}) para <c>[EnableRateLimiting]</c>.</summary>
+    public const string PoliticaBusquedaCodigo = "reservas-busqueda-codigo";
+
     /// <summary>
     /// Registra las políticas de consulta de disponibilidad (20/min), creación (5/min),
     /// consulta por código (10/min) y cancelación (5/min), cada una por IP.
@@ -36,6 +39,7 @@ public static class LimiteReservasExtensions
             options.AddPolicy<string, LimiteReservasCreacionPolicy>(PoliticaCreacion);
             options.AddPolicy<string, LimiteReservasConsultaCodigoPolicy>(PoliticaConsultaCodigo);
             options.AddPolicy<string, LimiteReservasCancelacionPolicy>(PoliticaCancelacion);
+            options.AddPolicy<string, LimiteReservasBusquedaCodigoPolicy>(PoliticaBusquedaCodigo);
         });
 
         return services;
@@ -127,6 +131,35 @@ public sealed class LimiteReservasConsultaCodigoPolicy : IRateLimiterPolicy<stri
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            });
+}
+
+/// <summary>
+/// Política para <c>GET /api/reservas/codigo/{codigo}</c> (GI-401, búsqueda del personal): 20 por minuto por usuario
+/// autenticado, para que una cuenta no pueda recorrer los 10⁸ códigos posibles; si no hay usuario (la petición se
+/// rechazará más adelante con 401), por IP con el mismo tope. Sin cola. Requiere que UseAuthentication() corra antes
+/// que UseRateLimiter(), como en <see cref="LimiteReservasCreacionPolicy"/>.
+/// </summary>
+public sealed class LimiteReservasBusquedaCodigoPolicy : IRateLimiterPolicy<string>
+{
+    /// <summary>Responde 429 con un ProblemDetails y el mensaje neutro compartido.</summary>
+    public Func<OnRejectedContext, CancellationToken, ValueTask>? OnRejected =>
+        (context, _) => new ValueTask(Results.Problem(
+            statusCode: StatusCodes.Status429TooManyRequests,
+            detail: MensajesRateLimiting.Neutro)
+            .ExecuteAsync(context.HttpContext));
+
+    /// <summary>Agrupa por UsuarioId si hay usuario autenticado y, si no, por IP de origen; 20 solicitudes por minuto.</summary>
+    public RateLimitPartition<string> GetPartition(HttpContext httpContext) =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.User.Identity?.IsAuthenticated == true
+                ? $"usuario:{httpContext.User.ObtenerUsuarioId()}"
+                : httpContext.Connection.RemoteIpAddress?.ToString() ?? "desconocida",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             });

@@ -247,6 +247,23 @@ public class ReservaService : IReservaService
     }
 
     /// <inheritdoc />
+    public async Task<OperationResult<ReservaDetalleDto>> ObtenerPorCodigoAsync(string codigo, CancellationToken cancellationToken)
+    {
+        var normalizado = CodigoReserva.Normalizar(codigo ?? string.Empty);
+        if (!CodigoReserva.EsValido(normalizado))
+        {
+            // Texto fijo: no repite lo que escribió el usuario (el código es dato sensible y no debe volver en errores).
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.Validation, "El código debe tener 8 dígitos.");
+        }
+
+        var detalle = await _reservaRepository.ObtenerDetallePorCodigoAsync(normalizado, cancellationToken);
+
+        return detalle is null
+            ? OperationResult.Failure<ReservaDetalleDto>(ErrorType.NotFound, "No encontramos esa reserva.")
+            : OperationResult.Success(detalle);
+    }
+
+    /// <inheritdoc />
     public async Task<OperationResult<ReservaDetalleDto>> CheckInAsync(
         Guid id, CheckInRequest request, CancellationToken cancellationToken)
     {

@@ -105,19 +105,28 @@ public class ReservaRepository : IReservaRepository
     public async Task<ReservaDetalleDto?> ObtenerDetalleAsync(Guid id, CancellationToken cancellationToken)
     {
         var x = await ConsultaCompleta().FirstOrDefaultAsync(f => f.Reserva.Id == id, cancellationToken);
-        if (x is null)
-        {
-            return null;
-        }
 
-        return new ReservaDetalleDto(
+        return x is null ? null : ADetalle(x);
+    }
+
+    /// <inheritdoc />
+    public async Task<ReservaDetalleDto?> ObtenerDetallePorCodigoAsync(string codigo, CancellationToken cancellationToken)
+    {
+        // Codigo tiene índice único: es una búsqueda directa, no un recorrido de la tabla.
+        var x = await ConsultaCompleta().FirstOrDefaultAsync(f => f.Reserva.Codigo == codigo, cancellationToken);
+
+        return x is null ? null : ADetalle(x);
+    }
+
+    // Un solo armado del detalle para la búsqueda por id y por código (GI-401).
+    private static ReservaDetalleDto ADetalle(FilaAgenda x) =>
+        new(
             x.Reserva.Id, x.Reserva.Codigo, x.Reserva.Estado.ToString(), x.Reserva.Fecha,
             x.Franja.Id, x.Franja.Nombre, x.Franja.HoraInicio, x.Franja.HoraFin,
             x.Mesa.Id, x.Mesa.Numero, x.Mesa.Capacidad, x.Zona.Nombre,
             x.Reserva.Personas, x.Reserva.PersonasReales, x.Reserva.FechaCheckIn,
             x.Cliente.Id, x.Cliente.Nombre, x.Cliente.Telefono, x.Reserva.Origen.ToString(),
             x.Reserva.MotivoCancelacion, x.Reserva.CreatedAt);
-    }
 
     // Reserva solo guarda claves (sin navegaciones): se une explícitamente con cliente, mesa, zona y franja.
     private IQueryable<FilaAgenda> ConsultaCompleta() =>
