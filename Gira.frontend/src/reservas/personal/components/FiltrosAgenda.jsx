@@ -1,7 +1,9 @@
 import { formatearHora } from '../../reservasFormato.js';
 import { ESTADOS_FILTRO, esFechaIso, hoyEnSantoDomingo, sumarDias } from '../reservasPersonalFormato.js';
 import {
+  AYUDA_BUSQUEDA,
   ESTADOS_RESERVA_PERSONAL,
+  ETIQUETA_BUSQUEDA,
   TEXTO_BUSQUEDA_TODAS_LAS_FECHAS,
   TEXTO_FILTRO_TODAS,
   TEXTO_FILTRO_TODOS,
@@ -17,27 +19,31 @@ function etiquetaFranja(franja) {
 }
 
 /**
- * Filtros de la agenda: fecha, estado (uno), franja y teléfono. El teléfono se envía con el botón
- * «Buscar» o con Enter en ese campo; los demás filtros se aplican al cambiar. El campo no lleva `name` y usa
- * autoComplete="off": el valor vive solo en el estado de la página.
+ * Filtros de la agenda: fecha, estado (uno), franja y el campo único «Código o teléfono» (GI-401). Con 8 dígitos
+ * busca el código y con un teléfono válido (10 dígitos) busca por teléfono, solos 300 ms después de la última
+ * tecla; Enter o «Buscar» buscan de inmediato. Los demás filtros se aplican al cambiar. El campo no lleva `name` y
+ * usa autoComplete="off": lo escrito vive solo en el estado de la página (ni storage, ni URL, ni consola).
  */
 export default function FiltrosAgenda({ agenda }) {
   const {
-    aplicados, telefonoEscrito, errorTelefono, franjas, franjasFallaron,
-    cambiarFecha, cambiarEstado, cambiarFranja, escribirTelefono, buscarPorTelefono, limpiar,
+    aplicados, busqueda, clasificacion, franjas, franjasFallaron,
+    cambiarFecha, cambiarEstado, cambiarFranja, escribirBusqueda, buscarAhora, limpiar,
   } = agenda;
   const porTelefono = aplicados.telefono !== '';
+  const invalida = clasificacion.tipo === 'invalida';
+  // La pista «sigue escribiendo» es neutra; solo lo inválido es un error.
+  const hayMensaje = clasificacion.mensaje !== '';
 
   function alEnviar(evento) {
     evento.preventDefault();
-    buscarPorTelefono();
+    buscarAhora();
   }
 
-  // Solo el teléfono y «Buscar» pertenecen al <form> (por el atributo `form`): pulsar Enter en la fecha o
-  // en un selector no dispara la búsqueda por teléfono. El resto de filtros se aplica al cambiar.
+  // Solo el campo de búsqueda y «Buscar» pertenecen al <form> (por el atributo `form`): pulsar Enter en la fecha o
+  // en un selector no dispara la búsqueda. El resto de filtros se aplica al cambiar.
   return (
     <div className="reservas-personal-tarjeta reservas-personal-filtros">
-      <form id="agenda-form-telefono" onSubmit={alEnviar} noValidate />
+      <form id="agenda-form-busqueda" onSubmit={alEnviar} noValidate />
       <div className="reservas-personal-filtros-grid">
         <div className="reservas-campo">
           <label className="reservas-campo-etiqueta" htmlFor="agenda-fecha">Fecha</label>
@@ -107,24 +113,29 @@ export default function FiltrosAgenda({ agenda }) {
         </div>
 
         <div className="reservas-campo">
-          <label className="reservas-campo-etiqueta" htmlFor="agenda-telefono">Teléfono del cliente</label>
+          <label className="reservas-campo-etiqueta" htmlFor="agenda-busqueda">{ETIQUETA_BUSQUEDA}</label>
           <input
-            id="agenda-telefono"
-            form="agenda-form-telefono"
+            id="agenda-busqueda"
+            form="agenda-form-busqueda"
             type="tel"
             inputMode="tel"
             autoComplete="off"
             className="reservas-input"
-            placeholder="809 555 0199"
+            placeholder="Código o 809 555 0199"
             maxLength={20}
-            value={telefonoEscrito}
-            onChange={(evento) => escribirTelefono(evento.target.value)}
-            aria-invalid={errorTelefono ? 'true' : undefined}
-            aria-describedby={errorTelefono ? 'agenda-telefono-error' : undefined}
+            value={busqueda}
+            onChange={(evento) => escribirBusqueda(evento.target.value)}
+            aria-invalid={invalida ? 'true' : undefined}
+            aria-describedby={hayMensaje ? 'agenda-busqueda-ayuda agenda-busqueda-mensaje' : 'agenda-busqueda-ayuda'}
           />
-          {errorTelefono && (
-            <span id="agenda-telefono-error" className="reservas-campo-ayuda reservas-campo-ayuda--error" role="alert">
-              {errorTelefono}
+          <span id="agenda-busqueda-ayuda" className="reservas-campo-ayuda">{AYUDA_BUSQUEDA}</span>
+          {hayMensaje && (
+            <span
+              id="agenda-busqueda-mensaje"
+              className={`reservas-campo-ayuda${invalida ? ' reservas-campo-ayuda--error' : ''}`}
+              role={invalida ? 'alert' : undefined}
+            >
+              {clasificacion.mensaje}
             </span>
           )}
         </div>
@@ -133,7 +144,7 @@ export default function FiltrosAgenda({ agenda }) {
       <div className="reservas-personal-filtros-acciones">
         <button
           type="submit"
-          form="agenda-form-telefono"
+          form="agenda-form-busqueda"
           className="reservas-boton reservas-boton--chico reservas-boton--primario reservas-personal-boton-auto"
         >
           Buscar

@@ -8,6 +8,7 @@ import PaginaPersonal from '../components/PaginaPersonal.jsx';
 import PaginacionPersonal from '../components/PaginacionPersonal.jsx';
 import PanelDetalleReserva from '../components/PanelDetalleReserva.jsx';
 import PanelNuevaReserva from '../components/PanelNuevaReserva.jsx';
+import ResultadoBusquedaCodigo from '../components/ResultadoBusquedaCodigo.jsx';
 import { useAgendaReservas } from '../hooks/useAgendaReservas.js';
 import { TAMANO_PAGINA } from '../reservasPersonalFormato.js';
 import {
@@ -20,8 +21,8 @@ import {
 } from '../reservasPersonalTextos.js';
 
 /**
- * Ruta /reservas/agenda: agenda del día con filtros, búsqueda por teléfono y acciones en un panel
- * lateral (Lote 2, GI-394), más «Nueva reserva» y «Modificar» (Lote 3, GI-395).
+ * Ruta /reservas/agenda: agenda del día con filtros, campo único «Código o teléfono» (GI-401) y acciones en un
+ * panel lateral (Lote 2, GI-394), más «Nueva reserva» y «Modificar» (Lote 3, GI-395).
  */
 export default function AgendaPersonal() {
   const agenda = useAgendaReservas();
@@ -119,6 +120,14 @@ export default function AgendaPersonal() {
           >{TEXTO_NUEVA_RESERVA}</button>
         </div>
       </div>
+
+      {/* GI-401: la reserva encontrada por código va encima de la lista y no depende de la fecha ni de los filtros;
+          las acciones del panel actualizan esta fila y también la lista del día (agenda.reemplazarFila). */}
+      <ResultadoBusquedaCodigo
+        resultado={agenda.resultadoCodigo}
+        onVer={abrirDetalle}
+        onReintentar={agenda.reintentarCodigo}
+      />
 
       <section aria-labelledby="agenda-resultados" ref={seccionRef}>
         <h2 id="agenda-resultados" ref={resultadosRef} tabIndex={-1} className="reservas-personal-subtitulo">Reservas</h2>

@@ -4,6 +4,8 @@ import {
   MENSAJE_NOMBRE_OBLIGATORIO,
 } from '../reservasTextos.js';
 import {
+  MENSAJE_BUSQUEDA_INCOMPLETA,
+  MENSAJE_BUSQUEDA_INVALIDA,
   MENSAJE_TELEFONO_INVALIDO,
   TEXTO_ORIGEN_PRESENCIAL,
   TEXTO_ORIGEN_TELEFONO,
@@ -82,6 +84,39 @@ export function validarTelefono(texto) {
     return { valido: false, digitos, mensaje: MENSAJE_TELEFONO_INVALIDO };
   }
   return { valido: true, digitos, mensaje: '' };
+}
+
+// Solo dígitos ASCII (0-9), espacios, guiones y paréntesis, con un "+" opcional al inicio: lo que alguien teclea o
+// pega para un código ("1234 5678") o un teléfono ("+1 (809) 555-0199"). Cualquier otra cosa (letras, puntos, dígitos
+// de otros alfabetos) es una entrada inválida.
+const FORMATO_BUSQUEDA = /^\s*\+?[0-9\s\-()]*$/;
+
+/**
+ * GI-401: clasifica lo escrito en el campo único «Código o teléfono». Devuelve `{ tipo, digitos, mensaje }`:
+ * - 'vacia': nada escrito.
+ * - 'incompleta': 1 a 7 dígitos, o 9 (aún no es código ni teléfono); `mensaje` es una pista neutra, no un error.
+ * - 'codigo': exactamente 8 dígitos (con o sin espacios y guiones); `digitos` es el código.
+ * - 'telefono': 10 dígitos que empiezan por 809, 829 o 849; `digitos` es el teléfono.
+ * - 'invalida': caracteres no permitidos, o 10 o más dígitos que no forman un teléfono válido (11 con "1" inicial
+ *   da el aviso del código de país); `mensaje` explica por qué.
+ * Función pura y sin efectos: lo escrito no se guarda ni se muestra en ninguna parte.
+ */
+export function clasificarBusqueda(texto) {
+  const crudo = String(texto ?? '');
+  if (crudo.trim() === '') return { tipo: 'vacia', digitos: '', mensaje: '' };
+  if (!FORMATO_BUSQUEDA.test(crudo)) return { tipo: 'invalida', digitos: '', mensaje: MENSAJE_BUSQUEDA_INVALIDA };
+
+  const digitos = soloDigitos(crudo);
+  if (digitos.length === 0) return { tipo: 'vacia', digitos: '', mensaje: '' };
+  if (digitos.length === 8) return { tipo: 'codigo', digitos, mensaje: '' };
+  if (digitos.length <= 7 || digitos.length === 9) {
+    return { tipo: 'incompleta', digitos, mensaje: MENSAJE_BUSQUEDA_INCOMPLETA };
+  }
+
+  const telefono = validarTelefono(digitos);
+  return telefono.valido
+    ? { tipo: 'telefono', digitos: telefono.digitos, mensaje: '' }
+    : { tipo: 'invalida', digitos, mensaje: telefono.mensaje };
 }
 
 /** "8095550199" -> "809 555 0199"; cualquier otra cosa se devuelve tal cual. */

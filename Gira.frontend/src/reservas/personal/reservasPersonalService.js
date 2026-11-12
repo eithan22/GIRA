@@ -54,6 +54,16 @@ async function listarSalon(recurso, filtros, signal) {
 export const reservasPersonalService = {
   // --- Agenda y detalle (OperarReservas) ---
 
+  /**
+   * GET /api/reservas/codigo/{codigo} (GI-401): la reserva con ese código de 8 dígitos, de cualquier fecha y estado.
+   * El código va en la ruta de la API (nunca en la del navegador ni en storage) y solo vive en el estado de la
+   * pantalla. 404 si no existe; 429 si se pasa el límite por usuario (la pantalla lo trata con texto propio).
+   */
+  async obtenerReservaPorCodigo(codigo, { signal } = {}) {
+    const response = await api.get(`/api/reservas/codigo/${encodeURIComponent(codigo)}`, opciones(signal));
+    return response.data;
+  },
+
   /** GET /api/reservas. Sin fecha ni teléfono devuelve hoy. `telefono`: excepción documentada (ver arriba). */
   async listarReservas({ fecha, estado, franjaId, telefono, page = 1, pageSize = 20 } = {}, { signal } = {}) {
     // El teléfono viaja solo con dígitos; axios lo codifica en el query string.

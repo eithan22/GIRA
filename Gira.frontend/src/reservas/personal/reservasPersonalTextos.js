@@ -52,6 +52,20 @@ export const MENSAJE_TELEFONO_INVALIDO = 'El teléfono debe tener 10 dígitos y 
 
 export const TEXTO_BUSQUEDA_TODAS_LAS_FECHAS = 'La búsqueda por teléfono muestra todas las fechas.';
 export const TEXTO_SIN_RESULTADOS_TELEFONO = 'No encontramos reservas para ese teléfono.';
+
+// Campo único «Código o teléfono» de la agenda y búsqueda por código (GI-401).
+export const ETIQUETA_BUSQUEDA = 'Código o teléfono';
+export const AYUDA_BUSQUEDA = 'Escribe el código de 8 dígitos para ver la reserva al instante, o el teléfono del cliente (10 dígitos).';
+export const MENSAJE_BUSQUEDA_INCOMPLETA = 'Sigue escribiendo: el código tiene 8 dígitos y el teléfono, 10.';
+export const MENSAJE_BUSQUEDA_INVALIDA = 'Usa solo números: el código tiene 8 dígitos y el teléfono, 10.';
+export const TITULO_RESERVA_ENCONTRADA = 'Reserva encontrada';
+export const TEXTO_BUSCANDO_CODIGO = 'Buscando la reserva…';
+export const TEXTO_RESERVA_ENCONTRADA_ANUNCIO = 'Reserva encontrada.';
+// Al teclear un teléfono se pasa por 8 dígitos y se dispara una búsqueda por código: el texto lo explica.
+export const TEXTO_CODIGO_NO_ENCONTRADO = 'No hay ninguna reserva con ese código. Si estás escribiendo un teléfono, sigue hasta los 10 dígitos.';
+export const TEXTO_ERROR_CODIGO = 'No pudimos buscar la reserva. Intenta de nuevo.';
+// Texto propio para el 429: nunca se muestra el mensaje neutro del servidor, y el campo sigue editable.
+export const TEXTO_BUSQUEDA_LIMITE = 'Hiciste muchas búsquedas seguidas. Espera un momento e inténtalo de nuevo.';
 export const TEXTO_FRANJAS_NO_DISPONIBLES = 'No pudimos cargar las franjas; el filtro por franja no está disponible.';
 export const TEXTO_FILTRO_TODOS = 'Todos';
 export const TEXTO_FILTRO_TODAS = 'Todas';

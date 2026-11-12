@@ -15,6 +15,7 @@ import {
   armarCuerpoMesa,
   armarCuerpoVisita,
   armarCuerpoZona,
+  clasificarBusqueda,
   contarMesasZona,
   esConflictoReasignar,
   listaIncompleta,
@@ -706,4 +707,99 @@ test('reemplazarPorId actualiza solo el elemento con ese id', () => {
   const nueva = reemplazarPorId(lista, { id: 'b', activa: false });
   assert.deepEqual(nueva, [{ id: 'a', activa: true }, { id: 'b', activa: false }]);
   assert.deepEqual(reemplazarPorId(lista, { id: 'zz', activa: false }), lista);
+});
+
+// --- GI-401: clasificarBusqueda («Código o teléfono») ---
+
+const clasifica = (texto) => clasificarBusqueda(texto);
+const MSG_INCOMPLETA = 'Sigue escribiendo: el código tiene 8 dígitos y el teléfono, 10.';
+const MSG_INVALIDA = 'Usa solo números: el código tiene 8 dígitos y el teléfono, 10.';
+const MSG_TELEFONO = 'El teléfono debe tener 10 dígitos y empezar con 809, 829 o 849.';
+const MSG_PAIS = 'Escribe solo los 10 dígitos de tu teléfono (809, 829 o 849), sin código de país.';
+
+test('clasificarBusqueda: vacío, solo espacios, nulo o sin dígitos es "vacia" y sin mensaje', () => {
+  for (const entrada of ['', '   ', '\t', null, undefined, '-', '()', ' - ']) {
+    assert.deepEqual(clasifica(entrada), { tipo: 'vacia', digitos: '', mensaje: '' }, JSON.stringify(entrada));
+  }
+});
+
+test('clasificarBusqueda: 8 dígitos son un código, con o sin espacios, guiones y espacios alrededor', () => {
+  for (const entrada of ['12345678', '1234 5678', '1234-5678', '  1234 - 5678  ', '1 2 3 4 5 6 7 8']) {
+    assert.deepEqual(clasifica(entrada), { tipo: 'codigo', digitos: '12345678', mensaje: '' }, entrada);
+  }
+});
+
+test('clasificarBusqueda: el código conserva los ceros a la izquierda y puede empezar por 809', () => {
+  assert.equal(clasifica('0000 1234').digitos, '00001234');
+  assert.equal(clasifica('00000000').tipo, 'codigo');
+  assert.equal(clasifica('80912345').tipo, 'codigo'); // 8 dígitos: es código aunque empiece como un teléfono
+});
+
+test('clasificarBusqueda: de 1 a 7 dígitos y 9 dígitos están incompletos (pista neutra, no error)', () => {
+  for (const entrada of ['1', '123', '1234567', '1234 567', '809 555', '123456789', '123 456 789']) {
+    const r = clasifica(entrada);
+    assert.equal(r.tipo, 'incompleta', entrada);
+    assert.equal(r.mensaje, MSG_INCOMPLETA, entrada);
+    assert.equal(r.digitos, entrada.replace(/\D/g, ''), entrada);
+  }
+});
+
+test('clasificarBusqueda: 10 dígitos con 809, 829 o 849 son un teléfono, con cualquier formato', () => {
+  for (const entrada of ['8095550199', '809 555 0199', '809-555-0199', '(809) 555-0199', ' 829 555 0199 ', '8495550199']) {
+    const r = clasifica(entrada);
+    assert.equal(r.tipo, 'telefono', entrada);
+    assert.equal(r.digitos, entrada.replace(/\D/g, ''), entrada);
+    assert.equal(r.mensaje, '', entrada);
+  }
+});
+
+test('clasificarBusqueda: 10 dígitos con otro prefijo o 12 o más son inválidos con el texto del teléfono', () => {
+  for (const entrada of ['8105550199', '1234567890', '809555019912', '8095550199123456']) {
+    const r = clasifica(entrada);
+    assert.equal(r.tipo, 'invalida', entrada);
+    assert.equal(r.mensaje, MSG_TELEFONO, entrada);
+  }
+});
+
+test('clasificarBusqueda: 11 dígitos con 1 inicial (código de país) dan el aviso propio', () => {
+  for (const entrada of ['18095550199', '+1 809 555 0199', '+1 (809) 555-0199']) {
+    const r = clasifica(entrada);
+    assert.equal(r.tipo, 'invalida', entrada);
+    assert.equal(r.mensaje, MSG_PAIS, entrada);
+  }
+});
+
+test('clasificarBusqueda: letras, puntos y otros símbolos son inválidos, aunque haya 8 dígitos', () => {
+  for (const entrada of ['1234567A', 'ABCDEFGH', 'abc', '1234.5678', '1234_5678', '12345678x', '#12345678', '1234/5678']) {
+    assert.deepEqual(clasifica(entrada), { tipo: 'invalida', digitos: '', mensaje: MSG_INVALIDA }, entrada);
+  }
+});
+
+test('clasificarBusqueda: dígitos de otros alfabetos (árabes, de ancho completo, devanagari) son inválidos', () => {
+  for (const entrada of ['١٢٣٤٥٦٧٨', '１２３４５６７８', '१२३४५६७८', '1234 ٥٦٧٨']) {
+    assert.equal(clasifica(entrada).tipo, 'invalida', entrada);
+  }
+});
+
+test('clasificarBusqueda: el "+" solo vale al inicio', () => {
+  assert.equal(clasifica('+18095550199').tipo, 'invalida'); // 11 dígitos con 1: aviso del código de país
+  assert.equal(clasifica('809+5550199').tipo, 'invalida');
+  assert.equal(clasifica('809+5550199').mensaje, MSG_INVALIDA);
+});
+
+test('clasificarBusqueda: pasar por 8 dígitos al teclear un teléfono es un código y al llegar a 10 pasa a teléfono', () => {
+  const escribiendo = ['8', '80', '809', '8095', '80955', '809555', '8095550', '80955501', '809555019', '8095550199'];
+  assert.deepEqual(
+    escribiendo.map((texto) => clasifica(texto).tipo),
+    ['incompleta', 'incompleta', 'incompleta', 'incompleta', 'incompleta', 'incompleta', 'incompleta', 'codigo', 'incompleta', 'telefono'],
+  );
+});
+
+test('clasificarBusqueda es pura: no cambia la entrada ni devuelve el mismo objeto dos veces', () => {
+  const entrada = '1234 5678';
+  const a = clasifica(entrada);
+  const b = clasifica(entrada);
+  assert.equal(entrada, '1234 5678');
+  assert.notEqual(a, b);
+  assert.deepEqual(a, b);
 });
