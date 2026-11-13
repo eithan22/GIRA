@@ -3,7 +3,16 @@ import {
   MENSAJE_NOMBRE_MUY_LARGO,
   MENSAJE_NOMBRE_OBLIGATORIO,
 } from '../reservasTextos.js';
-import { MENSAJE_TELEFONO_INVALIDO } from './reservasPersonalTextos.js';
+import {
+  MENSAJE_BUSQUEDA_INCOMPLETA,
+  MENSAJE_BUSQUEDA_INVALIDA,
+  MENSAJE_TELEFONO_INVALIDO,
+  OPCION_SIN_MESA,
+  TEXTO_ORIGEN_PRESENCIAL,
+  TEXTO_ORIGEN_TELEFONO,
+  TEXTO_VISITA_SIN_HORA,
+  textoPersonas,
+} from './reservasPersonalTextos.js';
 
 // Funciones puras del personal (sin React, sin DOM): se prueban con `node --test`
 // (reservasPersonalFormato.test.js) y no se empaquetan salvo que un componente las importe.
@@ -80,6 +89,39 @@ export function validarTelefono(texto) {
   return { valido: true, digitos, mensaje: '' };
 }
 
+// Solo dígitos ASCII (0-9), espacios, guiones y paréntesis, con un "+" opcional al inicio: lo que alguien teclea o
+// pega para un código ("1234 5678") o un teléfono ("+1 (809) 555-0199"). Cualquier otra cosa (letras, puntos, dígitos
+// de otros alfabetos) es una entrada inválida.
+const FORMATO_BUSQUEDA = /^\s*\+?[0-9\s\-()]*$/;
+
+/**
+ * GI-401: clasifica lo escrito en el campo único «Código o teléfono». Devuelve `{ tipo, digitos, mensaje }`:
+ * - 'vacia': nada escrito.
+ * - 'incompleta': 1 a 7 dígitos, o 9 (aún no es código ni teléfono); `mensaje` es una pista neutra, no un error.
+ * - 'codigo': exactamente 8 dígitos (con o sin espacios y guiones); `digitos` es el código.
+ * - 'telefono': 10 dígitos que empiezan por 809, 829 o 849; `digitos` es el teléfono.
+ * - 'invalida': caracteres no permitidos, o 10 o más dígitos que no forman un teléfono válido (11 con "1" inicial
+ *   da el aviso del código de país); `mensaje` explica por qué.
+ * Función pura y sin efectos: lo escrito no se guarda ni se muestra en ninguna parte.
+ */
+export function clasificarBusqueda(texto) {
+  const crudo = String(texto ?? '');
+  if (crudo.trim() === '') return { tipo: 'vacia', digitos: '', mensaje: '' };
+  if (!FORMATO_BUSQUEDA.test(crudo)) return { tipo: 'invalida', digitos: '', mensaje: MENSAJE_BUSQUEDA_INVALIDA };
+
+  const digitos = soloDigitos(crudo);
+  if (digitos.length === 0) return { tipo: 'vacia', digitos: '', mensaje: '' };
+  if (digitos.length === 8) return { tipo: 'codigo', digitos, mensaje: '' };
+  if (digitos.length <= 7 || digitos.length === 9) {
+    return { tipo: 'incompleta', digitos, mensaje: MENSAJE_BUSQUEDA_INCOMPLETA };
+  }
+
+  const telefono = validarTelefono(digitos);
+  return telefono.valido
+    ? { tipo: 'telefono', digitos: telefono.digitos, mensaje: '' }
+    : { tipo: 'invalida', digitos, mensaje: telefono.mensaje };
+}
+
 /** "8095550199" -> "809 555 0199"; cualquier otra cosa se devuelve tal cual. */
 export function formatearTelefono(telefono) {
   const digitos = soloDigitos(telefono);
@@ -87,8 +129,9 @@ export function formatearTelefono(telefono) {
   return `${digitos.slice(0, 3)} ${digitos.slice(3, 6)} ${digitos.slice(6)}`;
 }
 
-const ETIQUETAS_ORIGEN = { Web: 'Web', Telefono: 'Teléfono', Presencial: 'Presencial' };
+const ETIQUETAS_ORIGEN = { Web: 'Web', Telefono: TEXTO_ORIGEN_TELEFONO, Presencial: TEXTO_ORIGEN_PRESENCIAL };
 
+/** Etiqueta del origen para el personal: Telefono -> "Por llamada", Presencial -> "En persona" (el valor guardado no cambia). */
 export function etiquetaOrigen(origen) {
   return ETIQUETAS_ORIGEN[origen] ?? String(origen ?? '');
 }
@@ -338,6 +381,22 @@ export function estadoFranja(franja, hora) {
   return 'enCurso';
 }
 
+// Replica ParametrosReservaService.AntelacionMinima del backend (hoy fija en 2 h, provisional hasta que
+// Configuración la entregue, GI-226). Solo sirve para el aviso informativo de la pantalla: quien decide
+// si se puede reservar es siempre el servidor.
+const MINUTOS_ANTELACION_WEB = 120;
+
+/**
+ * GI-403: true si la franja de HOY solo la puede reservar el personal: ya empezó o empieza en menos de
+ * MINUTOS_ANTELACION_WEB (el cliente web ya no puede) y todavía no terminó. Informativa; el servidor decide.
+ * `fecha` y `hoy` son "aaaa-mm-dd", `hora` es "HH:mm" en Santo Domingo.
+ */
+export function esFranjaSoloPersonal({ fecha, hoy, hora, franja }) {
+  if (!franja || fecha !== hoy) return false;
+  if (estadoFranja(franja, hora) === 'terminada') return false;
+  return minutosDeHora(franja.horaInicio) < minutosDeHora(hora) + MINUTOS_ANTELACION_WEB;
+}
+
 function activasPorInicio(franjas) {
   return (franjas ?? [])
     .filter((franja) => franja.activa)
@@ -376,6 +435,19 @@ export function franjasParaVisita(franjas, hora) {
   });
 }
 
+/**
+ * Qué muestra el formulario de visita según la carga de las franjas y cuántas franjas hay para elegir (GI-402):
+ * 'listas' si hay alguna (aunque una recarga siga en curso o haya fallado: se usan las que ya llegaron),
+ * 'cargando' o 'error' si aún no hay ninguna y la carga está en curso o falló, y 'vacias' solo cuando las franjas
+ * llegaron de verdad sin ninguna activa. `estado` es el de useFranjas: 'cargando' | 'listo' | 'error' (sin valor = 'listo').
+ */
+export function estadoFranjasVisita(estado, cantidadFranjas) {
+  if (cantidadFranjas > 0) return 'listas';
+  if (estado === 'cargando') return 'cargando';
+  if (estado === 'error') return 'error';
+  return 'vacias';
+}
+
 /** Franja preseleccionada para una visita: la actual o, si no hay, la última ya empezada. */
 export function franjaDefectoVisita(franjasConEstado) {
   const elegibles = franjasConEstado.filter((franja) => franja.elegible);
@@ -406,6 +478,29 @@ export function validarPersonasVisita(texto, capacidadMesa = null) {
 /** Cuerpo del POST /api/visitas: sin teléfono ni datos personales; mesa vacía viaja como null. */
 export function armarCuerpoVisita({ franjaId, mesaId, personas }) {
   return { franjaHorariaId: franjaId, mesaId: mesaId || null, personas: Number(personas) };
+}
+
+/**
+ * GI-402: resumen de las visitas sin reserva del día, con singular y plural: «1 visita · 1 persona»,
+ * «3 visitas · 11 personas». Los totales vienen del servidor y cuentan todo el día.
+ */
+export function textoResumenVisitas(totalVisitas, totalPersonas) {
+  return `${totalVisitas} ${totalVisitas === 1 ? 'visita' : 'visitas'} · ${textoPersonas(totalPersonas)}`;
+}
+
+/** GI-402: aviso cuando el servidor recortó la lista (tope de 200): «Se muestran las 200 más recientes de 215 visitas.» */
+export function textoVisitasTruncadas(mostradas, total) {
+  return `Se muestran las ${mostradas} más recientes de ${total} visitas.`;
+}
+
+/**
+ * GI-402: una línea por visita, «14:05 · 4 personas · Almuerzo · Mesa 7». La hora llega como "HH:mm:ss" y puede ser
+ * null (visita sin registro de hora): entonces dice «sin hora». Sin mesa dice «Sin mesa». Sin datos personales.
+ */
+export function descripcionVisita({ horaRegistro, personas, franjaNombre, mesaNumero }) {
+  const hora = horaRegistro ? String(horaRegistro).slice(0, 5) : TEXTO_VISITA_SIN_HORA;
+  const mesa = mesaNumero != null ? `Mesa ${mesaNumero}` : OPCION_SIN_MESA;
+  return `${hora} · ${textoPersonas(personas)} · ${franjaNombre} · ${mesa}`;
 }
 
 /** Conteo de estados de las mesas de una zona. */

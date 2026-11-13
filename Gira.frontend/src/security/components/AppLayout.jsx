@@ -94,7 +94,6 @@ function locationLabel() {
   if (path.includes('acceso-denegado')) return 'Acceso denegado';
   if (path.startsWith('/reservas')) {
     if (path.includes('/mapa')) return 'Mapa de mesas';
-    if (path.includes('/visitas')) return 'Visitas sin reserva';
     if (path.includes('/configuracion')) return 'Zonas, mesas y franjas';
     return 'Agenda de reservas';
   }

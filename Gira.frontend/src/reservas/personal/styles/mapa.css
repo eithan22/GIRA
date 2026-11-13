@@ -113,8 +113,8 @@ button.reservas-personal-mesa:focus-visible { outline: 3px solid var(--reservas-
 }
 
 /* --- Visitas --- */
-.reservas-personal-tarjeta--formulario { max-width: 560px; }
-.reservas-personal-sesion { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 14px; }
+.reservas-personal-visitas { margin-top: 20px; }
+.reservas-personal-visitas-lista { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 14px; }
 
 @media (max-width: 720px) {
   .reservas-personal-mesas { grid-template-columns: repeat(2, minmax(0, 1fr)); }

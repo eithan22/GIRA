@@ -548,6 +548,246 @@ public class ReservaServiceTests
         Assert.Empty(reservaRepo.Agregadas);
         Assert.Empty(publisher.Publicados);
     }
+
+    // --- GI-403: canales. El personal no tiene la antelación de 2 h; la web sí. ---
+
+    private static readonly Mesa MesaGrande = new() { Id = Guid.NewGuid(), Numero = 2, Capacidad = 8 };
+
+    // Hora local de Santo Domingo (UTC-4) del día de la reserva.
+    private static DateTimeOffset LocalRd(int hora, int minuto, DateOnly? dia = null)
+    {
+        var d = dia ?? Fecha;
+        return new DateTimeOffset(d.Year, d.Month, d.Day, hora + 4, minuto, 0, TimeSpan.Zero);
+    }
+
+    [Theory]
+    [InlineData(OrigenReserva.Telefono)]
+    [InlineData(OrigenReserva.Presencial)]
+    public async Task CrearComoPersonal_Para_Hoy_A_Menos_De_2h_Del_Inicio_Si_Crea(OrigenReserva origen)
+    {
+        var servicio = CrearServicio(ahoraUtc: LocalRd(11, 0)); // la franja empieza a las 12:00
+
+        var resultado = await servicio.CrearComoPersonalAsync(Request(), origen, default);
+
+        Assert.True(resultado.IsSuccess);
+    }
+
+    [Fact]
+    public async Task CrearComoPersonal_Con_La_Franja_En_Curso_Si_Crea()
+    {
+        var servicio = CrearServicio(ahoraUtc: LocalRd(13, 0)); // 12:00-15:00 ya empezó
+
+        var resultado = await servicio.CrearComoPersonalAsync(Request(), OrigenReserva.Presencial, default);
+
+        Assert.True(resultado.IsSuccess);
+    }
+
+    [Fact]
+    public async Task CrearAsync_Web_Justo_A_Las_2h_Pasa_Y_Un_Minuto_Antes_Falla()
+    {
+        var justo = await CrearServicio(ahoraUtc: LocalRd(10, 0)).CrearAsync(Request(), default);
+        var unMinutoTarde = await CrearServicio(ahoraUtc: LocalRd(10, 1)).CrearAsync(Request(), default);
+
+        Assert.True(justo.IsSuccess);
+        Assert.True(unMinutoTarde.IsFailure);
+        Assert.Equal("Esa franja ya no tiene la antelación mínima requerida.", unMinutoTarde.Error);
+    }
+
+    [Fact]
+    public async Task CrearAsync_Web_Con_La_Franja_En_Curso_Sigue_Fallando()
+    {
+        var resultado = await CrearServicio(ahoraUtc: LocalRd(13, 0)).CrearAsync(Request(), default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(ErrorType.Validation, resultado.Type);
+    }
+
+    [Fact]
+    public async Task CrearComoPersonal_Franja_Terminada_Falla_Y_Un_Minuto_Antes_De_Terminar_Pasa()
+    {
+        var terminada = await CrearServicio(ahoraUtc: LocalRd(15, 0))
+            .CrearComoPersonalAsync(Request(), OrigenReserva.Telefono, default);
+        var porTerminar = await CrearServicio(ahoraUtc: LocalRd(14, 59))
+            .CrearComoPersonalAsync(Request(), OrigenReserva.Telefono, default);
+
+        Assert.True(terminada.IsFailure);
+        Assert.Equal(ErrorType.Validation, terminada.Type);
+        Assert.Equal("Esa franja ya terminó; elige una que aún no haya terminado.", terminada.Error);
+        Assert.True(porTerminar.IsSuccess);
+    }
+
+    [Fact]
+    public async Task CrearComoPersonal_Fecha_Pasada_Falla()
+    {
+        var servicio = CrearServicio(ahoraUtc: LocalRd(8, 0, Fecha.AddDays(1)));
+
+        var resultado = await servicio.CrearComoPersonalAsync(Request(), OrigenReserva.Telefono, default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal("La fecha no puede ser en el pasado.", resultado.Error);
+    }
+
+    [Fact]
+    public async Task CrearComoPersonal_Nueve_Personas_Con_Mesa_Maxima_De_8_Falla_Con_Voz_De_Personal_Y_Ocho_Pasa()
+    {
+        var nueve = await CrearServicio(mesas: [MesaGrande]).CrearComoPersonalAsync(
+            Request(personas: 9), OrigenReserva.Telefono, default);
+        var ocho = await CrearServicio(mesas: [MesaGrande]).CrearComoPersonalAsync(
+            Request(personas: 8), OrigenReserva.Telefono, default);
+
+        Assert.True(nueve.IsFailure);
+        Assert.Equal(ErrorType.Validation, nueve.Type);
+        Assert.Equal(
+            "Las mesas admiten como máximo 8 personas. Los grupos más grandes se atienden por teléfono, fuera del sistema.",
+            nueve.Error);
+        Assert.True(ocho.IsSuccess);
+    }
+
+    [Fact]
+    public async Task CrearAsync_Web_Nueve_Personas_Conserva_El_Mensaje_Del_Cliente()
+    {
+        var resultado = await CrearServicio(mesas: [MesaGrande]).CrearAsync(Request(personas: 9), default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal("Para grupos de más de 8 personas, llama al restaurante.", resultado.Error);
+    }
+
+    [Fact]
+    public async Task Limite_De_2_Vigentes_Usa_La_Voz_De_Cada_Audiencia()
+    {
+        var personal = await CrearServicio(reservaRepo: new ReservaRepositoryFake { VigentesPorTelefono = 2 })
+            .CrearComoPersonalAsync(Request(), OrigenReserva.Telefono, default);
+        var web = await CrearServicio(reservaRepo: new ReservaRepositoryFake { VigentesPorTelefono = 2 })
+            .CrearAsync(Request(), default);
+
+        Assert.Equal(ErrorType.Conflict, personal.Type);
+        Assert.Equal("Este teléfono ya tiene 2 reservas vigentes; cancela una para registrar otra.", personal.Error);
+        Assert.Equal("Ya tienes 2 reservas vigentes con este teléfono; cancela una para reservar otra.", web.Error);
+    }
+
+    [Fact]
+    public async Task Telefono_Y_Presencial_Se_Comportan_Igual()
+    {
+        var porLlamada = await CrearServicio(ahoraUtc: LocalRd(11, 0))
+            .CrearComoPersonalAsync(Request(), OrigenReserva.Telefono, default);
+        var enPersona = await CrearServicio(ahoraUtc: LocalRd(11, 0))
+            .CrearComoPersonalAsync(Request(), OrigenReserva.Presencial, default);
+        var terminadaLlamada = await CrearServicio(ahoraUtc: LocalRd(16, 0))
+            .CrearComoPersonalAsync(Request(), OrigenReserva.Telefono, default);
+        var terminadaPersona = await CrearServicio(ahoraUtc: LocalRd(16, 0))
+            .CrearComoPersonalAsync(Request(), OrigenReserva.Presencial, default);
+
+        Assert.Equal(porLlamada.IsSuccess, enPersona.IsSuccess);
+        Assert.Equal(terminadaLlamada.Error, terminadaPersona.Error);
+    }
+
+    // --- GI-401: búsqueda por código para el personal ---
+
+    private static ReservaDetalleDto DetalleDe(string codigo, string estado = "Confirmada") =>
+        new(Guid.NewGuid(), codigo, estado, Fecha, Guid.NewGuid(), "Almuerzo", new TimeOnly(12, 0), new TimeOnly(15, 0),
+            Guid.NewGuid(), 1, 4, "Salón", 2, null, null, Guid.NewGuid(), "Ana Pérez", "8095551234", "Telefono", null,
+            DateTime.UtcNow);
+
+    [Fact]
+    public async Task ObtenerPorCodigo_Existente_DevuelveElDetalle_SinPedirTelefono()
+    {
+        var repo = new ReservaRepositoryFake();
+        var detalle = DetalleDe("12345678");
+        repo.DetallesPorCodigo["12345678"] = detalle;
+
+        var resultado = await CrearServicio(reservaRepo: repo).ObtenerPorCodigoAsync("12345678", default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Same(detalle, resultado.Value);
+    }
+
+    [Theory]
+    [InlineData("1234 5678")]
+    [InlineData("1234-5678")]
+    [InlineData("  1234 - 5678  ")]
+    [InlineData("1 2 3 4 5 6 7 8")]
+    [InlineData("\t12345678\n")]
+    public async Task ObtenerPorCodigo_ConEspaciosOGuiones_LoNormalizaA8Digitos(string escrito)
+    {
+        var repo = new ReservaRepositoryFake();
+        repo.DetallesPorCodigo["12345678"] = DetalleDe("12345678");
+
+        var resultado = await CrearServicio(reservaRepo: repo).ObtenerPorCodigoAsync(escrito, default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal(["12345678"], repo.CodigosConsultados);
+    }
+
+    [Fact]
+    public async Task ObtenerPorCodigo_ConservaLosCerosALaIzquierda()
+    {
+        var repo = new ReservaRepositoryFake();
+        repo.DetallesPorCodigo["00001234"] = DetalleDe("00001234");
+
+        var resultado = await CrearServicio(reservaRepo: repo).ObtenerPorCodigoAsync("0000 1234", default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal("00001234", resultado.Value!.Codigo);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("1234567")]      // 7 dígitos
+    [InlineData("123456789")]    // 9 dígitos
+    [InlineData("1234567A")]     // letra
+    [InlineData("ABCDEFGH")]
+    [InlineData("1234.5678")]    // otro separador
+    [InlineData("١٢٣٤٥٦٧٨")]     // 8 dígitos árabe-índicos (Unicode)
+    [InlineData("１２３４５６７８")] // 8 dígitos de ancho completo (Unicode)
+    public async Task ObtenerPorCodigo_ConFormatoInvalido_Es400SinTocarElRepositorioNiRepetirLoEscrito(string escrito)
+    {
+        var repo = new ReservaRepositoryFake();
+
+        var resultado = await CrearServicio(reservaRepo: repo).ObtenerPorCodigoAsync(escrito, default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(ErrorType.Validation, resultado.Type);
+        Assert.Equal("El código debe tener 8 dígitos.", resultado.Error);
+        Assert.Empty(repo.CodigosConsultados);
+    }
+
+    [Fact]
+    public async Task ObtenerPorCodigo_Nulo_Es400()
+    {
+        var resultado = await CrearServicio().ObtenerPorCodigoAsync(null!, default);
+
+        Assert.Equal(ErrorType.Validation, resultado.Type);
+    }
+
+    [Fact]
+    public async Task ObtenerPorCodigo_8DigitosQueNoExisten_Es404()
+    {
+        var repo = new ReservaRepositoryFake();
+
+        var resultado = await CrearServicio(reservaRepo: repo).ObtenerPorCodigoAsync("99999999", default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(ErrorType.NotFound, resultado.Type);
+        Assert.Equal("No encontramos esa reserva.", resultado.Error);
+        Assert.Equal(["99999999"], repo.CodigosConsultados);
+    }
+
+    [Theory]
+    [InlineData("Cancelada")]
+    [InlineData("NoAsistio")]
+    [InlineData("Completada")]
+    [InlineData("EnCurso")]
+    public async Task ObtenerPorCodigo_NoFiltraPorEstado(string estado)
+    {
+        var repo = new ReservaRepositoryFake();
+        repo.DetallesPorCodigo["12345678"] = DetalleDe("12345678", estado);
+
+        var resultado = await CrearServicio(reservaRepo: repo).ObtenerPorCodigoAsync("12345678", default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal(estado, resultado.Value!.Estado);
+    }
 }
 
 class ReservaRepositoryFake : IReservaRepository
@@ -584,6 +824,16 @@ class ReservaRepositoryFake : IReservaRepository
 
     public Task<ReservaDetalleDto?> ObtenerDetalleAsync(Guid id, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
+
+    // GI-401: detalles por código (ya normalizado) y cuántas veces se consultó el repositorio.
+    public Dictionary<string, ReservaDetalleDto> DetallesPorCodigo { get; } = new();
+    public List<string> CodigosConsultados { get; } = [];
+
+    public Task<ReservaDetalleDto?> ObtenerDetallePorCodigoAsync(string codigo, CancellationToken cancellationToken)
+    {
+        CodigosConsultados.Add(codigo);
+        return Task.FromResult(DetallesPorCodigo.GetValueOrDefault(codigo));
+    }
 
     public Task<Reserva?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken) =>
         throw new NotImplementedException();

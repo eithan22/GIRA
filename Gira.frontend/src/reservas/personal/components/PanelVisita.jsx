@@ -4,10 +4,14 @@ import FormularioVisita from './FormularioVisita.jsx';
 import PanelPersonal from './PanelPersonal.jsx';
 
 /**
- * Panel que abre el mapa desde una mesa libre: el mismo FormularioVisita de la página
- * /reservas/visitas, con esa mesa ya elegida. Escape y la X no cierran mientras se envía.
+ * Panel de «Visita sin reserva», único para la Agenda y el Mapa: el Mapa lo abre desde una mesa libre (con esa mesa ya
+ * elegida, `mesaInicialId`) o desde el botón general (sin mesa elegida); la Agenda, desde su botón. Escape y la X no
+ * cierran mientras se envía.
  */
-export default function PanelVisita({ franjas, mesaInicialId, origenRef, fallbackFocoRef, onCerrar, onRegistrada }) {
+export default function PanelVisita({
+  franjas, franjasEstado, franjasError, onReintentarFranjas,
+  mesaInicialId, origenRef, fallbackFocoRef, onCerrar, onRegistrada,
+}) {
   const [enviando, setEnviando] = useState(false);
 
   return (
@@ -22,6 +26,9 @@ export default function PanelVisita({ franjas, mesaInicialId, origenRef, fallbac
     >
       <FormularioVisita
         franjas={franjas}
+        franjasEstado={franjasEstado}
+        franjasError={franjasError}
+        onReintentarFranjas={onReintentarFranjas}
         mesaInicialId={mesaInicialId}
         onRegistrada={onRegistrada}
         onCerrar={onCerrar}

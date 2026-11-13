@@ -72,7 +72,7 @@ public class ReservaService : IReservaService
 
     /// <inheritdoc />
     public Task<OperationResult<ReservaCreadaDto>> CrearAsync(CrearReservaRequest request, CancellationToken cancellationToken) =>
-        CrearInternoAsync(request, OrigenReserva.Web, cancellationToken);
+        CrearInternoAsync(request, OrigenReserva.Web, AudienciaReserva.Cliente, cancellationToken);
 
     /// <inheritdoc />
     public Task<OperationResult<ReservaCreadaDto>> CrearComoPersonalAsync(
@@ -84,14 +84,15 @@ public class ReservaService : IReservaService
                 ErrorType.Validation, "El origen debe ser Telefono o Presencial."));
         }
 
-        return CrearInternoAsync(request, origen, cancellationToken);
+        return CrearInternoAsync(request, origen, AudienciaReserva.Personal, cancellationToken);
     }
 
     // Lógica compartida por CrearAsync (invitado, Origen = Web) y CrearComoPersonalAsync
-    // (personal, Origen = Telefono/Presencial): mismas validaciones y asignación de mesa
-    // para ambos caminos; solo cambia qué Origen queda en la reserva.
+    // (personal, Origen = Telefono/Presencial): misma asignación de mesa para ambos caminos; cambia el
+    // Origen que queda en la reserva, la regla de horario (antelación mínima para el cliente, franja no
+    // terminada para el personal, GI-403) y la voz de los mensajes.
     private async Task<OperationResult<ReservaCreadaDto>> CrearInternoAsync(
-        CrearReservaRequest request, OrigenReserva origen, CancellationToken cancellationToken)
+        CrearReservaRequest request, OrigenReserva origen, AudienciaReserva audiencia, CancellationToken cancellationToken)
     {
         var validacion = await _validator.ValidateAsync(request, cancellationToken);
         if (!validacion.IsValid)
@@ -107,7 +108,7 @@ public class ReservaService : IReservaService
         var asignacion = await ValidarYAsignarMesaAsync(
             request.Fecha, request.FranjaHorariaId, request.Personas,
             mesaPreferidaId: null, preferidaObligatoria: false, excluirReservaId: null,
-            exigirAntelacion: true, cancellationToken);
+            validarHorario: true, audiencia, cancellationToken);
         if (!asignacion.IsSuccess)
         {
             return OperationResult.Failure<ReservaCreadaDto>(asignacion.Type!.Value, asignacion.Error!);
@@ -124,7 +125,7 @@ public class ReservaService : IReservaService
         {
             return OperationResult.Failure<ReservaCreadaDto>(
                 ErrorType.Conflict,
-                "Ya tienes 2 reservas vigentes con este teléfono; cancela una para reservar otra.");
+                MensajesReservas.LimiteVigentesPorTelefono(audiencia));
         }
 
         // --- Solo ahora, con la reserva confirmada como posible, se toca al cliente. Se guarda
@@ -246,6 +247,23 @@ public class ReservaService : IReservaService
     }
 
     /// <inheritdoc />
+    public async Task<OperationResult<ReservaDetalleDto>> ObtenerPorCodigoAsync(string codigo, CancellationToken cancellationToken)
+    {
+        var normalizado = CodigoReserva.Normalizar(codigo ?? string.Empty);
+        if (!CodigoReserva.EsValido(normalizado))
+        {
+            // Texto fijo: no repite lo que escribió el usuario (el código es dato sensible y no debe volver en errores).
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.Validation, "El código debe tener 8 dígitos.");
+        }
+
+        var detalle = await _reservaRepository.ObtenerDetallePorCodigoAsync(normalizado, cancellationToken);
+
+        return detalle is null
+            ? OperationResult.Failure<ReservaDetalleDto>(ErrorType.NotFound, "No encontramos esa reserva.")
+            : OperationResult.Success(detalle);
+    }
+
+    /// <inheritdoc />
     public async Task<OperationResult<ReservaDetalleDto>> CheckInAsync(
         Guid id, CheckInRequest request, CancellationToken cancellationToken)
     {
@@ -326,10 +344,11 @@ public class ReservaService : IReservaService
     // modificación (ModificarAsync): RN-RES-02, RN-RES-03, RN-RES-13 y RN-RES-14. Con
     // excluirReservaId la reserva que se modifica no cuenta como ocupante de su propia mesa; con
     // mesaPreferidaId se intenta esa mesa (obligatoria si la eligió el personal, o solo preferida
-    // si es la mesa actual y todavía sirve); exigirAntelacion aplica la antelación mínima.
+    // si es la mesa actual y todavía sirve); validarHorario aplica la regla de horario de la audiencia: la
+    // antelación mínima para el cliente, o que la franja no haya terminado para el personal (GI-403).
     private async Task<OperationResult<AsignacionMesa>> ValidarYAsignarMesaAsync(
         DateOnly fecha, Guid franjaId, int personas, Guid? mesaPreferidaId, bool preferidaObligatoria,
-        Guid? excluirReservaId, bool exigirAntelacion, CancellationToken cancellationToken)
+        Guid? excluirReservaId, bool validarHorario, AudienciaReserva audiencia, CancellationToken cancellationToken)
     {
         var mesas = await _mesaRepository.ListarActivasAsync(cancellationToken);
         var capacidadMaxima = mesas.Count == 0 ? 0 : mesas.Max(m => m.Capacidad);
@@ -337,7 +356,7 @@ public class ReservaService : IReservaService
         {
             return OperationResult.Failure<AsignacionMesa>(
                 ErrorType.Validation,
-                $"Para grupos de más de {capacidadMaxima} personas, llama al restaurante.");
+                MensajesReservas.GrupoGrande(audiencia, capacidadMaxima));
         }
 
         var franjas = await _franjaHorariaRepository.ListarActivasAsync(cancellationToken);
@@ -354,14 +373,22 @@ public class ReservaService : IReservaService
                 ErrorType.Validation, "El restaurante está cerrado ese día.");
         }
 
-        if (exigirAntelacion)
+        if (validarHorario)
         {
             var ahoraLocal = _timeProvider.AhoraLocal();
-            var inicioFranjaLocal = fecha.ToDateTime(franja.HoraInicio);
-            if (inicioFranjaLocal < ahoraLocal + _parametros.AntelacionMinima)
+            if (audiencia == AudienciaReserva.Personal)
+            {
+                // Sin antelación mínima; el fin exacto cuenta como terminada (igual que el check-in).
+                if (ahoraLocal >= fecha.ToDateTime(franja.HoraFin))
+                {
+                    return OperationResult.Failure<AsignacionMesa>(
+                        ErrorType.Validation, MensajesReservas.FranjaTerminadaPersonal);
+                }
+            }
+            else if (fecha.ToDateTime(franja.HoraInicio) < ahoraLocal + _parametros.AntelacionMinima)
             {
                 return OperationResult.Failure<AsignacionMesa>(
-                    ErrorType.Validation, "Esa franja ya no tiene la antelación mínima requerida.");
+                    ErrorType.Validation, MensajesReservas.SinAntelacionMinima);
             }
         }
 
@@ -477,7 +504,7 @@ public class ReservaService : IReservaService
         var asignacion = await ValidarYAsignarMesaAsync(
             request.Fecha, request.FranjaHorariaId, request.Personas,
             mesaPreferidaId: request.MesaId ?? reserva.MesaId, preferidaObligatoria: request.MesaId is not null,
-            excluirReservaId: reserva.Id, exigirAntelacion: cambiaHorario, cancellationToken);
+            excluirReservaId: reserva.Id, validarHorario: cambiaHorario, AudienciaReserva.Personal, cancellationToken);
         if (!asignacion.IsSuccess)
         {
             return OperationResult.Failure<ReservaDetalleDto>(asignacion.Type!.Value, asignacion.Error!);

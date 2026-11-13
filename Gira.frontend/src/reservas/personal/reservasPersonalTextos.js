@@ -22,11 +22,6 @@ export const PANTALLAS = {
     eyebrow: 'RESERVAS',
     descripcion: 'Estado de cada mesa por fecha y franja: libre, reservada, ocupada o inactiva.',
   },
-  visitas: {
-    titulo: 'Visitas sin reserva',
-    eyebrow: 'RESERVAS',
-    descripcion: 'Registro de clientes que llegan sin reserva.',
-  },
   configuracion: {
     titulo: 'Zonas, mesas y franjas',
     eyebrow: 'CONFIGURACIÓN DEL SALÓN',
@@ -52,6 +47,20 @@ export const MENSAJE_TELEFONO_INVALIDO = 'El teléfono debe tener 10 dígitos y 
 
 export const TEXTO_BUSQUEDA_TODAS_LAS_FECHAS = 'La búsqueda por teléfono muestra todas las fechas.';
 export const TEXTO_SIN_RESULTADOS_TELEFONO = 'No encontramos reservas para ese teléfono.';
+
+// Campo único «Código o teléfono» de la agenda y búsqueda por código (GI-401).
+export const ETIQUETA_BUSQUEDA = 'Código o teléfono';
+export const AYUDA_BUSQUEDA = 'Escribe el código de 8 dígitos para ver la reserva al instante, o el teléfono del cliente (10 dígitos).';
+export const MENSAJE_BUSQUEDA_INCOMPLETA = 'Sigue escribiendo: el código tiene 8 dígitos y el teléfono, 10.';
+export const MENSAJE_BUSQUEDA_INVALIDA = 'Usa solo números: el código tiene 8 dígitos y el teléfono, 10.';
+export const TITULO_RESERVA_ENCONTRADA = 'Reserva encontrada';
+export const TEXTO_BUSCANDO_CODIGO = 'Buscando la reserva…';
+export const TEXTO_RESERVA_ENCONTRADA_ANUNCIO = 'Reserva encontrada.';
+// Al teclear un teléfono se pasa por 8 dígitos y se dispara una búsqueda por código: el texto lo explica.
+export const TEXTO_CODIGO_NO_ENCONTRADO = 'No hay ninguna reserva con ese código. Si estás escribiendo un teléfono, sigue hasta los 10 dígitos.';
+export const TEXTO_ERROR_CODIGO = 'No pudimos buscar la reserva. Intenta de nuevo.';
+// Texto propio para el 429: nunca se muestra el mensaje neutro del servidor, y el campo sigue editable.
+export const TEXTO_BUSQUEDA_LIMITE = 'Hiciste muchas búsquedas seguidas. Espera un momento e inténtalo de nuevo.';
 export const TEXTO_FRANJAS_NO_DISPONIBLES = 'No pudimos cargar las franjas; el filtro por franja no está disponible.';
 export const TEXTO_FILTRO_TODOS = 'Todos';
 export const TEXTO_FILTRO_TODAS = 'Todas';
@@ -108,9 +117,12 @@ export const ETIQUETA_ACTUALIZADO = 'Actualizado a las';
 // Los mensajes del servidor se muestran tal cual (algunos están redactados con voz de cliente).
 
 export const TEXTO_NUEVA_RESERVA = 'Nueva reserva';
-export const TEXTO_ORIGEN_LEYENDA = '¿Cómo llegó la reserva?';
-export const TEXTO_ORIGEN_TELEFONO = 'Teléfono';
-export const TEXTO_ORIGEN_PRESENCIAL = 'Presencial';
+export const TEXTO_ORIGEN_LEYENDA = '¿Cómo llegó esta reserva?';
+// Única fuente de las etiquetas del origen (formulario, agenda y detalle); el valor guardado sigue siendo Telefono/Presencial.
+export const TEXTO_ORIGEN_TELEFONO = 'Por llamada';
+export const TEXTO_ORIGEN_PRESENCIAL = 'En persona';
+export const AYUDA_ORIGEN_TELEFONO = 'El cliente llamó por teléfono.';
+export const AYUDA_ORIGEN_PRESENCIAL = 'El cliente está en el restaurante ahora.';
 export const MENSAJE_ORIGEN_OBLIGATORIO = 'Elige cómo llegó la reserva.';
 export const MENSAJE_FECHA_FUERA_DE_RANGO = 'Elige una fecha desde hoy hasta 30 días adelante.';
 export const MENSAJE_FRANJA_OBLIGATORIA = 'Elige una franja con disponibilidad.';
@@ -133,7 +145,11 @@ export const TEXTO_ELIGE_FECHA_Y_PERSONAS = 'Elige una fecha y las personas para
 export const TEXTO_CONSULTANDO_DISPONIBILIDAD = 'Consultando disponibilidad…';
 export const TEXTO_SIN_FRANJAS_ACTIVAS = 'No hay franjas activas configuradas.';
 export const TEXTO_SIN_DISPONIBILIDAD_PERSONAL = 'No hay franjas con disponibilidad para esa fecha y esas personas. Prueba otro día.';
-export const TEXTO_FRANJA_SIN_DISPONIBILIDAD = 'Sin disponibilidad (llena o a menos de 2 h de antelación)';
+export const TEXTO_FRANJA_SIN_DISPONIBILIDAD = 'Sin disponibilidad (llena o ya terminó)';
+export const TEXTO_FRANJA_SOLO_PERSONAL = 'Disponible solo para el personal';
+export const AVISO_FRANJA_SOLO_PERSONAL =
+  'La franja de hoy está disponible solo para el personal: el cliente web ya no puede reservarla porque '
+  + 'faltan menos de 2 horas o ya empezó. Puedes registrarla mientras no haya terminado.';
 export const TEXTO_FRANJA_SIN_CONFIRMAR = 'Disponibilidad sin confirmar';
 export const TEXTO_FRANJA_DISPONIBLE = 'Disponible';
 export const TEXTO_ACTUALIZAR_DISPONIBILIDAD = 'Actualizar disponibilidad';
@@ -168,7 +184,7 @@ export const TEXTO_VOLVER_A_EDITAR = 'Volver a editar';
 export const TITULO_CONFIRMAR_MODIFICAR = '¿Modificar esta reserva?';
 export const CUERPO_CONFIRMAR_MODIFICAR = 'Se guardan los cambios marcados. El servidor valida la disponibilidad otra vez al guardar.';
 export const EXITO_MODIFICAR = 'Reserva modificada.';
-export const AYUDA_NUEVO_HORARIO = 'Un horario nuevo se valida como reserva nueva: hasta 30 días adelante y con 2 h de antelación.';
+export const AYUDA_NUEVO_HORARIO = 'Un horario nuevo se valida como reserva nueva: hasta 30 días adelante y con la franja sin terminar.';
 export const ETIQUETA_MESA = 'Mesa';
 export const OPCION_MESA_AUTOMATICA = 'Automática (conserva la actual si sirve)';
 export const TEXTO_MESA_ACTUAL = 'actual';
@@ -190,10 +206,18 @@ export function textoMesasLibres(cantidad) {
 export const ETIQUETA_NAVEGACION_RESERVAS = 'Secciones de Reservas';
 export const TEXTO_PESTANA_AGENDA = 'Agenda';
 export const TEXTO_PESTANA_MAPA = 'Mapa';
-export const TEXTO_PESTANA_VISITAS = 'Visitas';
 export const TEXTO_PESTANA_CONFIGURACION = 'Configuración';
 
 export const TEXTO_BOTON_VISITA_SIN_RESERVA = 'Visita sin reserva';
+
+// Sección «Visitas sin reserva de hoy» de la Agenda (GI-402).
+export const TITULO_VISITAS_HOY = 'Visitas sin reserva de hoy';
+export const TEXTO_VISITAS_VACIO = 'Todavía no hay visitas sin reserva hoy.';
+export const TEXTO_VISITAS_CARGANDO = 'Cargando las visitas…';
+export const TEXTO_VISITAS_ERROR = 'No pudimos cargar las visitas de hoy.';
+export const AYUDA_VISITAS_SIN_MARCA = 'Estas visitas no marcan la mesa como ocupada en el mapa: no tienen hora de salida.';
+// Una visita sin registro de hora (no debería pasar en producción): texto neutro en vez de una hora inventada.
+export const TEXTO_VISITA_SIN_HORA = 'sin hora';
 
 // Mapa
 export const TEXTO_ACTUALIZAR_CADA_60 = 'Actualizar cada 60 s';
@@ -239,20 +263,19 @@ export const TITULO_VISITA = 'Registrar visita';
 export const TEXTO_FRANJA_EN_CURSO = 'En curso';
 export const TEXTO_FRANJA_TERMINADA = 'Ya terminó (el servidor lo permite)';
 export const TEXTO_SIN_FRANJAS_VISITA = 'No hay franjas activas configuradas.';
+export const TEXTO_CARGANDO_FRANJAS = 'Cargando las franjas…';
+export const TEXTO_ERROR_FRANJAS = 'No pudimos cargar las franjas.';
 export const ETIQUETA_PERSONAS_VISITA = 'Personas';
 export const ETIQUETA_MESA_VISITA = 'Mesa (opcional)';
 export const OPCION_SIN_MESA = 'Sin mesa';
-export const AYUDA_MESA_VISITA = 'La lista no incluye las mesas con una visita ya sentada: el sistema no las marca.';
+export const AYUDA_MESA_VISITA = 'La lista puede incluir mesas con una visita ya sentada: el sistema no las marca como ocupadas.';
 export const AVISO_VISITA_DEFINITIVA = 'Estas visitas no se pueden editar ni borrar después.';
 export const TEXTO_REGISTRAR_VISITA = 'Registrar visita';
 export const TEXTO_REGISTRANDO_VISITA = 'Registrando…';
 export const TEXTO_CONFIRMAR_VISITA = 'Sí, registrar visita';
 export const TITULO_VISITA_REGISTRADA = 'Visita registrada';
 export const TEXTO_REGISTRAR_OTRA = 'Registrar otra';
-export const TEXTO_VER_MAPA = 'Ver el mapa';
 export const AVISO_MESA_VISITA_SIN_MARCA = 'El mapa no marca como ocupadas las mesas con visitas sin reserva: la mesa seguirá viéndose Libre.';
-export const TITULO_SESION_VISITAS = 'Registradas en esta sesión';
-export const AYUDA_SESION_VISITAS = 'Solo se guardan en esta pantalla: se pierden al recargar la página.';
 
 export function textoSinFranjaEmpezada(horaInicio) {
   return `Todavía no empezó ninguna franja de hoy. La primera empieza a las ${horaInicio}.`;

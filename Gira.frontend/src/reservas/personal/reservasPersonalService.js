@@ -54,6 +54,16 @@ async function listarSalon(recurso, filtros, signal) {
 export const reservasPersonalService = {
   // --- Agenda y detalle (OperarReservas) ---
 
+  /**
+   * GET /api/reservas/codigo/{codigo} (GI-401): la reserva con ese código de 8 dígitos, de cualquier fecha y estado.
+   * El código va en la ruta de la API (nunca en la del navegador ni en storage) y solo vive en el estado de la
+   * pantalla. 404 si no existe; 429 si se pasa el límite por usuario (la pantalla lo trata con texto propio).
+   */
+  async obtenerReservaPorCodigo(codigo, { signal } = {}) {
+    const response = await api.get(`/api/reservas/codigo/${encodeURIComponent(codigo)}`, opciones(signal));
+    return response.data;
+  },
+
   /** GET /api/reservas. Sin fecha ni teléfono devuelve hoy. `telefono`: excepción documentada (ver arriba). */
   async listarReservas({ fecha, estado, franjaId, telefono, page = 1, pageSize = 20 } = {}, { signal } = {}) {
     // El teléfono viaja solo con dígitos; axios lo codifica en el query string.
@@ -107,15 +117,26 @@ export const reservasPersonalService = {
   },
 
   /**
-   * GET /api/reservas/disponibilidad: franjas con mesa libre para fecha y personas. Es anónima (el
-   * token se ignora) y tiene límite por IP (429); el llamador debe tolerarlo sin bloquear el formulario.
+   * GET /api/reservas/disponibilidad-personal (GI-403): franjas con mesa libre para fecha y personas,
+   * con la regla del personal: incluye la franja de hoy en curso o a menos de 2 h y solo excluye las que
+   * ya terminaron. Va con token (OperarReservas) y sin límite por IP; un error no debe bloquear el formulario.
    */
   async consultarDisponibilidad({ fecha, personas }, { signal } = {}) {
-    const response = await api.get('/api/reservas/disponibilidad', opciones(signal, { params: { fecha, personas } }));
+    const response = await api.get('/api/reservas/disponibilidad-personal', opciones(signal, { params: { fecha, personas } }));
     return response.data;
   },
 
   // --- Visitas sin reserva ---
+
+  /**
+   * GET /api/visitas?fecha= (GI-402): visitas sin reserva de un día, sin datos personales. La fecha va SIEMPRE explícita
+   * y como aaaa-mm-dd (el servidor rechaza cualquier otro formato). Devuelve { fecha, totalVisitas, totalPersonas,
+   * truncada, visitas: [{ id, franjaNombre, mesaNumero, personas, horaRegistro }] }; `horaRegistro` puede ser null.
+   */
+  async listarVisitas({ fecha }, { signal } = {}) {
+    const response = await api.get('/api/visitas', opciones(signal, { params: { fecha } }));
+    return response.data;
+  },
 
   /** POST /api/visitas: la fecha la pone el servidor (hoy). Sin datos personales; devuelve VisitaDto. */
   async registrarVisita(datos) {

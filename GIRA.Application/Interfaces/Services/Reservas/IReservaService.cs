@@ -18,6 +18,12 @@ public interface IReservaService
     /// ya debe garantizar uno de los dos antes de llamar; esto es una segunda red de
     /// seguridad, no el único lugar donde se valida). El usuario que registra no se recibe
     /// aquí: lo toma BaseEntity.CreatedBy del token, vía AuditoriaSaveChangesInterceptor.
+    /// <para>
+    /// GI-403: el personal NO tiene la antelación mínima de 2 h (puede reservar para hoy), pero la fecha
+    /// no puede ser pasada ni la franja haber terminado; el flujo de <see cref="CrearAsync"/> (Web)
+    /// conserva las 2 h. El máximo de personas es el tamaño de la mesa más grande activa (hoy, 8
+    /// personas); los grupos mayores se atienden por teléfono, fuera del sistema.
+    /// </para>
     /// </summary>
     Task<OperationResult<ReservaCreadaDto>> CrearComoPersonalAsync(
         CrearReservaRequest request, OrigenReserva origen, CancellationToken cancellationToken);
@@ -31,6 +37,14 @@ public interface IReservaService
 
     /// <summary>Detalle de una reserva para el personal (GI-164). ErrorType.NotFound si no existe.</summary>
     Task<OperationResult<ReservaDetalleDto>> ObtenerAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Detalle de una reserva por su código, para el personal (GI-401). Acepta espacios y guiones y lo normaliza a
+    /// 8 dígitos; devuelve cualquier estado y fecha. ErrorType.Validation si no son exactamente 8 dígitos (0-9) y
+    /// ErrorType.NotFound si no existe. No es la consulta pública (<see cref="ConsultarPorCodigoAsync"/>): no pide
+    /// teléfono porque quien llama ya es personal autenticado.
+    /// </summary>
+    Task<OperationResult<ReservaDetalleDto>> ObtenerPorCodigoAsync(string codigo, CancellationToken cancellationToken);
 
     /// <summary>
     /// Modificación por el personal (GI-160, RN-RES-04 y RN-RES-05): cambia fecha, franja, personas

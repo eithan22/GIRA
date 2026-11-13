@@ -12,16 +12,20 @@ namespace GIRA.Application.Services.Reservas;
 /// <summary>Implementación de <see cref="IVisitaService"/>.</summary>
 public class VisitaService : IVisitaService
 {
+    /// <summary>Máximo de visitas que trae el listado del día (GI-402); los totales cuentan todas.</summary>
+    public const int TopeListado = 200;
+
     private readonly IVisitaRepository _visitas;
     private readonly IFranjaGestionRepository _franjas;
     private readonly IMesaGestionRepository _mesas;
     private readonly IZonaRepository _zonas;
     private readonly IReservaRepository _reservas;
     private readonly IValidator<RegistrarVisitaRequest> _validador;
+    private readonly IValidator<ListarVisitasRequest> _validadorListado;
     private readonly IPublicadorEventosSeguro _publicador;
     private readonly TimeProvider _reloj;
 
-    /// <summary>Crea el servicio con sus repositorios, el validador, el publicador y el reloj.</summary>
+    /// <summary>Crea el servicio con sus repositorios, los validadores, el publicador y el reloj.</summary>
     public VisitaService(
         IVisitaRepository visitas,
         IFranjaGestionRepository franjas,
@@ -29,6 +33,7 @@ public class VisitaService : IVisitaService
         IZonaRepository zonas,
         IReservaRepository reservas,
         IValidator<RegistrarVisitaRequest> validador,
+        IValidator<ListarVisitasRequest> validadorListado,
         IPublicadorEventosSeguro publicador,
         TimeProvider reloj)
     {
@@ -38,9 +43,43 @@ public class VisitaService : IVisitaService
         _zonas = zonas;
         _reservas = reservas;
         _validador = validador;
+        _validadorListado = validadorListado;
         _publicador = publicador;
         _reloj = reloj;
     }
+
+    /// <inheritdoc />
+    public async Task<OperationResult<VisitasDelDiaDto>> ListarAsync(
+        ListarVisitasRequest request, CancellationToken cancellationToken)
+    {
+        var validacion = await _validadorListado.ValidateAsync(request, cancellationToken);
+        if (!validacion.IsValid)
+        {
+            return OperationResult.Failure<VisitasDelDiaDto>(ErrorType.Validation, validacion.ToString());
+        }
+
+        // Sin fecha, hoy en Santo Domingo (el mismo "hoy" con el que el POST guarda la visita). El validador ya
+        // comprobó que, si viene, es un aaaa-mm-dd válido.
+        var fecha = string.IsNullOrWhiteSpace(request.Fecha)
+            ? _reloj.HoyLocal()
+            : DateOnly.ParseExact(request.Fecha.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var dia = await _visitas.ListarPorFechaAsync(fecha, TopeListado, cancellationToken);
+
+        var visitas = dia.Filas
+            .Select(f => new VisitaListadoDto(f.Id, f.FranjaNombre ?? "—", f.MesaNumero, f.Personas, HoraLocal(f.CreadaEnUtc)))
+            .ToList();
+
+        return OperationResult.Success(new VisitasDelDiaDto(
+            fecha, dia.TotalVisitas, dia.TotalPersonas, Truncada: dia.TotalVisitas > visitas.Count, visitas));
+    }
+
+    // Hora local de Santo Domingo del momento UTC de registro. Se filtra por Fecha (ya local) y solo la hora se
+    // convierte, así una visita registrada a las 21:00 locales (01:00 UTC del día siguiente) no cambia de día.
+    private static TimeOnly? HoraLocal(DateTime creadaEnUtc) =>
+        creadaEnUtc == default
+            ? null
+            : TimeOnly.FromDateTime(
+                TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(creadaEnUtc, DateTimeKind.Utc), HoraLocalGira.ZonaHoraria));
 
     /// <inheritdoc />
     public async Task<OperationResult<VisitaDto>> RegistrarAsync(

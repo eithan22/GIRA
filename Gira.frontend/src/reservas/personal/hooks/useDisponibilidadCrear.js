@@ -5,10 +5,10 @@ import { esPeticionCancelada, mensajeDeError, reservasPersonalService } from '..
 const DEMORA_MS = 350;
 
 /**
- * Disponibilidad de franjas para crear una reserva (GET /api/reservas/disponibilidad).
+ * Disponibilidad de franjas para crear una reserva (GET /api/reservas/disponibilidad-personal, GI-403).
  * - Las consultas automáticas esperan 350 ms desde el último cambio de fecha o personas y cancelan
  *   la anterior (AbortController); no hay ninguna otra consulta automática.
- * - Un error (incluido el 429 del límite por IP) NO bloquea el formulario: se devuelve el detail del
+ * - Un error (de red o del servidor) NO bloquea el formulario: se devuelve el detail del
  *   servidor y `reintentar()`, que es una acción del usuario y consulta sin demora.
  * `estado`: 'idle' (faltan fecha o personas válidas) | 'cargando' | 'listo' | 'error'.
  */

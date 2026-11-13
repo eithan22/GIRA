@@ -14,7 +14,6 @@ import Reservar from './reservas/pages/Reservar.jsx';
 import MiReserva from './reservas/pages/MiReserva.jsx';
 import AgendaPersonal from './reservas/personal/pages/AgendaPersonal.jsx';
 import MapaPersonal from './reservas/personal/pages/MapaPersonal.jsx';
-import VisitasPersonal from './reservas/personal/pages/VisitasPersonal.jsx';
 import ConfiguracionPersonal from './reservas/personal/pages/ConfiguracionPersonal.jsx';
 
 function Home() {
@@ -59,7 +58,7 @@ function AuthenticatedApp() {
             <Route path="reservas" element={<Navigate to="/reservas/agenda" replace />} />
             <Route path="reservas/agenda" element={<AgendaPersonal />} />
             <Route path="reservas/mapa" element={<MapaPersonal />} />
-            <Route path="reservas/visitas" element={<VisitasPersonal />} />
+            <Route path="reservas/visitas" element={<Navigate to="/reservas/agenda" replace />} />
           </Route>
           <Route element={<RequireRole roles={['Administrador', 'Gerente']} />}>
             <Route path="reservas/configuracion" element={<ConfiguracionPersonal />} />

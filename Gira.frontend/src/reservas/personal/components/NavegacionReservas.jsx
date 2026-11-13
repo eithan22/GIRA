@@ -5,7 +5,6 @@ import {
   TEXTO_PESTANA_AGENDA,
   TEXTO_PESTANA_CONFIGURACION,
   TEXTO_PESTANA_MAPA,
-  TEXTO_PESTANA_VISITAS,
 } from '../reservasPersonalTextos.js';
 
 const ROLES_CONFIGURACION = ['Administrador', 'Gerente'];
@@ -22,7 +21,6 @@ export default function NavegacionReservas() {
   const enlaces = [
     ['/reservas/agenda', TEXTO_PESTANA_AGENDA],
     ['/reservas/mapa', TEXTO_PESTANA_MAPA],
-    ['/reservas/visitas', TEXTO_PESTANA_VISITAS],
     ...(veConfiguracion ? [['/reservas/configuracion', TEXTO_PESTANA_CONFIGURACION]] : []),
   ];
 

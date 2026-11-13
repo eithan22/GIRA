@@ -279,7 +279,9 @@ public class ModificarReservaServicioTests
 
         var resultado = await e.ModificarAsync(personas: 7);
 
-        EsFallo(resultado, ErrorType.Validation, "Para grupos de más de 6 personas, llama al restaurante.");
+        EsFallo(
+            resultado, ErrorType.Validation,
+            "Las mesas admiten como máximo 6 personas. Los grupos más grandes se atienden por teléfono, fuera del sistema.");
     }
 
     [Fact]
@@ -312,15 +314,29 @@ public class ModificarReservaServicioTests
     }
 
     [Fact]
-    public async Task La_Antelacion_Minima_Aplica_Al_Cambiar_De_Horario()
+    public async Task El_Personal_Puede_Cambiar_A_Una_Franja_De_Hoy_Sin_La_Antelacion_Minima()
     {
-        // Ahora 10:30 del 1 de dic.: la reserva está hoy en la Cena (18:00) y se intenta pasar al Almuerzo (12:00 < 12:30).
+        // GI-403: ahora 10:30 del 1 de dic.: la reserva está hoy en la Cena (18:00) y se pasa al Almuerzo
+        // (12:00, a menos de 2 h pero sin terminar): el personal no tiene antelación mínima.
         using var e = new Entorno(Utc(1, 10, 30));
         await e.SembrarAsync(fecha: new DateOnly(2026, 12, 1), enCena: true);
 
         var resultado = await e.ModificarAsync(fecha: new DateOnly(2026, 12, 1), franjaId: e.Almuerzo.Id);
 
-        EsFallo(resultado, ErrorType.Validation, "Esa franja ya no tiene la antelación mínima requerida.");
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal(e.Almuerzo.Id, resultado.Value!.FranjaId);
+    }
+
+    [Fact]
+    public async Task Cambiar_A_Una_Franja_De_Hoy_Ya_Terminada_Falla()
+    {
+        // Ahora 16:00: la Cena (18:00) no ha empezado, pero el Almuerzo (12:00-15:00) ya terminó.
+        using var e = new Entorno(Utc(1, 16, 0));
+        await e.SembrarAsync(fecha: new DateOnly(2026, 12, 1), enCena: true);
+
+        var resultado = await e.ModificarAsync(fecha: new DateOnly(2026, 12, 1), franjaId: e.Almuerzo.Id);
+
+        EsFallo(resultado, ErrorType.Validation, "Esa franja ya terminó; elige una que aún no haya terminado.");
     }
 
     [Fact]
@@ -531,6 +547,8 @@ class ReservaRepositoryConDuplicado : IReservaRepository
         _real.BuscarPorIdAsync(id, cancellationToken);
     public Task<ReservaDetalleDto?> ObtenerDetalleAsync(Guid id, CancellationToken cancellationToken) =>
         _real.ObtenerDetalleAsync(id, cancellationToken);
+    public Task<ReservaDetalleDto?> ObtenerDetallePorCodigoAsync(string codigo, CancellationToken cancellationToken) =>
+        _real.ObtenerDetallePorCodigoAsync(codigo, cancellationToken);
     public Task<IReadOnlyList<ReservaConFranja>> ListarPorEstadoHastaAsync(EstadoReserva estado, DateOnly fechaMaxima, int limite, CancellationToken cancellationToken) =>
         _real.ListarPorEstadoHastaAsync(estado, fechaMaxima, limite, cancellationToken);
     public void Descartar(Reserva reserva) => _real.Descartar(reserva);

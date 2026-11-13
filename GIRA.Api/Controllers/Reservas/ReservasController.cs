@@ -49,6 +49,26 @@ public class ReservasController : ControllerBase
     }
 
     /// <summary>
+    /// GI-403: disponibilidad para el personal. A diferencia de la pública, no exige la antelación de
+    /// 2 h: incluye la franja de hoy en curso y solo excluye las que ya terminaron. Autenticada
+    /// (<c>OperarReservas</c>) y sin límite por IP. Va antes de <c>{id:guid}</c>.
+    /// </summary>
+    [HttpGet("disponibilidad-personal")]
+    [Authorize(Policy = Politicas.OperarReservas)]
+    [ProducesResponseType<IReadOnlyList<FranjaDisponibleDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ConsultarDisponibilidadPersonal(
+        [FromQuery] DateOnly fecha, [FromQuery] int personas, CancellationToken cancellationToken)
+    {
+        var resultado = await _disponibilidadService.ConsultarAsync(
+            new ConsultarDisponibilidadRequest(fecha, personas), cancellationToken, AudienciaReserva.Personal);
+
+        return resultado.ToActionResult();
+    }
+
+    /// <summary>
     /// GI-158/222/235: crea una reserva. Sin cabecera Authorization: invitado, Origen = Web,
     /// ignora cualquier Origen del cuerpo. Con token válido y política OperarReservas:
     /// personal, Origen debe ser Telefono o Presencial; el usuario que registra se toma del
@@ -117,6 +137,29 @@ public class ReservasController : ControllerBase
     public async Task<IActionResult> Listar([FromQuery] ListarReservasRequest request, CancellationToken cancellationToken)
     {
         var resultado = await _reservaService.ListarAsync(request, cancellationToken);
+
+        return resultado.ToActionResult();
+    }
+
+    /// <summary>
+    /// GI-401: detalle de una reserva por su código de 8 dígitos, para el personal, sin depender de la fecha ni del
+    /// estado. Acepta espacios y guiones y los normaliza; 400 si no son 8 dígitos (0-9); 404 si no existe; 429 por
+    /// encima de 20 búsquedas por minuto y por usuario. Es independiente de la consulta pública (código + teléfono):
+    /// no pide teléfono porque exige un rol de <c>OperarReservas</c>. El código viaja en la ruta (nunca en el cuerpo
+    /// de un error) y la aplicación no lo registra. Va antes de <c>{id:guid}</c> por orden de rutas.
+    /// </summary>
+    [HttpGet("codigo/{codigo}")]
+    [Authorize(Policy = Politicas.OperarReservas)]
+    [EnableRateLimiting(LimiteReservasExtensions.PoliticaBusquedaCodigo)]
+    [ProducesResponseType<ReservaDetalleDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ObtenerPorCodigo(string codigo, CancellationToken cancellationToken)
+    {
+        var resultado = await _reservaService.ObtenerPorCodigoAsync(codigo, cancellationToken);
 
         return resultado.ToActionResult();
     }

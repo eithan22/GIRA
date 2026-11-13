@@ -15,13 +15,18 @@ import {
   armarCuerpoMesa,
   armarCuerpoVisita,
   armarCuerpoZona,
+  clasificarBusqueda,
   contarMesasZona,
+  descripcionVisita,
   esConflictoReasignar,
+  estadoFranjasVisita,
   listaIncompleta,
   mesaConZonaInactiva,
   normalizarHora,
   reemplazarPorId,
   textoImpactoZona,
+  textoResumenVisitas,
+  textoVisitasTruncadas,
   validarCapacidadMesa,
   validarHorarioFranja,
   validarNombreFranja,
@@ -37,6 +42,7 @@ import {
   esConflictoMesaInactiva,
   esFechaIso,
   estadoFranja,
+  esFranjaSoloPersonal,
   etiquetaOrigen,
   fechaEnRango,
   filaDesdeMesa,
@@ -128,10 +134,38 @@ test('formatearTelefono agrupa 3-3-4 y no toca lo que no tiene 10 dígitos', () 
   assert.equal(formatearTelefono(undefined), '');
 });
 
-test('etiquetaOrigen traduce Telefono y deja el resto', () => {
-  assert.equal(etiquetaOrigen('Telefono'), 'Teléfono');
+test('etiquetaOrigen muestra "Por llamada" y "En persona" y deja Web y lo desconocido', () => {
+  assert.equal(etiquetaOrigen('Telefono'), 'Por llamada');
+  assert.equal(etiquetaOrigen('Presencial'), 'En persona');
   assert.equal(etiquetaOrigen('Web'), 'Web');
-  assert.equal(etiquetaOrigen('Presencial'), 'Presencial');
+  assert.equal(etiquetaOrigen('Otro'), 'Otro');
+  assert.equal(etiquetaOrigen(undefined), '');
+});
+
+const ALMUERZO_HOY = { horaInicio: '12:00:00', horaFin: '15:00:00' };
+const soloPersonal = (hora, extra = {}) =>
+  esFranjaSoloPersonal({ fecha: '2026-12-01', hoy: '2026-12-01', hora, franja: ALMUERZO_HOY, ...extra });
+
+test('esFranjaSoloPersonal: a 2 h exactas del inicio todavía puede reservar la web; un minuto después, solo el personal', () => {
+  assert.equal(soloPersonal('10:00'), false);
+  assert.equal(soloPersonal('10:01'), true);
+});
+
+test('esFranjaSoloPersonal: en curso es solo del personal hasta un minuto antes del fin', () => {
+  assert.equal(soloPersonal('12:00'), true);
+  assert.equal(soloPersonal('13:30'), true);
+  assert.equal(soloPersonal('14:59'), true);
+});
+
+test('esFranjaSoloPersonal: desde el fin exacto la franja terminó y ya no cuenta', () => {
+  assert.equal(soloPersonal('15:00'), false);
+  assert.equal(soloPersonal('16:00'), false);
+});
+
+test('esFranjaSoloPersonal: otra fecha o sin franja no aplica', () => {
+  assert.equal(soloPersonal('13:00', { fecha: '2026-12-02' }), false);
+  assert.equal(soloPersonal('13:00', { franja: undefined }), false);
+  assert.equal(soloPersonal('08:00'), false);
 });
 
 test('ESTADOS_FILTRO son exactamente los nombres del enum del backend', () => {
@@ -677,4 +711,159 @@ test('reemplazarPorId actualiza solo el elemento con ese id', () => {
   const nueva = reemplazarPorId(lista, { id: 'b', activa: false });
   assert.deepEqual(nueva, [{ id: 'a', activa: true }, { id: 'b', activa: false }]);
   assert.deepEqual(reemplazarPorId(lista, { id: 'zz', activa: false }), lista);
+});
+
+// --- GI-401: clasificarBusqueda («Código o teléfono») ---
+
+const clasifica = (texto) => clasificarBusqueda(texto);
+const MSG_INCOMPLETA = 'Sigue escribiendo: el código tiene 8 dígitos y el teléfono, 10.';
+const MSG_INVALIDA = 'Usa solo números: el código tiene 8 dígitos y el teléfono, 10.';
+const MSG_TELEFONO = 'El teléfono debe tener 10 dígitos y empezar con 809, 829 o 849.';
+const MSG_PAIS = 'Escribe solo los 10 dígitos de tu teléfono (809, 829 o 849), sin código de país.';
+
+test('clasificarBusqueda: vacío, solo espacios, nulo o sin dígitos es "vacia" y sin mensaje', () => {
+  for (const entrada of ['', '   ', '\t', null, undefined, '-', '()', ' - ']) {
+    assert.deepEqual(clasifica(entrada), { tipo: 'vacia', digitos: '', mensaje: '' }, JSON.stringify(entrada));
+  }
+});
+
+test('clasificarBusqueda: 8 dígitos son un código, con o sin espacios, guiones y espacios alrededor', () => {
+  for (const entrada of ['12345678', '1234 5678', '1234-5678', '  1234 - 5678  ', '1 2 3 4 5 6 7 8']) {
+    assert.deepEqual(clasifica(entrada), { tipo: 'codigo', digitos: '12345678', mensaje: '' }, entrada);
+  }
+});
+
+test('clasificarBusqueda: el código conserva los ceros a la izquierda y puede empezar por 809', () => {
+  assert.equal(clasifica('0000 1234').digitos, '00001234');
+  assert.equal(clasifica('00000000').tipo, 'codigo');
+  assert.equal(clasifica('80912345').tipo, 'codigo'); // 8 dígitos: es código aunque empiece como un teléfono
+});
+
+test('clasificarBusqueda: de 1 a 7 dígitos y 9 dígitos están incompletos (pista neutra, no error)', () => {
+  for (const entrada of ['1', '123', '1234567', '1234 567', '809 555', '123456789', '123 456 789']) {
+    const r = clasifica(entrada);
+    assert.equal(r.tipo, 'incompleta', entrada);
+    assert.equal(r.mensaje, MSG_INCOMPLETA, entrada);
+    assert.equal(r.digitos, entrada.replace(/\D/g, ''), entrada);
+  }
+});
+
+test('clasificarBusqueda: 10 dígitos con 809, 829 o 849 son un teléfono, con cualquier formato', () => {
+  for (const entrada of ['8095550199', '809 555 0199', '809-555-0199', '(809) 555-0199', ' 829 555 0199 ', '8495550199']) {
+    const r = clasifica(entrada);
+    assert.equal(r.tipo, 'telefono', entrada);
+    assert.equal(r.digitos, entrada.replace(/\D/g, ''), entrada);
+    assert.equal(r.mensaje, '', entrada);
+  }
+});
+
+test('clasificarBusqueda: 10 dígitos con otro prefijo o 12 o más son inválidos con el texto del teléfono', () => {
+  for (const entrada of ['8105550199', '1234567890', '809555019912', '8095550199123456']) {
+    const r = clasifica(entrada);
+    assert.equal(r.tipo, 'invalida', entrada);
+    assert.equal(r.mensaje, MSG_TELEFONO, entrada);
+  }
+});
+
+test('clasificarBusqueda: 11 dígitos con 1 inicial (código de país) dan el aviso propio', () => {
+  for (const entrada of ['18095550199', '+1 809 555 0199', '+1 (809) 555-0199']) {
+    const r = clasifica(entrada);
+    assert.equal(r.tipo, 'invalida', entrada);
+    assert.equal(r.mensaje, MSG_PAIS, entrada);
+  }
+});
+
+test('clasificarBusqueda: letras, puntos y otros símbolos son inválidos, aunque haya 8 dígitos', () => {
+  for (const entrada of ['1234567A', 'ABCDEFGH', 'abc', '1234.5678', '1234_5678', '12345678x', '#12345678', '1234/5678']) {
+    assert.deepEqual(clasifica(entrada), { tipo: 'invalida', digitos: '', mensaje: MSG_INVALIDA }, entrada);
+  }
+});
+
+test('clasificarBusqueda: dígitos de otros alfabetos (árabes, de ancho completo, devanagari) son inválidos', () => {
+  for (const entrada of ['١٢٣٤٥٦٧٨', '１２３４５６７８', '१२३४५६७८', '1234 ٥٦٧٨']) {
+    assert.equal(clasifica(entrada).tipo, 'invalida', entrada);
+  }
+});
+
+test('clasificarBusqueda: el "+" solo vale al inicio', () => {
+  assert.equal(clasifica('+18095550199').tipo, 'invalida'); // 11 dígitos con 1: aviso del código de país
+  assert.equal(clasifica('809+5550199').tipo, 'invalida');
+  assert.equal(clasifica('809+5550199').mensaje, MSG_INVALIDA);
+});
+
+test('clasificarBusqueda: pasar por 8 dígitos al teclear un teléfono es un código y al llegar a 10 pasa a teléfono', () => {
+  const escribiendo = ['8', '80', '809', '8095', '80955', '809555', '8095550', '80955501', '809555019', '8095550199'];
+  assert.deepEqual(
+    escribiendo.map((texto) => clasifica(texto).tipo),
+    ['incompleta', 'incompleta', 'incompleta', 'incompleta', 'incompleta', 'incompleta', 'incompleta', 'codigo', 'incompleta', 'telefono'],
+  );
+});
+
+test('clasificarBusqueda es pura: no cambia la entrada ni devuelve el mismo objeto dos veces', () => {
+  const entrada = '1234 5678';
+  const a = clasifica(entrada);
+  const b = clasifica(entrada);
+  assert.equal(entrada, '1234 5678');
+  assert.notEqual(a, b);
+  assert.deepEqual(a, b);
+});
+
+// --- GI-402: visitas sin reserva de hoy ---
+
+test('textoResumenVisitas: singular y plural de visitas y de personas', () => {
+  assert.equal(textoResumenVisitas(1, 1), '1 visita · 1 persona');
+  assert.equal(textoResumenVisitas(1, 4), '1 visita · 4 personas');
+  assert.equal(textoResumenVisitas(3, 11), '3 visitas · 11 personas');
+  assert.equal(textoResumenVisitas(0, 0), '0 visitas · 0 personas');
+});
+
+test('textoVisitasTruncadas dice cuántas se muestran y cuántas hay', () => {
+  assert.equal(textoVisitasTruncadas(200, 215), 'Se muestran las 200 más recientes de 215 visitas.');
+});
+
+test('descripcionVisita: hora, personas, franja y mesa en una línea, sin datos personales', () => {
+  const visita = { id: 'v1', horaRegistro: '14:05:30', personas: 4, franjaNombre: 'Almuerzo', mesaNumero: 7 };
+  assert.equal(descripcionVisita(visita), '14:05 · 4 personas · Almuerzo · Mesa 7');
+});
+
+test('descripcionVisita: singular, y sin mesa dice «Sin mesa»', () => {
+  assert.equal(
+    descripcionVisita({ horaRegistro: '09:00:00', personas: 1, franjaNombre: 'Cena', mesaNumero: null }),
+    '09:00 · 1 persona · Cena · Sin mesa',
+  );
+  assert.equal(
+    descripcionVisita({ horaRegistro: '09:00:00', personas: 2, franjaNombre: 'Cena' }),
+    '09:00 · 2 personas · Cena · Sin mesa',
+  );
+});
+
+test('descripcionVisita: con horaRegistro null (o ausente) dice «sin hora» en vez de inventar una', () => {
+  for (const horaRegistro of [null, undefined, '']) {
+    assert.equal(
+      descripcionVisita({ horaRegistro, personas: 3, franjaNombre: 'Almuerzo', mesaNumero: 2 }),
+      'sin hora · 3 personas · Almuerzo · Mesa 2',
+      String(horaRegistro),
+    );
+  }
+});
+
+test('estadoFranjasVisita: sin franjas, cargando y error se dicen como tales y "vacias" solo si llegaron vacías', () => {
+  assert.equal(estadoFranjasVisita('cargando', 0), 'cargando');
+  assert.equal(estadoFranjasVisita('error', 0), 'error');
+  assert.equal(estadoFranjasVisita('listo', 0), 'vacias');
+  assert.equal(estadoFranjasVisita(undefined, 0), 'vacias'); // quien no pasa estado: las franjas ya son las que hay
+});
+
+test('estadoFranjasVisita: con alguna franja siempre son "listas", aunque una recarga siga en curso o haya fallado', () => {
+  for (const estado of ['listo', 'cargando', 'error', undefined]) {
+    assert.equal(estadoFranjasVisita(estado, 1), 'listas', String(estado));
+    assert.equal(estadoFranjasVisita(estado, 5), 'listas', String(estado));
+  }
+});
+
+test('descripcionVisita: la hora de medianoche es una hora válida y no se confunde con «sin hora»', () => {
+  assert.equal(
+    descripcionVisita({ horaRegistro: '00:05:00', personas: 2, franjaNombre: 'Cena', mesaNumero: 1 }),
+    '00:05 · 2 personas · Cena · Mesa 1',
+  );
 });

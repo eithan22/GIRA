@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Aviso from '../../components/Aviso.jsx';
+import { useAhora } from '../hooks/useAhora.js';
 import { useDisponibilidadCrear } from '../hooks/useDisponibilidadCrear.js';
 import {
   PERSONAS_POR_DEFECTO,
@@ -17,6 +18,8 @@ import {
 } from '../reservasPersonalFormato.js';
 import { mensajeDeError, reservasPersonalService } from '../reservasPersonalService.js';
 import {
+  AYUDA_ORIGEN_PRESENCIAL,
+  AYUDA_ORIGEN_TELEFONO,
   AVISO_NOMBRE_SE_ACTUALIZA,
   MENSAJE_FECHA_FUERA_DE_RANGO,
   MENSAJE_FRANJA_OBLIGATORIA,
@@ -51,6 +54,8 @@ export default function PanelNuevaReserva({
   franjas, franjasFallaron, origenRef, fallbackFocoRef, onCerrar, onCreada, onVerEnAgenda,
 }) {
   const [hoy] = useState(() => hoyEnSantoDomingo());
+  // Solo para el aviso «solo para el personal» (GI-403): el servidor decide; esto se refresca cada minuto.
+  const { hoy: hoyAhora, hora } = useAhora();
   const [formulario, setFormulario] = useState(() => formularioInicial(hoy));
   const [cliente, setCliente] = useState(null);
   const [intentado, setIntentado] = useState(false);
@@ -212,7 +217,10 @@ export default function PanelNuevaReserva({
           <fieldset className="reservas-personal-grupo" aria-describedby={mostrar('origen') ? 'origen-error' : undefined}>
             <legend className="reservas-campo-etiqueta">{TEXTO_ORIGEN_LEYENDA} *</legend>
             <div className="reservas-personal-opciones reservas-personal-opciones--fila">
-              {[['Telefono', TEXTO_ORIGEN_TELEFONO], ['Presencial', TEXTO_ORIGEN_PRESENCIAL]].map(([valor, etiqueta], indice) => (
+              {[
+                ['Telefono', TEXTO_ORIGEN_TELEFONO, AYUDA_ORIGEN_TELEFONO],
+                ['Presencial', TEXTO_ORIGEN_PRESENCIAL, AYUDA_ORIGEN_PRESENCIAL],
+              ].map(([valor, etiqueta, ayuda], indice) => (
                 <label key={valor} className="reservas-personal-opcion">
                   <input
                     type="radio"
@@ -222,7 +230,10 @@ export default function PanelNuevaReserva({
                     checked={formulario.origen === valor}
                     onChange={() => cambiar('origen', valor)}
                   />
-                  <span><strong>{etiqueta}</strong></span>
+                  <span>
+                    <strong>{etiqueta}</strong>
+                    <small>{ayuda}</small>
+                  </span>
                 </label>
               ))}
             </div>
@@ -334,6 +345,9 @@ export default function PanelNuevaReserva({
           <SelectorFranjas
             franjas={franjasEstado}
             valor={formulario.franjaId}
+            fecha={formulario.fecha}
+            hoy={hoyAhora}
+            hora={hora}
             onCambiar={(id) => cambiar('franjaId', id)}
             estado={franjasFallaron ? 'error' : disponibilidad.estado}
             error={franjasFallaron ? 'No pudimos cargar las franjas.' : disponibilidad.error}

@@ -46,6 +46,67 @@ public class ProcesoNoShowsServicioTests
         Assert.Equal(EstadoReserva.NoAsistio, await e.EstadoDeAsync(reserva.Id));
     }
 
+    // --- GI-403: el plazo cuenta desde max(inicio de la franja, último registro de la reserva) ---
+
+    [Fact]
+    public async Task Creada_Con_La_Franja_Ya_Empezada_Tiene_Sus_15_Min_Desde_Su_Creacion()
+    {
+        // Franja 12:00; el personal la crea a las 12:50. Con el plazo anterior (12:15) se marcaría enseguida.
+        using var e = new Entorno(Utc(Hoy, 12, 51));
+        var reserva = await e.SembrarAsync(Hoy, 12, creadaUtc: Utc(Hoy, 12, 50).UtcDateTime);
+
+        var recienCreada = await e.Servicio.MarcarNoShowsAsync(default);
+        e.Reloj.Avanzar(TimeSpan.FromMinutes(14)); // 13:05 = 12:50 + 15 min exactos
+        var enElLimite = await e.Servicio.MarcarNoShowsAsync(default);
+        e.Reloj.Avanzar(TimeSpan.FromMinutes(1)); // 13:06
+        var despues = await e.Servicio.MarcarNoShowsAsync(default);
+
+        Assert.Equal(0, recienCreada.NoAsistidas);
+        Assert.Equal(0, enElLimite.NoAsistidas);
+        Assert.Equal(1, despues.NoAsistidas);
+        Assert.Equal(EstadoReserva.NoAsistio, await e.EstadoDeAsync(reserva.Id));
+    }
+
+    [Fact]
+    public async Task Creada_Antes_Del_Inicio_Sigue_Con_El_Plazo_Desde_El_Inicio()
+    {
+        using var e = new Entorno(Utc(Hoy, 12, 16));
+        var reserva = await e.SembrarAsync(Hoy, 12, creadaUtc: Utc(Hoy, 9, 0).UtcDateTime);
+
+        var resultado = await e.Servicio.MarcarNoShowsAsync(default);
+
+        Assert.Equal(1, resultado.NoAsistidas);
+        Assert.Equal(EstadoReserva.NoAsistio, await e.EstadoDeAsync(reserva.Id));
+    }
+
+    [Fact]
+    public async Task Modificada_Despues_Del_Inicio_Reinicia_El_Plazo()
+    {
+        // Creada a las 08:00 y movida a esta franja (12:00) a las 12:40: el plazo corre desde las 12:40.
+        using var e = new Entorno(Utc(Hoy, 12, 50));
+        var reserva = await e.SembrarAsync(
+            Hoy, 12, creadaUtc: Utc(Hoy, 8, 0).UtcDateTime, modificadaUtc: Utc(Hoy, 12, 40).UtcDateTime);
+
+        var antes = await e.Servicio.MarcarNoShowsAsync(default);
+        e.Reloj.Avanzar(TimeSpan.FromMinutes(6)); // 12:56 > 12:40 + 15
+        var despues = await e.Servicio.MarcarNoShowsAsync(default);
+
+        Assert.Equal(0, antes.NoAsistidas);
+        Assert.Equal(1, despues.NoAsistidas);
+        Assert.Equal(EstadoReserva.NoAsistio, await e.EstadoDeAsync(reserva.Id));
+    }
+
+    [Fact]
+    public async Task Sin_Registro_De_Creacion_Se_Conserva_El_Plazo_Desde_El_Inicio()
+    {
+        using var e = new Entorno(Utc(Hoy, 12, 16));
+        await e.SembrarAsync(Hoy, 12); // CreatedAt por defecto
+
+        var resultado = await e.Servicio.MarcarNoShowsAsync(default);
+
+        Assert.Equal(1, resultado.NoAsistidas);
+    }
+
     [Fact]
     public async Task Dentro_De_La_Tolerancia_Y_Reservas_Futuras_No_Se_Tocan()
     {
