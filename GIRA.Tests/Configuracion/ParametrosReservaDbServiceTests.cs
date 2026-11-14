@@ -23,6 +23,18 @@ public class ParametrosReservaDbServiceTests
             Lecturas++;
             return Task.FromResult(Guardada);
         }
+
+        // Escrituras: no las usa este servicio de solo lectura.
+        public Task<ConfiguracionRestaurante?> BuscarConfiguracionAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public void AgregarConfiguracion(ConfiguracionRestaurante configuracion) => throw new NotSupportedException();
+        public Task<HorarioOperacion?> BuscarHorarioAsync(DayOfWeek dia, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public void AgregarHorario(HorarioOperacion horario) => throw new NotSupportedException();
+        public Task<IReadOnlyList<DiaCerrado>> ListarDiasCerradosDesdeAsync(DateOnly desde, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> ExisteDiaCerradoAsync(DateOnly fecha, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<DiaCerrado?> BuscarDiaCerradoAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public void AgregarDiaCerrado(DiaCerrado diaCerrado) => throw new NotSupportedException();
+        public void EliminarDiaCerrado(DiaCerrado diaCerrado) => throw new NotSupportedException();
+        public Task GuardarCambiosAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private static (ParametrosReservaDbService Servicio, RepositorioFalso Repositorio) Crear()

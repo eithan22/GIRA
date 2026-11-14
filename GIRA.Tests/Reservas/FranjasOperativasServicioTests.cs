@@ -27,6 +27,7 @@ public class FranjasOperativasServicioTests
             Franjas = new FranjaService(
                 new FranjaGestionRepository(Contexto),
                 new ReservasFuturasRepository(Contexto),
+                new ParametrosReservaFalso(),
                 new GuardarFranjaRequestValidator(),
                 new ListarSalonRequestValidator(),
                 reloj);

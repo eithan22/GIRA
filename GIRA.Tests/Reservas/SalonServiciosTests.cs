@@ -43,7 +43,7 @@ public class SalonServiciosTests
 
             Zonas = new ZonaService(zonas, futuras, new GuardarZonaRequestValidator(), listado, reloj);
             Mesas = new MesaService(mesas, zonas, futuras, new GuardarMesaRequestValidator(), listado, reloj);
-            Franjas = new FranjaService(franjas, futuras, new GuardarFranjaRequestValidator(), listado, reloj);
+            Franjas = new FranjaService(franjas, futuras, new ParametrosReservaFalso { HoraApertura = new TimeOnly(8, 0) }, new GuardarFranjaRequestValidator(), listado, reloj);
         }
 
         public void Dispose() => Contexto.Dispose();

@@ -1,3 +1,4 @@
+using GIRA.Application.Interfaces.Services.Configuracion;
 using GIRA.Application.Interfaces.Services.Reservas;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,6 +14,7 @@ public static class ConfiguracionServiceExtensions
     public static IServiceCollection AddConfiguracion(this IServiceCollection services)
     {
         services.AddScoped<IParametrosReservaService, ParametrosReservaDbService>();
+        services.AddScoped<IConfiguracionReservasService, ConfiguracionReservasService>();
         return services;
     }
 }
