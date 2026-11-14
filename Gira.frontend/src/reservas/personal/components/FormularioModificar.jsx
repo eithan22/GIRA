@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Aviso from '../../components/Aviso.jsx';
 import { formatearFechaCorta, formatearHora } from '../../reservasFormato.js';
 import { useMesasLibres } from '../hooks/useMesasLibres.js';
+import { useParametrosOperativos } from '../hooks/useParametrosOperativos.js';
 import {
   armarModificacion,
   esFechaIso,
@@ -14,10 +15,10 @@ import {
   validarPersonas,
 } from '../reservasPersonalFormato.js';
 import {
-  AYUDA_NUEVO_HORARIO,
+  ayudaNuevoHorario,
   CUERPO_CONFIRMAR_MODIFICAR,
   ETIQUETA_MESA,
-  MENSAJE_FECHA_FUERA_DE_RANGO,
+  mensajeFechaFueraDeRango,
   OPCION_MESA_AUTOMATICA,
   TEXTO_ACTUALIZAR_MESAS,
   TEXTO_CARGANDO_MESAS,
@@ -57,11 +58,12 @@ export default function FormularioModificar({
   const [fase, setFase] = useState('editar'); // 'editar' | 'confirmar'
 
   const mesas = useMesasLibres({ fecha, franjaId });
-  const { min, max } = rangoFechasReserva(hoy);
+  const { antelacionMaximaDias } = useParametrosOperativos();
+  const { min, max } = rangoFechasReserva(hoy, antelacionMaximaDias);
 
   const validacionPersonas = validarPersonas(personas);
   // Si la fecha no cambió, el servidor no la revalida; solo se exige rango cuando el usuario la mueve.
-  const fechaValida = esFechaIso(fecha) && (fecha === detalle.fecha || fechaEnRango(fecha, hoy));
+  const fechaValida = esFechaIso(fecha) && (fecha === detalle.fecha || fechaEnRango(fecha, hoy, antelacionMaximaDias));
   const franjaValida = franjaId !== '';
 
   const opciones = mesas.mapa && validacionPersonas.valido
@@ -169,7 +171,7 @@ export default function FormularioModificar({
             >›</button>
           </div>
           <span id="mod-fecha-ayuda" className={`reservas-campo-ayuda${fechaValida ? '' : ' reservas-campo-ayuda--error'}`}>
-            {fechaValida ? AYUDA_NUEVO_HORARIO : MENSAJE_FECHA_FUERA_DE_RANGO}
+            {fechaValida ? ayudaNuevoHorario(antelacionMaximaDias) : mensajeFechaFueraDeRango(antelacionMaximaDias)}
           </span>
         </div>
 

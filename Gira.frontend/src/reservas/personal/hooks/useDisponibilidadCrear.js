@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fechaEnRango, validarPersonas } from '../reservasPersonalFormato.js';
 import { esPeticionCancelada, mensajeDeError, reservasPersonalService } from '../reservasPersonalService.js';
+import { useParametrosOperativos } from './useParametrosOperativos.js';
 
 const DEMORA_MS = 350;
 
@@ -19,8 +20,9 @@ export function useDisponibilidadCrear({ fecha, personas, hoy }) {
   const [intento, setIntento] = useState(0);
   const sinDemoraRef = useRef(false);
 
+  const { antelacionMaximaDias } = useParametrosOperativos();
   const validacionPersonas = validarPersonas(personas);
-  const validas = fechaEnRango(fecha, hoy) && validacionPersonas.valido;
+  const validas = fechaEnRango(fecha, hoy, antelacionMaximaDias) && validacionPersonas.valido;
   const cantidad = validas ? validacionPersonas.valor : null;
 
   useEffect(() => {

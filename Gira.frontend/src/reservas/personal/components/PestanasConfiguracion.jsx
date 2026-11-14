@@ -1,8 +1,11 @@
 import { useRef } from 'react';
 import {
   ETIQUETA_SECCIONES_CONFIGURACION,
+  TEXTO_PESTANA_DIAS_CERRADOS,
   TEXTO_PESTANA_FRANJAS,
+  TEXTO_PESTANA_HORARIO,
   TEXTO_PESTANA_MESAS,
+  TEXTO_PESTANA_POLITICAS,
   TEXTO_PESTANA_ZONAS,
 } from '../reservasPersonalTextos.js';
 
@@ -10,6 +13,9 @@ const PESTANAS = [
   ['zonas', TEXTO_PESTANA_ZONAS],
   ['mesas', TEXTO_PESTANA_MESAS],
   ['franjas', TEXTO_PESTANA_FRANJAS],
+  ['politicas', TEXTO_PESTANA_POLITICAS],
+  ['horario', TEXTO_PESTANA_HORARIO],
+  ['dias-cerrados', TEXTO_PESTANA_DIAS_CERRADOS],
 ];
 
 /**

@@ -66,6 +66,31 @@
 .reservas-personal-tarjeta-acciones { display: flex; flex-wrap: wrap; gap: 8px; }
 
 @media (max-width: 720px) {
-  .reservas-personal-segmentado { display: flex; width: 100%; }
-  .reservas-personal-segmento { flex: 1; padding: 0 8px; }
+  .reservas-personal-segmentado { display: flex; flex-wrap: wrap; width: 100%; border-radius: 22px; }
+  .reservas-personal-segmento { flex: 1 1 30%; padding: 0 8px; }
 }
+
+/* --- Políticas, Horario y Días cerrados (GI-226, Lote 6) --- */
+.reservas-personal-intro { margin: 0; color: var(--reservas-texto-medio); max-width: 70ch; }
+.reservas-personal-config { max-width: 860px; }
+.reservas-personal-campos-config { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.reservas-personal-campo-unidad { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.reservas-personal-input-numero { width: 150px; flex: none; }
+.reservas-personal-unidad { font-weight: 700; color: var(--reservas-texto-medio); }
+.reservas-personal-legible { color: var(--reservas-texto-medio); font-weight: 600; }
+.reservas-personal-lista-config { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.reservas-personal-fila-config {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--reservas-blanco);
+  border: 1px solid var(--reservas-borde-suave);
+  border-radius: var(--reservas-radio-grande);
+}
+.reservas-personal-fila-config-cabecera { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.reservas-personal-dia { font-size: 18px; color: var(--reservas-texto); }
+.reservas-personal-motivo { color: var(--reservas-texto-medio); }
+.reservas-personal-pregunta { font-weight: 700; color: var(--reservas-texto); }
+.reservas-personal-casilla { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; font-weight: 700; color: var(--reservas-texto); }
+.reservas-personal-casilla input { width: 22px; height: 22px; }

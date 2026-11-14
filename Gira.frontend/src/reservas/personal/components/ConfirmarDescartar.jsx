@@ -10,7 +10,9 @@ import {
  * Confirmación en línea para cerrar un panel con borrador. El foco empieza en «Seguir editando»
  * (la opción segura) y vuelve a quien lo llamó al cerrarse el bloque.
  */
-export default function ConfirmarDescartar({ onSeguir, onDescartar }) {
+export default function ConfirmarDescartar({
+  onSeguir, onDescartar, titulo = TITULO_DESCARTAR, cuerpo = CUERPO_DESCARTAR, textoDescartar = TEXTO_DESCARTAR,
+}) {
   const seguirRef = useRef(null);
 
   useEffect(() => {
@@ -24,8 +26,8 @@ export default function ConfirmarDescartar({ onSeguir, onDescartar }) {
       aria-labelledby="descartar-titulo"
       aria-describedby="descartar-cuerpo"
     >
-      <h3 id="descartar-titulo" className="reservas-personal-confirmacion-titulo">{TITULO_DESCARTAR}</h3>
-      <p id="descartar-cuerpo" className="reservas-personal-confirmacion-texto">{CUERPO_DESCARTAR}</p>
+      <h3 id="descartar-titulo" className="reservas-personal-confirmacion-titulo">{titulo}</h3>
+      <p id="descartar-cuerpo" className="reservas-personal-confirmacion-texto">{cuerpo}</p>
       <div className="reservas-personal-confirmacion-botones">
         <button
           type="button"
@@ -37,7 +39,7 @@ export default function ConfirmarDescartar({ onSeguir, onDescartar }) {
           type="button"
           className="reservas-boton reservas-boton--chico reservas-boton--fantasma-error reservas-personal-boton-auto"
           onClick={onDescartar}
-        >{TEXTO_DESCARTAR}</button>
+        >{textoDescartar}</button>
       </div>
     </section>
   );

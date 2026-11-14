@@ -11,19 +11,9 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-const CODIGOS_CON_DETALLE_VISIBLE = [400, 404, 409, 429];
-
-// Devuelve el `detail` del servidor en 400/404/409/429; en cualquier otro caso
-// (500, error de red, timeout) devuelve el texto genérico que pase el llamador,
-// sin exponer nunca el mensaje crudo del error.
-export function extraerMensajeError(error, mensajePorDefecto) {
-  const status = error?.response?.status;
-  const detail = error?.response?.data?.detail;
-  if (CODIGOS_CON_DETALLE_VISIBLE.includes(status) && typeof detail === 'string' && detail.trim()) {
-    return detail;
-  }
-  return mensajePorDefecto;
-}
+// El mensaje del servidor se extrae en reservasErrores.js (puro, con pruebas); se reexporta aquí para no
+// cambiar a quienes ya lo importan de este módulo.
+export { extraerMensajeError } from './reservasErrores.js';
 
 // Para que Paso 1 ignore en silencio la petición de disponibilidad que canceló
 // al cambiar de día o de personas, en vez de mostrarla como error.
