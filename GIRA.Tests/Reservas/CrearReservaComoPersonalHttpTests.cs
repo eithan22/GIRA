@@ -9,6 +9,7 @@ using GIRA.Domain.Enums.Reservas;
 using GIRA.Infrastructure.Persistence.Context;
 using GIRA.Infrastructure.Services.Seguridad.Auth;
 using GIRA.Tests.Api;
+using GIRA.Tests.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -68,6 +69,9 @@ public class CrearReservaComoPersonalHttpTests : IAsyncLifetime
         contexto.Zonas.Add(zona);
         contexto.FranjasHorarias.Add(franja);
         await contexto.SaveChangesAsync();
+
+        // Las pruebas usan mesas de 11 a 17 personas: el tamaño máximo de grupo por defecto (8) las rechazaría.
+        await ConfiguracionDePrueba.SembrarAsync(contexto);
 
         return franja.Id;
     }

@@ -30,7 +30,9 @@ public class CrearReservaRequestValidator : AbstractValidator<CrearReservaReques
         RuleFor(r => r.Fecha)
             .GreaterThanOrEqualTo(_ => timeProvider.HoyLocal())
             .WithMessage("La fecha no puede ser en el pasado.")
-            .LessThanOrEqualTo(_ => timeProvider.HoyLocal().AddDays(parametros.AntelacionMaxima.Days))
+            // Regla asíncrona: la antelación máxima se lee de la configuración (los servicios validan con ValidateAsync).
+            .MustAsync(async (fecha, cancellationToken) =>
+                fecha <= timeProvider.HoyLocal().AddDays((await parametros.ObtenerAsync(cancellationToken)).AntelacionMaxima.Days))
             .WithMessage("La fecha supera la ventana máxima de anticipación.");
 
         RuleFor(r => r.Personas)

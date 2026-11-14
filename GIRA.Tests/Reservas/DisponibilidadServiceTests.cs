@@ -294,16 +294,37 @@ public class DisponibilidadServiceTests
     }
 }
 
-/// <summary>Reloj con valores por defecto del SRS, con setters para variar lo que cada prueba necesite.</summary>
+/// <summary>
+/// Parámetros con los valores por defecto (<see cref="ParametrosReservaService.ValoresPorDefecto"/>), con
+/// setters para variar lo que cada prueba necesite. <c>ObtenerAsync</c> arma la instantánea en cada llamada,
+/// así que un cambio entre dos llamadas se ve en la siguiente (como al invalidar la caché).
+/// </summary>
 class ParametrosReservaFalso : IParametrosReservaService
 {
-    public TimeOnly HoraApertura { get; set; } = new(12, 0);
-    public TimeOnly HoraCierre { get; set; } = new(22, 30);
+    public TimeOnly HoraApertura { get; set; } = ParametrosReservaService.ValoresPorDefecto.HoraApertura;
+    public TimeOnly HoraCierre { get; set; } = ParametrosReservaService.ValoresPorDefecto.HoraCierre;
+    /// <summary>Días de la semana sin servicio.</summary>
     public IReadOnlySet<DayOfWeek> DiasCerrados { get; set; } = new HashSet<DayOfWeek>();
-    public TimeSpan AntelacionMinima { get; set; } = TimeSpan.FromHours(2);
-    public TimeSpan AntelacionMaxima { get; set; } = TimeSpan.FromDays(30);
-    public TimeSpan LimiteCancelacion { get; set; } = TimeSpan.FromHours(2);
-    public TimeSpan VentanaCheckIn { get; set; } = TimeSpan.FromMinutes(30);
+    /// <summary>Fechas concretas cerradas.</summary>
+    public IReadOnlySet<DateOnly> FechasCerradas { get; set; } = new HashSet<DateOnly>();
+    public TimeSpan AntelacionMinima { get; set; } = TimeSpan.FromMinutes(ParametrosReservaService.ValoresPorDefecto.AntelacionMinimaMinutos);
+    public TimeSpan AntelacionMaxima { get; set; } = TimeSpan.FromDays(ParametrosReservaService.ValoresPorDefecto.AntelacionMaximaDias);
+    public TimeSpan LimiteCancelacion { get; set; } = TimeSpan.FromMinutes(ParametrosReservaService.ValoresPorDefecto.LimiteCancelacionMinutos);
+    public TimeSpan VentanaCheckIn { get; set; } = TimeSpan.FromMinutes(ParametrosReservaService.ValoresPorDefecto.VentanaCheckInMinutos);
+    public int MaxReservasVigentesPorTelefono { get; set; } = ParametrosReservaService.ValoresPorDefecto.MaxReservasVigentesPorTelefono;
+    public int MaxPersonasPorReserva { get; set; } = ParametrosReservaService.ValoresPorDefecto.MaxPersonasPorReserva;
+
+    public Task<ParametrosReserva> ObtenerAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(new ParametrosReserva(
+            AntelacionMinima, AntelacionMaxima, LimiteCancelacion, VentanaCheckIn,
+            MaxReservasVigentesPorTelefono, MaxPersonasPorReserva,
+            Enum.GetValues<DayOfWeek>().ToDictionary(
+                dia => dia, dia => new HorarioDia(!DiasCerrados.Contains(dia), HoraApertura, HoraCierre)),
+            FechasCerradas));
+
+    public void Invalidar()
+    {
+    }
 }
 
 class MesaRepositoryFalso : IMesaRepository

@@ -17,11 +17,17 @@ internal static class MensajesReservas
             ? $"Las mesas admiten como máximo {capacidadMaxima} personas. Los grupos más grandes se atienden por teléfono, fuera del sistema."
             : $"Para grupos de más de {capacidadMaxima} personas, llama al restaurante.";
 
-    /// <summary>Ya hay 2 reservas vigentes con ese teléfono.</summary>
-    public static string LimiteVigentesPorTelefono(AudienciaReserva audiencia) =>
-        audiencia == AudienciaReserva.Personal
-            ? "Este teléfono ya tiene 2 reservas vigentes; cancela una para registrar otra."
-            : "Ya tienes 2 reservas vigentes con este teléfono; cancela una para reservar otra.";
+    /// <summary>El teléfono ya alcanzó el máximo de reservas vigentes (parámetro configurable, 2 por defecto).</summary>
+    public static string LimiteVigentesPorTelefono(AudienciaReserva audiencia, int maximo)
+    {
+        var vigentes = maximo == 1 ? "1 reserva vigente" : $"{maximo} reservas vigentes";
+        return audiencia == AudienciaReserva.Personal
+            ? $"Este teléfono ya tiene {vigentes}; cancela una para registrar otra."
+            : $"Ya tienes {vigentes} con este teléfono; cancela una para reservar otra.";
+    }
+
+    /// <summary>El restaurante no abre ese día (día de la semana cerrado o fecha cerrada). Aplica al cliente y al personal.</summary>
+    public const string RestauranteCerrado = "El restaurante está cerrado ese día.";
 
     /// <summary>La franja ya terminó (solo aplica al personal, que no tiene antelación mínima).</summary>
     public const string FranjaTerminadaPersonal = "Esa franja ya terminó; elige una que aún no haya terminado.";

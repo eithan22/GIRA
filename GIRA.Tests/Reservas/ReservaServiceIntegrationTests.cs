@@ -6,6 +6,7 @@ using GIRA.Application.Interfaces.Services.Reservas;
 using GIRA.Domain.Entities.Reservas;
 using GIRA.Infrastructure;
 using GIRA.Infrastructure.Persistence.Context;
+using GIRA.Tests.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,6 +52,9 @@ public class ReservaServiceIntegrationFixture : IAsyncLifetime
 
         await db.Database.EnsureDeletedAsync();
         await db.Database.MigrateAsync();
+
+        // Las pruebas usan mesas de 11 a 13 personas: el tamaño máximo de grupo por defecto (8) las rechazaría.
+        await ConfiguracionDePrueba.SembrarAsync(db);
     }
 
     /// <inheritdoc />

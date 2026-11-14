@@ -48,21 +48,23 @@ public class DisponibilidadService : IDisponibilidadService
                 ErrorType.Validation, validacion.ToString());
         }
 
+        var parametros = await _parametros.ObtenerAsync(cancellationToken);
         var mesas = await _mesaRepository.ListarActivasAsync(cancellationToken);
         if (mesas.Count == 0)
         {
             return OperationResult.Success<IReadOnlyList<FranjaDisponibleDto>>(Array.Empty<FranjaDisponibleDto>());
         }
 
-        var capacidadMaxima = mesas.Max(m => m.Capacidad);
-        if (request.Personas > capacidadMaxima)
+        // Tamaño efectivo del grupo: el configurado, sin pasar de la mesa activa más grande.
+        var tamanoMaximo = Math.Min(parametros.MaxPersonasPorReserva, mesas.Max(m => m.Capacidad));
+        if (request.Personas > tamanoMaximo)
         {
             return OperationResult.Failure<IReadOnlyList<FranjaDisponibleDto>>(
                 ErrorType.Validation,
-                MensajesReservas.GrupoGrande(audiencia, capacidadMaxima));
+                MensajesReservas.GrupoGrande(audiencia, tamanoMaximo));
         }
 
-        if (_parametros.DiasCerrados.Contains(request.Fecha.DayOfWeek))
+        if (!parametros.EstaAbierto(request.Fecha))
         {
             return OperationResult.Success<IReadOnlyList<FranjaDisponibleDto>>(Array.Empty<FranjaDisponibleDto>());
         }
@@ -85,7 +87,7 @@ public class DisponibilidadService : IDisponibilidadService
             // que ya terminó (el fin exacto cuenta como terminada, igual que en el check-in).
             var excluida = audiencia == AudienciaReserva.Personal
                 ? ahoraLocal >= request.Fecha.ToDateTime(franja.HoraFin)
-                : request.Fecha.ToDateTime(franja.HoraInicio) < ahoraLocal + _parametros.AntelacionMinima;
+                : request.Fecha.ToDateTime(franja.HoraInicio) < ahoraLocal + parametros.AntelacionMinima;
             if (excluida)
             {
                 continue;

@@ -168,7 +168,7 @@ public class CheckInEndpointsTests : IAsyncLifetime
         var respuesta = await CheckIn(_reservaOtroDiaId, 2);
 
         Assert.Equal(HttpStatusCode.Conflict, respuesta.StatusCode);
-        Assert.Contains("El check-in se habilita el 02/12 a partir de las 11:30.", await respuesta.Content.ReadAsStringAsync());
+        Assert.Contains("El check-in se habilita el 02/12 a partir de las 11:45.", await respuesta.Content.ReadAsStringAsync());
     }
 
     [Fact]
