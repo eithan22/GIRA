@@ -6,13 +6,14 @@ import {
   ESTADOS_RESERVA,
   ESTADO_DESCONOCIDO,
   MENSAJE_ERROR_GENERICO,
-  TEXTO_LIMITE_CANCELACION,
+  textoLimiteCancelacion,
   TEXTO_RESERVA_CANCELADA,
   TEXTO_DIALOGO_CANCELAR_TITULO,
   TEXTO_DIALOGO_CANCELAR_CUERPO,
 } from '../reservasTextos.js';
 import Aviso from './Aviso.jsx';
 import PortadaReservas from './PortadaReservas.jsx';
+import { usePoliticasReserva } from '../hooks/usePoliticasReserva.js';
 
 const DURACION_BLOQUEO_429_MS = 10_000;
 
@@ -29,6 +30,7 @@ const TIPOS_409_CON_VOLVER_A_CONSULTAR = ['409-concurrencia', '409-ya-no-confirm
 
 /** Fase "detalle" de /mi-reserva: datos de la reserva y su cancelación. */
 export default function DetalleReserva({ reserva, credenciales, onCancelada, onVolverAConsultar, onNueva }) {
+  const { politicas } = usePoliticasReserva();
   const navigate = useNavigate();
   const [estadoLocal, setEstadoLocal] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
@@ -235,7 +237,7 @@ export default function DetalleReserva({ reserva, credenciales, onCancelada, onV
 
         {info.puedeCancelar && !confirmando && (
           <div className="reservas-detalle-nota-cancelar">
-            <span className="reservas-detalle-nota-cancelar-texto"><strong>{TEXTO_LIMITE_CANCELACION}</strong></span>
+            <span className="reservas-detalle-nota-cancelar-texto"><strong>{textoLimiteCancelacion(politicas)}</strong></span>
             <button ref={botonCancelarRef} type="button" className="reservas-boton reservas-boton--chico reservas-boton--fantasma-error" onClick={abrirDialogo}>
               Cancelar reserva
             </button>

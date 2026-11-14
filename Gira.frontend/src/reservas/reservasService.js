@@ -32,6 +32,13 @@ export function esPeticionCancelada(error) {
 }
 
 export const reservasService = {
+  // GET público de solo lectura (GI-226): antelación mínima y máxima, límite de cancelación, tamaño máximo de
+  // grupo efectivo y días cerrados dentro de la ventana de reserva.
+  async obtenerPoliticas({ signal } = {}) {
+    const response = await api.get('/api/reservas/politicas', { signal });
+    return response.data;
+  },
+
   async consultarDisponibilidad({ fecha, personas }, { signal } = {}) {
     const response = await api.get('/api/reservas/disponibilidad', {
       params: { fecha, personas },
