@@ -108,13 +108,53 @@ public class CanalesReservaEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task DisponibilidadPublica_Anonima_SigueExcluyendoLaFranjaDeHoy()
+    public async Task DisponibilidadPublica_Anonima_ListaLaFranjaDeHoyPeroDeshabilitada()
     {
+        // GI-226: el cliente recibe todas las franjas; la de hoy en curso sale sin poder elegirse y con su motivo.
         var respuesta = await _cliente.GetAsync(UrlPublica);
 
         Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
         var franjas = await respuesta.Content.ReadFromJsonAsync<List<FranjaDisponibleDto>>();
-        Assert.DoesNotContain(franjas!, f => f.Id == _franjaId);
+        var franja = Assert.Single(franjas!, f => f.Id == _franjaId);
+        Assert.False(franja.Disponible);
+        Assert.Equal("Requiere reservar con al menos 2 horas de antelación.", franja.MotivoNoDisponible);
+    }
+
+    [Fact]
+    public async Task DisponibilidadPublica_FechaPasada_Responde200ConFranjasQueYaPasaron_Y_LaDelPersonalSigueEn400()
+    {
+        var ayer = Hoy.AddDays(-1).ToString("yyyy-MM-dd");
+        var urlAyer = $"/api/reservas/disponibilidad?fecha={ayer}&personas=2";
+
+        var cliente = await _cliente.GetAsync(urlAyer);
+        _cliente.UsarToken(GenerarToken(Roles.Mesero));
+        var personal = await _cliente.GetAsync($"/api/reservas/disponibilidad-personal?fecha={ayer}&personas=2");
+
+        Assert.Equal(HttpStatusCode.OK, cliente.StatusCode);
+        var franjas = await cliente.Content.ReadFromJsonAsync<List<FranjaDisponibleDto>>();
+        Assert.All(franjas!, f =>
+        {
+            Assert.False(f.Disponible);
+            Assert.Equal("Esta franja ya pasó.", f.MotivoNoDisponible);
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, personal.StatusCode);
+        Assert.Contains("La fecha no puede ser en el pasado.", await personal.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task DisponibilidadPublica_FueraDeLaVentana_Responde200ConElMotivo_Y_LaDelPersonalSigueEn400()
+    {
+        var lejos = Hoy.AddDays(45).ToString("yyyy-MM-dd");
+
+        var cliente = await _cliente.GetAsync($"/api/reservas/disponibilidad?fecha={lejos}&personas=2");
+        _cliente.UsarToken(GenerarToken(Roles.Mesero));
+        var personal = await _cliente.GetAsync($"/api/reservas/disponibilidad-personal?fecha={lejos}&personas=2");
+
+        Assert.Equal(HttpStatusCode.OK, cliente.StatusCode);
+        var franjas = await cliente.Content.ReadFromJsonAsync<List<FranjaDisponibleDto>>();
+        Assert.All(franjas!, f => Assert.Equal("Fuera del rango de reserva (máximo 30 días).", f.MotivoNoDisponible));
+        Assert.Equal(HttpStatusCode.BadRequest, personal.StatusCode);
+        Assert.Contains("La fecha supera la ventana máxima de anticipación.", await personal.Content.ReadAsStringAsync());
     }
 
     [Fact]
@@ -125,7 +165,7 @@ public class CanalesReservaEndpointsTests : IAsyncLifetime
         var respuesta = await _cliente.GetAsync(UrlPublica);
 
         var franjas = await respuesta.Content.ReadFromJsonAsync<List<FranjaDisponibleDto>>();
-        Assert.DoesNotContain(franjas!, f => f.Id == _franjaId);
+        Assert.False(Assert.Single(franjas!, f => f.Id == _franjaId).Disponible);
     }
 
     [Fact]

@@ -26,6 +26,33 @@ internal static class MensajesReservas
             : $"Ya tienes {vigentes} con este teléfono; cancela una para reservar otra.";
     }
 
+    /// <summary>La franja de hoy ya terminó o la fecha ya pasó (motivo de disponibilidad para el cliente).</summary>
+    public const string FranjaYaPaso = "Esta franja ya pasó.";
+
+    /// <summary>La franja empieza antes de la antelación mínima configurada (motivo de disponibilidad para el cliente).</summary>
+    public static string RequiereAntelacion(TimeSpan antelacionMinima) =>
+        $"Requiere reservar con al menos {Duracion(antelacionMinima)} de antelación.";
+
+    /// <summary>La fecha supera la antelación máxima configurada (motivo de disponibilidad para el cliente).</summary>
+    public static string FueraDelRango(int maximoDias) =>
+        $"Fuera del rango de reserva (máximo {maximoDias} {(maximoDias == 1 ? "día" : "días")}).";
+
+    /// <summary>No queda una mesa libre con capacidad para el grupo (motivo de disponibilidad para el cliente).</summary>
+    public static string SinMesas(int personas) =>
+        $"Sin mesas disponibles para {personas} {(personas == 1 ? "persona" : "personas")}.";
+
+    /// <summary>Duración en texto: "1 hora", "2 horas", "1 minuto" o "90 minutos".</summary>
+    public static string Duracion(TimeSpan duracion)
+    {
+        if (duracion.Days == 0 && duracion.Minutes == 0 && duracion.Hours > 0)
+        {
+            return duracion.Hours == 1 ? "1 hora" : $"{duracion.Hours} horas";
+        }
+
+        var minutosTotales = (int)duracion.TotalMinutes;
+        return minutosTotales == 1 ? "1 minuto" : $"{minutosTotales} minutos";
+    }
+
     /// <summary>El restaurante no abre ese día (día de la semana cerrado o fecha cerrada). Aplica al cliente y al personal.</summary>
     public const string RestauranteCerrado = "El restaurante está cerrado ese día.";
 

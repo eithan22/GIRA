@@ -57,6 +57,8 @@ public class DisponibilidadServiceTests
         Assert.True(resultado.IsSuccess);
         Assert.Single(resultado.Value!);
         Assert.Equal(Almuerzo.Id, resultado.Value![0].Id);
+        Assert.True(resultado.Value![0].Disponible);
+        Assert.Null(resultado.Value![0].MotivoNoDisponible);
     }
 
     [Fact]
@@ -75,7 +77,7 @@ public class DisponibilidadServiceTests
     }
 
     [Fact]
-    public async Task ConsultarAsync_TodasLasMesasAdecuadasOcupadas_NoHayDisponibilidad()
+    public async Task ConsultarAsync_TodasLasMesasAdecuadasOcupadas_LaFranjaSaleDeshabilitadaSinMesas()
     {
         var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
         var ocupandola = new Reserva { MesaId = mesa.Id, FranjaHorariaId = Almuerzo.Id, Fecha = Fecha };
@@ -85,7 +87,9 @@ public class DisponibilidadServiceTests
         var resultado = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
 
         Assert.True(resultado.IsSuccess);
-        Assert.Empty(resultado.Value!);
+        var franja = Assert.Single(resultado.Value!);
+        Assert.False(franja.Disponible);
+        Assert.Equal("Sin mesas disponibles para 2 personas.", franja.MotivoNoDisponible);
     }
 
     [Fact]
@@ -97,7 +101,9 @@ public class DisponibilidadServiceTests
         var resultado = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
 
         Assert.True(resultado.IsSuccess);
-        Assert.Empty(resultado.Value!);
+        var franja = Assert.Single(resultado.Value!);
+        Assert.False(franja.Disponible);
+        Assert.Equal("Sin mesas disponibles para 2 personas.", franja.MotivoNoDisponible);
     }
 
     [Fact]
@@ -110,7 +116,9 @@ public class DisponibilidadServiceTests
         var resultado = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 1), default);
 
         Assert.True(resultado.IsSuccess);
-        Assert.Empty(resultado.Value!);
+        var franja = Assert.Single(resultado.Value!);
+        Assert.False(franja.Disponible);
+        Assert.Equal("Sin mesas disponibles para 1 persona.", franja.MotivoNoDisponible);
     }
 
     [Fact]
@@ -126,7 +134,7 @@ public class DisponibilidadServiceTests
     }
 
     [Fact]
-    public async Task ConsultarAsync_DiaCerrado_Devuelve200ConListaVacia()
+    public async Task ConsultarAsync_DiaCerrado_Devuelve200ConTodasLasFranjasDeshabilitadas()
     {
         var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
         var parametros = new ParametrosReservaFalso { DiasCerrados = new HashSet<DayOfWeek> { Fecha.DayOfWeek } };
@@ -136,11 +144,13 @@ public class DisponibilidadServiceTests
         var resultado = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
 
         Assert.True(resultado.IsSuccess);
-        Assert.Empty(resultado.Value!);
+        var franja = Assert.Single(resultado.Value!);
+        Assert.False(franja.Disponible);
+        Assert.Equal("El restaurante está cerrado ese día.", franja.MotivoNoDisponible);
     }
 
     [Fact]
-    public async Task ConsultarAsync_FranjaDentroDeLaAntelacionMinima_SeExcluye()
+    public async Task ConsultarAsync_FranjaDentroDeLaAntelacionMinima_SaleDeshabilitadaConElMotivo()
     {
         var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
         // Franja empieza a las 12:00; "ahora" local son las 11:00 del mismo día: solo 1h de
@@ -152,7 +162,9 @@ public class DisponibilidadServiceTests
         var resultado = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
 
         Assert.True(resultado.IsSuccess);
-        Assert.Empty(resultado.Value!);
+        var franja = Assert.Single(resultado.Value!);
+        Assert.False(franja.Disponible);
+        Assert.Equal("Requiere reservar con al menos 2 horas de antelación.", franja.MotivoNoDisponible);
     }
 
     [Fact]
@@ -220,7 +232,7 @@ public class DisponibilidadServiceTests
     }
 
     [Fact]
-    public async Task ConsultarAsync_Cliente_Sigue_Excluyendo_La_Franja_En_Curso_Y_Las_De_Menos_De_2h()
+    public async Task ConsultarAsync_Cliente_Deshabilita_La_Franja_En_Curso_Y_Las_De_Menos_De_2h()
     {
         var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
 
@@ -231,9 +243,10 @@ public class DisponibilidadServiceTests
         var justo = await CrearServicio([mesa], [Almuerzo], [], ahoraUtc: LocalRd(10, 0))
             .ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
 
-        Assert.Empty(enCurso.Value!);
-        Assert.Empty(aPunto.Value!);
-        Assert.Single(justo.Value!); // inicio == ahora + 2 h exactas: todavía pasa
+        Assert.False(Assert.Single(enCurso.Value!).Disponible);
+        Assert.False(Assert.Single(aPunto.Value!).Disponible);
+        Assert.Equal("Requiere reservar con al menos 2 horas de antelación.", enCurso.Value![0].MotivoNoDisponible);
+        Assert.True(Assert.Single(justo.Value!).Disponible); // inicio == ahora + 2 h exactas: todavía pasa
     }
 
     [Fact]
@@ -252,7 +265,23 @@ public class DisponibilidadServiceTests
     }
 
     [Fact]
-    public async Task ConsultarAsync_FechaPasada_DevuelveErrorDeValidacion()
+    public async Task ConsultarAsync_Personal_FechaPasada_ConservaElErrorDeValidacion()
+    {
+        var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
+        var ahoraUtc = new DateTimeOffset(2026, 12, 26, 12, 0, 0, TimeSpan.Zero);
+
+        var servicio = CrearServicio([mesa], [Almuerzo], [], ahoraUtc: ahoraUtc);
+
+        var resultado = await servicio.ConsultarAsync(
+            new ConsultarDisponibilidadRequest(Fecha, 2), default, AudienciaReserva.Personal);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(GIRA.Application.Common.ErrorType.Validation, resultado.Type);
+        Assert.Contains("La fecha no puede ser en el pasado.", resultado.Error);
+    }
+
+    [Fact]
+    public async Task ConsultarAsync_Cliente_FechaPasada_YaNoEsErrorSinoFranjasQueYaPasaron()
     {
         var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
         var ahoraUtc = new DateTimeOffset(2026, 12, 26, 12, 0, 0, TimeSpan.Zero);
@@ -261,22 +290,116 @@ public class DisponibilidadServiceTests
 
         var resultado = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
 
-        Assert.True(resultado.IsFailure);
-        Assert.Equal(GIRA.Application.Common.ErrorType.Validation, resultado.Type);
+        Assert.True(resultado.IsSuccess);
+        var franja = Assert.Single(resultado.Value!);
+        Assert.False(franja.Disponible);
+        Assert.Equal("Esta franja ya pasó.", franja.MotivoNoDisponible);
     }
 
     [Fact]
-    public async Task ConsultarAsync_FechaMasAlladeLaAntelacionMaxima_DevuelveErrorDeValidacion()
+    public async Task ConsultarAsync_Cliente_FranjaDeHoyTerminada_DiceQueYaPaso_Y_UnMinutoAntesDelFinDiceAntelacion()
+    {
+        var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
+
+        var terminada = await CrearServicio([mesa], [Almuerzo], [], ahoraUtc: LocalRd(15, 0))
+            .ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
+        var porTerminar = await CrearServicio([mesa], [Almuerzo], [], ahoraUtc: LocalRd(14, 59))
+            .ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
+
+        Assert.Equal("Esta franja ya pasó.", Assert.Single(terminada.Value!).MotivoNoDisponible);
+        Assert.Equal("Requiere reservar con al menos 2 horas de antelación.", Assert.Single(porTerminar.Value!).MotivoNoDisponible);
+    }
+
+    [Fact]
+    public async Task ConsultarAsync_Personal_FechaMasAlladeLaAntelacionMaxima_ConservaElErrorDeValidacion()
     {
         var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
         var fechaLejana = Fecha.AddDays(31); // antelación máxima por defecto: 30 días
 
         var servicio = CrearServicio([mesa], [Almuerzo], []);
 
-        var resultado = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(fechaLejana, 2), default);
+        var resultado = await servicio.ConsultarAsync(
+            new ConsultarDisponibilidadRequest(fechaLejana, 2), default, AudienciaReserva.Personal);
 
         Assert.True(resultado.IsFailure);
         Assert.Equal(GIRA.Application.Common.ErrorType.Validation, resultado.Type);
+        Assert.Contains("La fecha supera la ventana máxima de anticipación.", resultado.Error);
+    }
+
+    [Fact]
+    public async Task ConsultarAsync_Cliente_FechaMasAlladeLaAntelacionMaxima_SaleDeshabilitadaConElMaximoReal()
+    {
+        var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
+        var parametros = new ParametrosReservaFalso { AntelacionMaxima = TimeSpan.FromDays(10) };
+        var servicio = CrearServicio([mesa], [Almuerzo], [], parametros);
+
+        var enElLimite = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha.AddDays(-1 + 10), 2), default);
+        var pasado = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha.AddDays(-1 + 11), 2), default);
+
+        Assert.True(Assert.Single(enElLimite.Value!).Disponible); // hoy + 10 días exactos todavía entra
+        var franja = Assert.Single(pasado.Value!);
+        Assert.False(franja.Disponible);
+        Assert.Equal("Fuera del rango de reserva (máximo 10 días).", franja.MotivoNoDisponible);
+    }
+
+    [Fact]
+    public async Task ConsultarAsync_Cliente_LaAntelacionMinimaConfiguradaVaEnElMensaje()
+    {
+        var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
+        var servicio = CrearServicio([mesa], [Almuerzo], [],
+            new ParametrosReservaFalso { AntelacionMinima = TimeSpan.FromMinutes(90) }, LocalRd(11, 0));
+
+        var resultado = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
+
+        Assert.Equal("Requiere reservar con al menos 90 minutos de antelación.", Assert.Single(resultado.Value!).MotivoNoDisponible);
+    }
+
+    [Fact]
+    public async Task ConsultarAsync_Cliente_DevuelveTodasLasFranjasActivasEnOrden_ConSuMotivoCadaUna()
+    {
+        var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
+        var tarde = new FranjaHoraria { Id = Guid.NewGuid(), Nombre = "Tarde", HoraInicio = new TimeOnly(16, 0), HoraFin = new TimeOnly(17, 45) };
+        var noche = new FranjaHoraria { Id = Guid.NewGuid(), Nombre = "Noche", HoraInicio = new TimeOnly(20, 0), HoraFin = new TimeOnly(21, 45) };
+        var ocupandolaTarde = new Reserva { MesaId = mesa.Id, FranjaHorariaId = tarde.Id, Fecha = Fecha };
+        // 13:00: Almuerzo en curso, Tarde ocupada, Noche libre.
+        var servicio = CrearServicio([mesa], [noche, tarde, Almuerzo], [ocupandolaTarde], ahoraUtc: LocalRd(13, 0));
+
+        var resultado = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
+
+        Assert.Equal(["Almuerzo", "Tarde", "Noche"], resultado.Value!.Select(f => f.Nombre).ToArray());
+        string?[] motivosEsperados =
+            ["Requiere reservar con al menos 2 horas de antelación.", "Sin mesas disponibles para 2 personas.", null];
+        Assert.Equal(motivosEsperados, resultado.Value!.Select(f => f.MotivoNoDisponible).ToArray());
+        Assert.Equal([false, false, true], resultado.Value!.Select(f => f.Disponible).ToArray());
+    }
+
+    [Fact]
+    public async Task ConsultarAsync_Cliente_ElDiaCerradoGanaSobreLosDemasMotivos()
+    {
+        var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
+        var parametros = new ParametrosReservaFalso { FechasCerradas = new HashSet<DateOnly> { Fecha } };
+        var servicio = CrearServicio([mesa], [Almuerzo], [new Reserva { MesaId = mesa.Id, FranjaHorariaId = Almuerzo.Id, Fecha = Fecha }],
+            parametros, LocalRd(13, 0));
+
+        var resultado = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
+
+        Assert.Equal("El restaurante está cerrado ese día.", Assert.Single(resultado.Value!).MotivoNoDisponible);
+    }
+
+    [Fact]
+    public async Task ConsultarAsync_Personal_NuncaRecibeFranjasDeshabilitadas()
+    {
+        var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
+        var tarde = new FranjaHoraria { Id = Guid.NewGuid(), Nombre = "Tarde", HoraInicio = new TimeOnly(16, 0), HoraFin = new TimeOnly(17, 45) };
+        var ocupandolaTarde = new Reserva { MesaId = mesa.Id, FranjaHorariaId = tarde.Id, Fecha = Fecha };
+        var servicio = CrearServicio([mesa], [Almuerzo, tarde], [ocupandolaTarde], ahoraUtc: LocalRd(13, 0));
+
+        var resultado = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default, AudienciaReserva.Personal);
+
+        var franja = Assert.Single(resultado.Value!); // solo el Almuerzo en curso; la Tarde ocupada no se lista
+        Assert.Equal("Almuerzo", franja.Nombre);
+        Assert.True(franja.Disponible);
+        Assert.Null(franja.MotivoNoDisponible);
     }
 
     [Fact]

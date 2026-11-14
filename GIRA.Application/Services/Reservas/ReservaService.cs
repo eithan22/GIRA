@@ -818,7 +818,7 @@ public class ReservaService : IReservaService
         {
             return OperationResult.Failure(
                 ErrorType.Conflict,
-                $"Ya no se puede cancelar esta reserva; debe hacerse con al menos {FormatearDuracion(limiteCancelacion)} de anticipación.");
+                $"Ya no se puede cancelar esta reserva; debe hacerse con al menos {MensajesReservas.Duracion(limiteCancelacion)} de anticipación.");
         }
 
         reserva.Cancelar(null);
@@ -837,17 +837,5 @@ public class ReservaService : IReservaService
             cancellationToken);
 
         return OperationResult.Success();
-    }
-
-    /// <summary>Formatea una duración como texto legible en español: "2 horas" o "90 minutos".</summary>
-    private static string FormatearDuracion(TimeSpan duracion)
-    {
-        if (duracion.Days == 0 && duracion.Minutes == 0 && duracion.Hours > 0)
-        {
-            return duracion.Hours == 1 ? "1 hora" : $"{duracion.Hours} horas";
-        }
-
-        var minutosTotales = (int)duracion.TotalMinutes;
-        return minutosTotales == 1 ? "1 minuto" : $"{minutosTotales} minutos";
     }
 }
