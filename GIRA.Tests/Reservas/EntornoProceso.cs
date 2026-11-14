@@ -25,6 +25,8 @@ internal sealed class EntornoProceso : IDisposable
 
     public GiraDbContext Contexto { get; }
     public TimeProviderAvanzable Reloj { get; }
+    /// <summary>Parámetros del proceso; la prueba puede cambiar la tolerancia entre dos ciclos.</summary>
+    public ParametrosReservaFalso Parametros { get; }
     public ProcesoAutomaticoReservasService Servicio { get; }
     public PublisherFalso Publisher { get; } = new();
     public DbContextOptions<GiraDbContext> Opciones { get; }
@@ -45,8 +47,10 @@ internal sealed class EntornoProceso : IDisposable
         }
         publisher ??= Publisher;
 
+        Parametros = new ParametrosReservaFalso();
         Servicio = new ProcesoAutomaticoReservasService(
             reservas,
+            Parametros,
             new PublicadorEventosSeguro(publisher, NullLogger<PublicadorEventosSeguro>.Instance),
             Reloj);
     }

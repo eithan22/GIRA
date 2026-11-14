@@ -74,8 +74,10 @@ public class ParametrosReservaDbService : IParametrosReservaService
             TimeSpan.FromDays(c.AntelacionMaximaDias),
             TimeSpan.FromMinutes(c.LimiteCancelacionMinutos),
             TimeSpan.FromMinutes(c.VentanaCheckInMinutos),
+            TimeSpan.FromMinutes(c.ToleranciaNoShowMinutos),
             c.MaxReservasVigentesPorTelefono,
             c.MaxPersonasPorReserva,
+            c.TelefonoContacto,
             horarios,
             diasCerrados);
     }

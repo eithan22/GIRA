@@ -58,14 +58,17 @@ public class ConfiguracionReservasEndpointsTests : IAsyncLifetime
 
     private void Como(string rol, Guid? usuarioId = null) => _cliente.UsarToken(Token(rol, usuarioId));
 
-    private static object Parametros(int maxPersonas = 8, int antelacionMinima = 120) => new
+    private static object Parametros(
+        int maxPersonas = 8, int antelacionMinima = 120, int toleranciaNoShow = 15, string? telefono = null) => new
     {
         antelacionMinimaMinutos = antelacionMinima,
         antelacionMaximaDias = 30,
         limiteCancelacionMinutos = 120,
         ventanaCheckInMinutos = 15,
+        toleranciaNoShowMinutos = toleranciaNoShow,
         maxReservasVigentesPorTelefono = 2,
-        maxPersonasPorReserva = maxPersonas
+        maxPersonasPorReserva = maxPersonas,
+        telefonoContacto = telefono
     };
 
     private static async Task<JsonElement> JsonAsync(HttpResponseMessage respuesta) =>
@@ -170,8 +173,10 @@ public class ConfiguracionReservasEndpointsTests : IAsyncLifetime
             antelacionMaximaDias = 400,
             limiteCancelacionMinutos = 120,
             ventanaCheckInMinutos = 500,
+            toleranciaNoShowMinutos = 500,
             maxReservasVigentesPorTelefono = 0,
-            maxPersonasPorReserva = 99
+            maxPersonasPorReserva = 99,
+            telefonoContacto = "llámanos"
         };
 
         var respuesta = await _cliente.PutAsJsonAsync(Base + "/parametros", cuerpo);
@@ -181,7 +186,8 @@ public class ConfiguracionReservasEndpointsTests : IAsyncLifetime
         foreach (var campo in new[]
                  {
                      "antelacionMinimaMinutos", "antelacionMaximaDias", "ventanaCheckInMinutos",
-                     "maxReservasVigentesPorTelefono", "maxPersonasPorReserva"
+                     "toleranciaNoShowMinutos", "maxReservasVigentesPorTelefono", "maxPersonasPorReserva",
+                     "telefonoContacto"
                  })
         {
             Assert.True(errores.TryGetProperty(campo, out var mensajes), campo);
@@ -328,17 +334,54 @@ public class ConfiguracionReservasEndpointsTests : IAsyncLifetime
     // --- Políticas públicas ---
 
     [Fact]
-    public async Task Politicas_SinToken_Responde200ConSoloLosCincoCamposPublicos()
+    public async Task Politicas_SinToken_Responde200ConSoloLosSeisCamposPublicos()
     {
         var respuesta = await _cliente.GetAsync("/api/reservas/politicas");
 
         Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
         var json = await JsonAsync(respuesta);
         Assert.Equal(
-            ["antelacionMinimaMinutos", "antelacionMaximaDias", "limiteCancelacionMinutos", "maxPersonas", "diasCerrados"],
+            ["antelacionMinimaMinutos", "antelacionMaximaDias", "limiteCancelacionMinutos", "maxPersonas",
+             "telefonoContacto", "diasCerrados"],
             json.EnumerateObject().Select(p => p.Name).ToArray());
         Assert.Equal(4, json.GetProperty("maxPersonas").GetInt32()); // min(8 configurado, mesa de 4)
         Assert.Equal(30, json.GetProperty("antelacionMaximaDias").GetInt32());
+        // El seeder no pone ningún teléfono de ejemplo; la tolerancia de no-show no se expone al cliente.
+        Assert.Equal(JsonValueKind.Null, json.GetProperty("telefonoContacto").ValueKind);
+    }
+
+    [Fact]
+    public async Task Politicas_DespuesDeConfigurarElTelefono_LoExpone()
+    {
+        Como(Roles.Gerente);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await _cliente.PutAsJsonAsync(Base + "/parametros", Parametros(telefono: "809-555-1234"))).StatusCode);
+        _cliente.DefaultRequestHeaders.Authorization = null;
+
+        var json = await JsonAsync(await _cliente.GetAsync("/api/reservas/politicas"));
+
+        Assert.Equal("809-555-1234", json.GetProperty("telefonoContacto").GetString());
+    }
+
+    [Fact]
+    public async Task ActualizarParametros_ConToleranciaMayorQueLaFranjaMasCorta_Responde409()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var contexto = scope.ServiceProvider.GetRequiredService<GiraDbContext>();
+            contexto.FranjasHorarias.Add(new FranjaHoraria
+            {
+                Id = Guid.NewGuid(), Nombre = "Café", HoraInicio = new TimeOnly(16, 0), HoraFin = new TimeOnly(16, 30)
+            });
+            await contexto.SaveChangesAsync();
+        }
+        Como(Roles.Gerente);
+
+        var respuesta = await _cliente.PutAsJsonAsync(Base + "/parametros", Parametros(toleranciaNoShow: 45));
+
+        Assert.Equal(HttpStatusCode.Conflict, respuesta.StatusCode);
+        Assert.Contains("tolerancia de no-show", (await JsonAsync(respuesta)).GetProperty("detail").GetString());
     }
 
     [Fact]

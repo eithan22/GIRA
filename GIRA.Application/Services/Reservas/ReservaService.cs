@@ -21,6 +21,7 @@ public class ReservaService : IReservaService
     private readonly IReservaRepository _reservaRepository;
     private readonly IClienteRepository _clienteRepository;
     private readonly IMesaGestionRepository _mesaGestionRepository;
+    private readonly IVisitaRepository _visitas;
     private readonly IParametrosReservaService _parametros;
     private readonly IValidator<CrearReservaRequest> _validator;
     private readonly IValidator<ListarReservasRequest> _validadorListado;
@@ -42,6 +43,7 @@ public class ReservaService : IReservaService
         IReservaRepository reservaRepository,
         IClienteRepository clienteRepository,
         IMesaGestionRepository mesaGestionRepository,
+        IVisitaRepository visitas,
         IParametrosReservaService parametros,
         IValidator<CrearReservaRequest> validator,
         IValidator<ListarReservasRequest> validadorListado,
@@ -58,6 +60,7 @@ public class ReservaService : IReservaService
         _reservaRepository = reservaRepository;
         _clienteRepository = clienteRepository;
         _mesaGestionRepository = mesaGestionRepository;
+        _visitas = visitas;
         _parametros = parametros;
         _validator = validator;
         _validadorListado = validadorListado;
@@ -404,6 +407,11 @@ public class ReservaService : IReservaService
             .Select(r => r.MesaId)
             .ToHashSet();
 
+        // Una visita sin reserva en esa fecha y franja también ocupa la mesa: no tiene hora de salida, así que
+        // se considera ocupada toda la franja. Con esto la asignación automática ya las salta sola.
+        var mesasConVisita = await _visitas.ListarMesasConVisitaAsync(fecha, franja.Id, cancellationToken);
+        mesasOcupadasIds.UnionWith(mesasConVisita);
+
         if (mesaPreferidaId is { } preferidaId)
         {
             var preferida = mesas.FirstOrDefault(m => m.Id == preferidaId);
@@ -424,6 +432,14 @@ public class ReservaService : IReservaService
                     return OperationResult.Failure<AsignacionMesa>(
                         ErrorType.Validation,
                         $"La mesa {preferida.Numero} admite como máximo {preferida.Capacidad} personas.");
+                }
+
+                // Se distingue el motivo: una visita sin reserva no es una reserva, y el personal necesita
+                // saber por qué la mesa no sirve (el mensaje de la visita va primero).
+                if (mesasConVisita.Contains(preferida.Id))
+                {
+                    return OperationResult.Failure<AsignacionMesa>(
+                        ErrorType.Conflict, MensajesReservas.MesaConVisita(preferida.Numero));
                 }
 
                 if (mesasOcupadasIds.Contains(preferida.Id))

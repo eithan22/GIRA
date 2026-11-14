@@ -61,4 +61,11 @@ internal static class MensajesReservas
 
     /// <summary>El cliente no cumple la antelación mínima.</summary>
     public const string SinAntelacionMinima = "Esa franja ya no tiene la antelación mínima requerida.";
+
+    /// <summary>
+    /// La mesa elegida a mano tiene una visita sin reserva en esa fecha y franja: cuenta como ocupante
+    /// aunque no tenga hora de salida. Solo lo ve el personal, que es quien elige la mesa.
+    /// </summary>
+    public static string MesaConVisita(int numeroMesa) =>
+        $"La mesa {numeroMesa} tiene una visita sin reserva en esta franja. Elige otra mesa o franja.";
 }

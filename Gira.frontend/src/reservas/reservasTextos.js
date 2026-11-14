@@ -1,8 +1,10 @@
 import { formatearDuracionMinutos } from './reservasFormato.js';
 
-// Único lugar donde vive este dato: todo lo demás (reservasFormato.js, componentes)
-// debe importarlo de aquí, nunca repetirlo como texto suelto.
-export const TELEFONO_RESTAURANTE = '[TELÉFONO DEL RESTAURANTE]';
+// El teléfono del restaurante NO vive aquí: llega en las políticas del servidor
+// (politicas.telefonoContacto, GET /api/reservas/politicas) y puede no estar
+// configurado. Cuando no lo está, los textos que invitaban a llamar usan esta
+// frase en vez de mostrar un número inventado o un hueco sin rellenar.
+export const TEXTO_CONTACTAR_RESTAURANTE = 'Contacta directamente al restaurante.';
 
 // Para 500 o sin red: nunca se muestra el detalle crudo del servidor.
 export const MENSAJE_ERROR_GENERICO = 'No pudimos completar la acción. Revisa tu conexión e inténtalo de nuevo.';
@@ -11,8 +13,11 @@ export const MENSAJE_ERROR_GENERICO = 'No pudimos completar la acción. Revisa t
 
 export const TEXTO_CARGANDO_DISPONIBILIDAD = 'Buscando mesas disponibles…';
 
-export const TEXTO_SIN_DISPONIBILIDAD =
-  `No hay mesas disponibles para esa fecha y esa cantidad de personas. Prueba otro día o llámanos al ${TELEFONO_RESTAURANTE}.`;
+// Con teléfono configurado invita a llamar; sin él, solo sugiere otro día y remite al restaurante.
+export const textoSinDisponibilidad = (politicas) =>
+  (politicas.telefonoContacto
+    ? `No hay mesas disponibles para esa fecha y esa cantidad de personas. Prueba otro día o llámanos al ${politicas.telefonoContacto}.`
+    : `No hay mesas disponibles para esa fecha y esa cantidad de personas. Prueba otro día. ${TEXTO_CONTACTAR_RESTAURANTE}`);
 
 // Los textos que dependen de las políticas de reserva (GI-226) reciben las políticas: nunca llevan 30 días,
 // 2 horas ni 8 personas escritos a mano.
@@ -21,11 +26,25 @@ export const textoVentanaReserva = (politicas) => {
   return `Reservamos desde hoy hasta ${dias} ${dias === 1 ? 'día' : 'días'} adelante y con al menos ${formatearDuracionMinutos(politicas.antelacionMinimaMinutos)} de anticipación.`;
 };
 
-export const textoMasDePersonas = (politicas) => `¿Más de ${politicas.maxPersonas}? Llama al ${TELEFONO_RESTAURANTE}.`;
+export const textoMasDePersonas = (politicas) =>
+  (politicas.telefonoContacto
+    ? `¿Más de ${politicas.maxPersonas}? Llama al ${politicas.telefonoContacto}.`
+    : `¿Más de ${politicas.maxPersonas}? ${TEXTO_CONTACTAR_RESTAURANTE}`);
 
-// Mismo texto que el servidor ("Para grupos de más de N personas, llama al restaurante.") más el teléfono.
+// Mismo texto que el servidor ("Para grupos de más de N personas, llama al restaurante.") más el teléfono cuando
+// está configurado. Sin teléfono se queda solo con el texto del servidor: ya dice que hay que llamar al
+// restaurante, así que repetir «Contacta directamente al restaurante.» sobraría.
 export const textoGrupoGrande = (politicas) =>
-  `Para grupos de más de ${politicas.maxPersonas} personas, llama al restaurante. ${TELEFONO_RESTAURANTE}`;
+  (politicas.telefonoContacto
+    ? `Para grupos de más de ${politicas.maxPersonas} personas, llama al restaurante. ${politicas.telefonoContacto}`
+    : `Para grupos de más de ${politicas.maxPersonas} personas, llama al restaurante.`);
+
+/**
+ * Mensaje del servidor que invita a llamar al restaurante, con el teléfono configurado pegado al final. Sin
+ * teléfono se devuelve tal cual: el mensaje del servidor ya se entiende solo y nunca se muestra un hueco vacío.
+ */
+export const textoMensajeConTelefono = (mensaje, politicas) =>
+  (politicas.telefonoContacto ? `${mensaje} ${politicas.telefonoContacto}` : mensaje);
 
 // Regla de cancelación que el diseño repite en Confirmación y en Mi reserva · Detalle.
 export const textoLimiteCancelacion = (politicas) =>

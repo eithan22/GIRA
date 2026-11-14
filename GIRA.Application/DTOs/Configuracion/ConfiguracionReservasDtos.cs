@@ -2,29 +2,39 @@ using System.Text.Json.Serialization;
 
 namespace GIRA.Application.DTOs.Configuracion;
 
-/// <summary>Las seis políticas de reserva editables, en las unidades guardadas (minutos, días o cantidades).</summary>
+/// <summary>Las ocho políticas de reserva editables, en las unidades guardadas (minutos, días, cantidades o texto).</summary>
 /// <param name="AntelacionMinimaMinutos">Antelación mínima para crear una reserva, en minutos.</param>
 /// <param name="AntelacionMaximaDias">Antelación máxima para crear una reserva, en días.</param>
 /// <param name="LimiteCancelacionMinutos">Minutos antes del inicio de la franja hasta los que el cliente puede cancelar.</param>
 /// <param name="VentanaCheckInMinutos">Minutos antes del inicio de la franja desde los que se permite el check-in.</param>
+/// <param name="ToleranciaNoShowMinutos">Minutos de tolerancia antes de marcar NoAsistio una reserva sin check-in.</param>
 /// <param name="MaxReservasVigentesPorTelefono">Máximo de reservas vigentes con un mismo teléfono.</param>
 /// <param name="MaxPersonasPorReserva">Tamaño máximo de grupo por reserva.</param>
+/// <param name="TelefonoContacto">Teléfono de contacto del restaurante; null si no se configuró.</param>
 public sealed record ParametrosEditablesDto(
     int AntelacionMinimaMinutos,
     int AntelacionMaximaDias,
     int LimiteCancelacionMinutos,
     int VentanaCheckInMinutos,
+    int ToleranciaNoShowMinutos,
     int MaxReservasVigentesPorTelefono,
-    int MaxPersonasPorReserva);
+    int MaxPersonasPorReserva,
+    string? TelefonoContacto);
 
-/// <summary>Cuerpo de <c>PUT /api/configuracion/reservas/parametros</c>: las seis políticas.</summary>
+/// <summary>
+/// Cuerpo de <c>PUT /api/configuracion/reservas/parametros</c>: las ocho políticas. Los siete campos numéricos
+/// son <c>int?</c> a propósito: un campo omitido en el JSON debe rechazarse como obligatorio, nunca interpretarse
+/// como 0 (un valor dentro de rango para varios de ellos, pero casi nunca lo que el cliente quiso decir).
+/// </summary>
 public sealed record ActualizarParametrosRequest(
-    int AntelacionMinimaMinutos,
-    int AntelacionMaximaDias,
-    int LimiteCancelacionMinutos,
-    int VentanaCheckInMinutos,
-    int MaxReservasVigentesPorTelefono,
-    int MaxPersonasPorReserva);
+    int? AntelacionMinimaMinutos,
+    int? AntelacionMaximaDias,
+    int? LimiteCancelacionMinutos,
+    int? VentanaCheckInMinutos,
+    int? ToleranciaNoShowMinutos,
+    int? MaxReservasVigentesPorTelefono,
+    int? MaxPersonasPorReserva,
+    string? TelefonoContacto);
 
 /// <summary>Políticas vigentes, sus valores por defecto y cuándo se actualizaron por última vez.</summary>
 /// <param name="Parametros">Valores vigentes (los por defecto si todavía no se guardó nada).</param>

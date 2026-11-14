@@ -31,8 +31,11 @@ public class ConfiguracionReservasSeederTests
         Assert.Equal(30, configuracion.AntelacionMaximaDias);
         Assert.Equal(120, configuracion.LimiteCancelacionMinutos);
         Assert.Equal(15, configuracion.VentanaCheckInMinutos);
+        Assert.Equal(15, configuracion.ToleranciaNoShowMinutos);
         Assert.Equal(2, configuracion.MaxReservasVigentesPorTelefono);
         Assert.Equal(8, configuracion.MaxPersonasPorReserva);
+        // El teléfono de contacto no se siembra con un número de ejemplo: queda NULL.
+        Assert.Null(configuracion.TelefonoContacto);
 
         var horarios = await db.HorariosOperacion.ToListAsync();
         Assert.Equal(7, horarios.Count);
@@ -69,8 +72,10 @@ public class ConfiguracionReservasSeederTests
             AntelacionMaximaDias = 90,
             LimiteCancelacionMinutos = 30,
             VentanaCheckInMinutos = 45,
+            ToleranciaNoShowMinutos = 40,
             MaxReservasVigentesPorTelefono = 5,
-            MaxPersonasPorReserva = 20
+            MaxPersonasPorReserva = 20,
+            TelefonoContacto = "809-000-0000"
         });
         db.HorariosOperacion.Add(new HorarioOperacion
         {
@@ -86,8 +91,10 @@ public class ConfiguracionReservasSeederTests
         Assert.Equal(90, configuracion.AntelacionMaximaDias);
         Assert.Equal(30, configuracion.LimiteCancelacionMinutos);
         Assert.Equal(45, configuracion.VentanaCheckInMinutos);
+        Assert.Equal(40, configuracion.ToleranciaNoShowMinutos);
         Assert.Equal(5, configuracion.MaxReservasVigentesPorTelefono);
         Assert.Equal(20, configuracion.MaxPersonasPorReserva);
+        Assert.Equal("809-000-0000", configuracion.TelefonoContacto);
 
         var lunes = await db.HorariosOperacion.SingleAsync(h => h.DiaSemana == DayOfWeek.Monday);
         Assert.False(lunes.Abierto);
@@ -130,6 +137,8 @@ public class ConfiguracionReservasSeederTests
     public void ValoresPorDefecto_CoincidenConLosAcordados()
     {
         Assert.Equal(15, ParametrosReservaService.ValoresPorDefecto.VentanaCheckInMinutos);
+        Assert.Equal(15, ParametrosReservaService.ValoresPorDefecto.ToleranciaNoShowMinutos);
+        Assert.Null(ParametrosReservaService.PorDefecto().TelefonoContacto);
         Assert.Equal(new TimeOnly(12, 0), ParametrosReservaService.ValoresPorDefecto.HoraApertura);
         Assert.Equal(new TimeOnly(22, 30), ParametrosReservaService.ValoresPorDefecto.HoraCierre);
     }

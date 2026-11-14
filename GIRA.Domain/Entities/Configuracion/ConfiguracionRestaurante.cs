@@ -24,9 +24,21 @@ public class ConfiguracionRestaurante : BaseEntity
     /// <summary>Minutos antes del inicio de la franja desde los que el personal puede hacer check-in.</summary>
     public int VentanaCheckInMinutos { get; set; }
 
+    /// <summary>
+    /// Minutos de tolerancia tras los cuales una reserva Confirmada sin check-in pasa a NoAsistio (GI-404).
+    /// El plazo cuenta desde el mayor entre el inicio de la franja y el último registro de la reserva.
+    /// </summary>
+    public int ToleranciaNoShowMinutos { get; set; }
+
     /// <summary>Máximo de reservas vigentes que puede tener un mismo teléfono.</summary>
     public int MaxReservasVigentesPorTelefono { get; set; }
 
     /// <summary>Máximo de personas por reserva (el efectivo también depende de la mesa activa más grande).</summary>
     public int MaxPersonasPorReserva { get; set; }
+
+    /// <summary>
+    /// Teléfono de contacto del restaurante que se muestra al cliente; null si no se configuró (no hay
+    /// número por defecto, el restaurante lo escribe desde Configuración).
+    /// </summary>
+    public string? TelefonoContacto { get; set; }
 }

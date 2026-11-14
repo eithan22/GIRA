@@ -108,19 +108,31 @@ export function obtenerLimiteFechas(politicas = POLITICAS_POR_DEFECTO, hoy = hoy
 /**
  * Valores por defecto de las políticas mientras carga GET /api/reservas/politicas o si la petición falla. Es el
  * ÚNICO lugar del frontend donde viven. Espejo de ParametrosReservaService.ValoresPorDefecto del backend
- * (antelación mínima 2 h, máxima 30 días, límite de cancelación 2 h, grupo máximo 8): si cambian allá, cambian
- * aquí. El servidor siempre decide; esto solo evita pantallas vacías mientras llegan los valores reales.
+ * (antelación mínima 2 h, máxima 30 días, límite de cancelación 2 h, tolerancia de no-show 15 min, grupo máximo 8):
+ * si cambian allá, cambian aquí. El servidor siempre decide; esto solo evita pantallas vacías mientras llegan los
+ * valores reales. `telefonoContacto` nace vacío a propósito: no hay teléfono por defecto que inventar, y mientras
+ * no esté configurado los textos dicen «Contacta directamente al restaurante.» en vez de mostrar un número falso.
  */
 export const POLITICAS_POR_DEFECTO = Object.freeze({
   antelacionMinimaMinutos: 120,
   antelacionMaximaDias: 30,
   limiteCancelacionMinutos: 120,
+  toleranciaNoShowMinutos: 15,
   maxPersonas: 8,
+  telefonoContacto: null,
   diasCerrados: Object.freeze([]),
 });
 
 function enteroDesde(valor, porDefecto, minimo) {
   return Number.isInteger(valor) && valor >= minimo ? valor : porDefecto;
+}
+
+// Un texto opcional que llega vacío, con solo espacios o que no es texto es "sin valor": siempre null, nunca ''
+// ni '   '. Así los componentes solo preguntan por el valor (`if (politicas.telefonoContacto)`) y nunca les llega
+// un espacio en blanco que parezca un teléfono configurado. El backend ya lo normaliza; esto no depende de eso.
+function textoOpcionalDesde(valor) {
+  const limpio = typeof valor === 'string' ? valor.trim() : '';
+  return limpio === '' ? null : limpio;
 }
 
 /** Respuesta de /api/reservas/politicas -> políticas completas; lo que falte o venga mal se completa con el defecto. */
@@ -131,7 +143,9 @@ export function normalizarPoliticas(datos) {
     antelacionMinimaMinutos: enteroDesde(datos.antelacionMinimaMinutos, d.antelacionMinimaMinutos, 0),
     antelacionMaximaDias: enteroDesde(datos.antelacionMaximaDias, d.antelacionMaximaDias, 1),
     limiteCancelacionMinutos: enteroDesde(datos.limiteCancelacionMinutos, d.limiteCancelacionMinutos, 0),
+    toleranciaNoShowMinutos: enteroDesde(datos.toleranciaNoShowMinutos, d.toleranciaNoShowMinutos, 0),
     maxPersonas: enteroDesde(datos.maxPersonas, d.maxPersonas, 1),
+    telefonoContacto: textoOpcionalDesde(datos.telefonoContacto),
     diasCerrados: Array.isArray(datos.diasCerrados) ? datos.diasCerrados.filter((x) => typeof x === 'string') : [],
   };
 }

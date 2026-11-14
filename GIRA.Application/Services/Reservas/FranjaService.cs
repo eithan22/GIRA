@@ -90,6 +90,12 @@ public class FranjaService : IFranjaService
             return fueraDeHorario;
         }
 
+        // Se crea activa: su duración debe superar la tolerancia de no-show configurada (GI-404).
+        if (await MasCortaQueLaToleranciaAsync(nombre, request.HoraInicio, request.HoraFin, cancellationToken) is { } muyCorta)
+        {
+            return muyCorta;
+        }
+
         var franja = new FranjaHoraria
         {
             Id = Guid.NewGuid(),
@@ -147,6 +153,13 @@ public class FranjaService : IFranjaService
             {
                 return fueraDeHorario;
             }
+
+            // Solo para una franja activa, igual que las anteriores: la inactiva se valida al reactivarla.
+            if (franja.Activa
+                && await MasCortaQueLaToleranciaAsync(nombre, request.HoraInicio, request.HoraFin, cancellationToken) is { } muyCorta)
+            {
+                return muyCorta;
+            }
         }
 
         franja.Nombre = nombre;
@@ -184,6 +197,11 @@ public class FranjaService : IFranjaService
             if (await FueraDelHorarioAsync(franja.HoraInicio, franja.HoraFin, cancellationToken) is { } fueraDeHorario)
             {
                 return fueraDeHorario;
+            }
+
+            if (await MasCortaQueLaToleranciaAsync(franja.Nombre, franja.HoraInicio, franja.HoraFin, cancellationToken) is { } muyCorta)
+            {
+                return muyCorta;
             }
         }
 
@@ -234,6 +252,24 @@ public class FranjaService : IFranjaService
         }
 
         return null;
+    }
+
+    // Una franja activa debe durar más que la tolerancia de no-show configurada (GI-404): si no, una reserva
+    // sin check-in se marcaría NoAsistio cuando su franja ya terminó. Devuelve el conflicto, o null si cabe.
+    private async Task<OperationResult<FranjaDto>?> MasCortaQueLaToleranciaAsync(
+        string nombre, TimeOnly inicio, TimeOnly fin, CancellationToken cancellationToken)
+    {
+        var tolerancia = (await _parametros.ObtenerAsync(cancellationToken)).ToleranciaNoShow;
+        var duracion = fin - inicio;
+        if (duracion > tolerancia)
+        {
+            return null;
+        }
+
+        return OperationResult.Failure<FranjaDto>(
+            ErrorType.Conflict,
+            $"La franja '{nombre}' dura {(int)duracion.TotalMinutes} minutos, que no es mayor que la tolerancia " +
+            $"de no-show configurada ({(int)tolerancia.TotalMinutes} minutos).");
     }
 
     private static OperationResult<FranjaDto> NoExiste() =>

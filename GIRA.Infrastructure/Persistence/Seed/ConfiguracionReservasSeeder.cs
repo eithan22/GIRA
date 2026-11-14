@@ -26,8 +26,11 @@ public static class ConfiguracionReservasSeeder
                 AntelacionMaximaDias = ParametrosReservaService.ValoresPorDefecto.AntelacionMaximaDias,
                 LimiteCancelacionMinutos = ParametrosReservaService.ValoresPorDefecto.LimiteCancelacionMinutos,
                 VentanaCheckInMinutos = ParametrosReservaService.ValoresPorDefecto.VentanaCheckInMinutos,
+                ToleranciaNoShowMinutos = ParametrosReservaService.ValoresPorDefecto.ToleranciaNoShowMinutos,
                 MaxReservasVigentesPorTelefono = ParametrosReservaService.ValoresPorDefecto.MaxReservasVigentesPorTelefono,
-                MaxPersonasPorReserva = ParametrosReservaService.ValoresPorDefecto.MaxPersonasPorReserva
+                MaxPersonasPorReserva = ParametrosReservaService.ValoresPorDefecto.MaxPersonasPorReserva,
+                // El teléfono de contacto no se siembra: queda NULL hasta que el restaurante lo escriba.
+                TelefonoContacto = null
             });
         }
 

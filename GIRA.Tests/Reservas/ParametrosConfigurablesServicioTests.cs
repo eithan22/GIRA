@@ -36,6 +36,7 @@ public class ParametrosConfigurablesServicioTests
             reservas ?? new ReservaRepositoryFake(),
             new ClienteRepositoryFake(),
             new MesaGestionRepositoryFalso(),
+            new VisitaRepositoryFalso(),
             parametros,
             new CrearReservaRequestValidator(parametros, reloj),
             new ListarReservasRequestValidator(),

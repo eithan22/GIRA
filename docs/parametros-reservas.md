@@ -5,7 +5,7 @@ sensatos y todos se editan desde **Reservas → Configuración** (pestañas Pol�
 Solo el Gerente y el Administrador editan; el resto del personal (`OperarReservas`) puede consultarlos. El cliente
 ve, sin autenticarse, solo lo necesario para reservar (`GET /api/reservas/politicas`).
 
-## Las seis políticas
+## Las ocho políticas
 
 | Parámetro | Qué hace | Por defecto | Rango | A qué reservas aplica |
 |---|---|---|---|---|
@@ -13,21 +13,31 @@ ve, sin autenticarse, solo lo necesario para reservar (`GET /api/reservas/politi
 | Antelación máxima | Hasta cuántos días adelante se puede reservar | 30 días | 1 a 365 | Reservas **nuevas** |
 | Límite de cancelación | Hasta cuánto antes del inicio de la franja puede cancelar el cliente | 120 min (2 h) | ≥ 0 y no mayor que la antelación máxima | Se evalúa **al cancelar** (también en reservas ya hechas) |
 | Ventana de check-in | Desde cuánto antes del inicio de la franja se permite el check-in | 15 min | 0 a 120 | Se evalúa **al hacer el check-in** |
+| Tolerancia de no-show | Cuánto se espera al cliente antes de marcar No asistió | 15 min | 0 a 120, y menor que la franja activa más corta | Se evalúa **en cada ciclo** del proceso automático (también en reservas ya hechas) |
 | Reservas vigentes por teléfono | Máximo de reservas Confirmada o En curso con un mismo teléfono | 2 | 1 a 10 | Reservas **nuevas** |
 | Tamaño máximo de grupo | Máximo de personas por reserva | 8 | 1 a 50 | Reservas **nuevas** |
+| Teléfono de contacto | Teléfono que se muestra al cliente en `/reservar` (grupos grandes, dudas) | *vacío* | Hasta 30 caracteres: dígitos, espacios, `+`, `-`, `( )` y `.` | No aplica (solo informativo) |
 
 - **Tamaño efectivo de grupo** = el menor entre el máximo configurado y la capacidad de la mesa activa más grande.
-- **No hay tolerancia de no-show** (GI-404): una reserva Confirmada sin check-in pasa a No asistió al terminar su
-  franja, o el personal la marca antes con «Marcar No asistió» una vez que la franja empezó.
+- **Tolerancia de no-show** (GI-404, editable, 15 minutos por defecto): una reserva Confirmada sin check-in pasa a
+  No asistió a los N minutos del inicio de su franja (N = tolerancia configurada, contada desde el mayor entre el
+  inicio de la franja y el último registro de la reserva), o el personal la marca antes con «Marcar No asistió» una
+  vez que la franja empezó. La tolerancia debe ser **menor que la duración de la franja activa más corta**: si no, el
+  servidor responde 409 nombrando esa franja. Por el mismo motivo, al crear, acortar o reactivar una franja activa su
+  duración debe superar la tolerancia vigente (409 con la duración y la tolerancia en el mensaje).
+- **Teléfono de contacto**: se entrega **vacío** (no hay número de ejemplo). Mientras no se configure, el endpoint
+  público lo devuelve como `null`. Un valor en blanco se guarda como vacío, no como cadena vacía.
 - **«Restablecer valores recomendados»** carga los valores por defecto en el formulario **sin guardarlos**; solo se
-  guardan al pulsar Guardar. Los valores por defecto salen de `ParametrosReservaService.ValoresPorDefecto`.
+  guardan al pulsar Guardar. Los valores por defecto salen de `ParametrosReservaService.ValoresPorDefecto`; el
+  teléfono de contacto no tiene valor recomendado (se restablece vacío).
 
 ### Reglas de creación y reglas operativas
 
 - Las **reglas de creación** (antelación mínima y máxima, reservas por teléfono, tamaño de grupo, horario y días
   cerrados) rigen para las reservas nuevas y **no invalidan las existentes**.
-- Las **reglas operativas** (ventana de check-in y límite de cancelación) se leen en el momento en que se evalúan:
-  un cambio rige desde la siguiente acción, también sobre reservas ya hechas.
+- Las **reglas operativas** (ventana de check-in, límite de cancelación y tolerancia de no-show) se leen en el
+  momento en que se evalúan: un cambio rige desde la siguiente acción —o desde el siguiente ciclo del proceso
+  automático, en el caso de la tolerancia—, también sobre reservas ya hechas.
 
 ## Horario de operación
 
@@ -59,9 +69,12 @@ dentro de 12:00–22:30). Se crean **solo si no existen** y nunca pisan lo que e
    franjas de 2 horas solo se insertan en una base vacía o con las 2 franjas originales (Almuerzo 12:00–15:00 y Cena
    18:00–22:30) sin tocar y sin reservas ni visitas que las usen (la migración `Reservas_FranjasDeDosHoras`). Si hay
    reservas, visitas o ediciones del Gerente, no se cambia nada y el Gerente ajusta las franjas desde Configuración.
-3. **Visitas sin reserva y mesas.** Una visita sin reserva **no bloquea la mesa** en la asignación de una reserva del
-   personal: la reserva puede tomar la mesa donde hay una visita en la misma franja. Es una decisión de producto
-   pendiente: la visita no tiene hora de salida, y el mapa de ocupación tampoco la cuenta (GI-402).
+3. **Visitas sin reserva y mesas.** Una visita sin reserva **sí bloquea la mesa** en su fecha y franja: la asignación
+   automática la salta, la disponibilidad (pública y del personal) no ofrece la franja si no queda otra mesa que
+   alcance, y la mesa elegida a mano se rechaza con 409 («tiene una visita sin reserva en esta franja»). Como la
+   visita no tiene hora de salida, se considera ocupada **toda la franja** y se libera al cambiar de franja. Se
+   evaluó darle estado u hora de fin y se decidió no hacerlo: es un registro ya consumado, no una sesión con ciclo de
+   vida. El **mapa de ocupación** sigue sin contarla (GI-402), que es una vista distinta.
 4. **Reducir el horario o cerrar un día no cancela reservas ya hechas.** Solo impide las reservas nuevas; las
    existentes se atienden normalmente.
 5. **Las reglas de creación no invalidan las reservas existentes.** Una reserva creada con una antelación o un tamaño de
@@ -75,5 +88,6 @@ dentro de 12:00–22:30). Se crean **solo si no existen** y nunca pisan lo que e
 9. **Días de la semana cerrados.** El endpoint público de políticas lista solo las fechas cerradas dentro de la ventana
    de reserva; un día de la semana cerrado se descubre por la disponibilidad (todas las franjas salen con el motivo
    «El restaurante está cerrado ese día.»).
-10. **Llegar tarde.** Mientras la reserva siga Confirmada el cliente puede llegar durante toda su franja; una vez No
-    asistió pierde la reserva y solo se le puede atender como visita sin reserva (ver `reservas-canales.md`).
+10. **Llegar tarde.** Mientras la reserva siga Confirmada el cliente puede llegar durante toda su franja, pero el
+    proceso automático la marca No asistió al vencer la tolerancia configurada; una vez No asistió pierde la reserva
+    y solo se le puede atender como visita sin reserva (ver `reservas-canales.md`).

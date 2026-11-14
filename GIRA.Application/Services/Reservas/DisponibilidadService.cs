@@ -11,22 +11,28 @@ namespace GIRA.Application.Services.Reservas;
 /// Implementación de <see cref="IDisponibilidadService"/>. Para el cliente devuelve TODAS las franjas activas del
 /// día, cada una con su disponibilidad y, si no se puede elegir, el motivo (GI-226); el frontend decide cómo
 /// presentarlas. Para el personal conserva su regla: solo las franjas que todavía se pueden reservar, sin la
-/// antelación mínima.
+/// antelación mínima. En ambos casos una mesa con visita sin reserva en esa fecha y franja cuenta como
+/// ocupada, igual que en la asignación de mesa de <see cref="ReservaService"/>.
 /// </summary>
 public class DisponibilidadService : IDisponibilidadService
 {
     private readonly IMesaRepository _mesaRepository;
     private readonly IFranjaHorariaRepository _franjaHorariaRepository;
     private readonly IReservaRepository _reservaRepository;
+    private readonly IVisitaRepository _visitaRepository;
     private readonly IParametrosReservaService _parametros;
     private readonly IValidator<ConsultarDisponibilidadRequest> _validator;
     private readonly TimeProvider _timeProvider;
+
+    // Franja sin visitas sin reserva: se reutiliza para no crear un conjunto vacío por franja.
+    private static readonly IReadOnlySet<Guid> SinVisitas = new HashSet<Guid>();
 
     /// <summary>Crea el servicio con sus repositorios, los parámetros del restaurante y el reloj.</summary>
     public DisponibilidadService(
         IMesaRepository mesaRepository,
         IFranjaHorariaRepository franjaHorariaRepository,
         IReservaRepository reservaRepository,
+        IVisitaRepository visitaRepository,
         IParametrosReservaService parametros,
         IValidator<ConsultarDisponibilidadRequest> validator,
         TimeProvider timeProvider)
@@ -34,6 +40,7 @@ public class DisponibilidadService : IDisponibilidadService
         _mesaRepository = mesaRepository;
         _franjaHorariaRepository = franjaHorariaRepository;
         _reservaRepository = reservaRepository;
+        _visitaRepository = visitaRepository;
         _parametros = parametros;
         _validator = validator;
         _timeProvider = timeProvider;
@@ -85,6 +92,8 @@ public class DisponibilidadService : IDisponibilidadService
         IReadOnlyList<FranjaHoraria> franjas, CancellationToken cancellationToken)
     {
         var ocupadas = await _reservaRepository.ListarVigentesPorFechaAsync(request.Fecha, cancellationToken);
+        // Las visitas sin reserva de ese día también ocupan su mesa en su franja (una sola consulta para todas).
+        var visitasPorFranja = await _visitaRepository.ListarMesasConVisitaPorFechaAsync(request.Fecha, cancellationToken);
         var mesasConCapacidad = mesas.Where(m => m.Capacidad >= request.Personas).ToList();
         var ahoraLocal = _timeProvider.AhoraLocal();
         var hoy = DateOnly.FromDateTime(ahoraLocal);
@@ -93,7 +102,8 @@ public class DisponibilidadService : IDisponibilidadService
         foreach (var franja in franjas)
         {
             var motivo = MotivoNoDisponibleCliente(
-                request, parametros, franja, ahoraLocal, hoy, mesasConCapacidad, ocupadas);
+                request, parametros, franja, ahoraLocal, hoy, mesasConCapacidad, ocupadas,
+                visitasPorFranja.GetValueOrDefault(franja.Id) ?? SinVisitas);
             resultado.Add(new FranjaDisponibleDto(
                 franja.Id, franja.Nombre, franja.HoraInicio, franja.HoraFin, motivo is null, motivo));
         }
@@ -105,7 +115,8 @@ public class DisponibilidadService : IDisponibilidadService
     // mínima y, al final, sin mesas. Devuelve null si la franja se puede elegir.
     private static string? MotivoNoDisponibleCliente(
         ConsultarDisponibilidadRequest request, ParametrosReserva parametros, FranjaHoraria franja,
-        DateTime ahoraLocal, DateOnly hoy, IReadOnlyList<Mesa> mesasConCapacidad, IReadOnlyList<Reserva> ocupadas)
+        DateTime ahoraLocal, DateOnly hoy, IReadOnlyList<Mesa> mesasConCapacidad, IReadOnlyList<Reserva> ocupadas,
+        IReadOnlySet<Guid> mesasConVisita)
     {
         if (!parametros.EstaAbierto(request.Fecha))
         {
@@ -130,7 +141,8 @@ public class DisponibilidadService : IDisponibilidadService
         }
 
         var hayMesaLibre = mesasConCapacidad.Any(mesa =>
-            !ocupadas.Any(reserva => reserva.MesaId == mesa.Id && reserva.FranjaHorariaId == franja.Id));
+            !mesasConVisita.Contains(mesa.Id)
+            && !ocupadas.Any(reserva => reserva.MesaId == mesa.Id && reserva.FranjaHorariaId == franja.Id));
 
         return hayMesaLibre ? null : MensajesReservas.SinMesas(request.Personas);
     }
@@ -153,6 +165,8 @@ public class DisponibilidadService : IDisponibilidadService
         }
 
         var ocupadas = await _reservaRepository.ListarVigentesPorFechaAsync(request.Fecha, cancellationToken);
+        // Igual que para el cliente: una visita sin reserva ocupa su mesa en su franja.
+        var visitasPorFranja = await _visitaRepository.ListarMesasConVisitaPorFechaAsync(request.Fecha, cancellationToken);
         var ahoraLocal = _timeProvider.AhoraLocal();
         var disponibles = new List<FranjaDisponibleDto>();
 
@@ -164,8 +178,10 @@ public class DisponibilidadService : IDisponibilidadService
                 continue;
             }
 
+            var mesasConVisita = visitasPorFranja.GetValueOrDefault(franja.Id) ?? SinVisitas;
             var hayMesaLibre = mesasConCapacidad.Any(mesa =>
-                !ocupadas.Any(reserva => reserva.MesaId == mesa.Id && reserva.FranjaHorariaId == franja.Id));
+                !mesasConVisita.Contains(mesa.Id)
+                && !ocupadas.Any(reserva => reserva.MesaId == mesa.Id && reserva.FranjaHorariaId == franja.Id));
 
             if (hayMesaLibre)
             {

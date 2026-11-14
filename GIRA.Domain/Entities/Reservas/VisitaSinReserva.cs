@@ -7,6 +7,13 @@ namespace GIRA.Domain.Entities.Reservas;
 /// No está asociada a un <see cref="Cliente"/>: solo registra la mesa, la franja y
 /// cuántas personas se atendieron, para la afluencia del restaurante.
 /// </summary>
+/// <remarks>
+/// Decisión de diseño (GI-402, GI-404): se evaluó agregar un estado o una <c>FechaFin</c> para "terminar" la
+/// visita y se decidió NO hacerlo. El modelo actual trata la visita como un registro ya consumado (el grupo
+/// llegó, se le atendió y se anotó), no como una sesión con ciclo de vida: no hay nada que cerrar y el proceso
+/// automático de reservas no la toca. La consecuencia aceptada es que la visita ocupa su mesa durante toda su
+/// franja a efectos de reservas y disponibilidad, y se libera al cambiar de franja.
+/// </remarks>
 public class VisitaSinReserva : BaseEntity
 {
     /// <summary>Fecha de la visita, en hora local de República Dominicana.</summary>

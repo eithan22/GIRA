@@ -11,6 +11,7 @@ import { errorPorCampo, extraerMensajeError } from '../reservasErrores.js';
 import { POLITICAS_POR_DEFECTO } from '../reservasFormato.js';
 import {
   CAMPOS_POLITICAS,
+  CLAVE_TELEFONO_CONTACTO,
   DIAS_HORARIO_ORDEN,
   NOMBRES_DIA,
   armarCuerpoDiaCerrado,
@@ -23,10 +24,14 @@ import {
   politicasAFormulario,
   politicasIguales,
   rangoFechasReserva,
+  telefonoContactoAApi,
+  telefonoContactoAFormulario,
+  telefonosContactoIguales,
   textoLegiblePolitica,
   validarDiaCerrado,
   validarHorarioDia,
   validarPoliticas,
+  validarTelefonoContacto,
 } from './reservasPersonalFormato.js';
 import { avisoFranjaSoloPersonal, ayudaNuevoHorario, mensajeFechaFueraDeRango } from './reservasPersonalTextos.js';
 
@@ -37,6 +42,7 @@ const VALIDAS = {
   antelacionMaximaDias: '30',
   limiteCancelacionMinutos: '120',
   ventanaCheckInMinutos: '15',
+  toleranciaNoShowMinutos: '15',
   maxReservasVigentesPorTelefono: '2',
   maxPersonasPorReserva: '8',
 };
@@ -89,16 +95,21 @@ test('extraerMensajeError: un 500 o un error de red nunca expone el detalle crud
 
 test('politicasAFormulario y formularioAPoliticas: ida y vuelta entre números y texto', () => {
   const dto = { antelacionMinimaMinutos: 120, antelacionMaximaDias: 30, limiteCancelacionMinutos: 90,
-    ventanaCheckInMinutos: 15, maxReservasVigentesPorTelefono: 2, maxPersonasPorReserva: 8 };
+    ventanaCheckInMinutos: 15, toleranciaNoShowMinutos: 20, maxReservasVigentesPorTelefono: 2, maxPersonasPorReserva: 8 };
   const formulario = politicasAFormulario(dto);
   assert.equal(formulario.limiteCancelacionMinutos, '90');
+  assert.equal(formulario.toleranciaNoShowMinutos, '20');
   assert.deepEqual(formularioAPoliticas(formulario), dto);
-  assert.equal(CAMPOS_POLITICAS.length, 6); // seis parámetros: sin tolerancia de no-show
+  assert.equal(CAMPOS_POLITICAS.length, 7); // siete parámetros numéricos, con la tolerancia de no-show
+  // El teléfono de contacto es texto y no entra en el mapeo numérico.
+  assert.equal(CAMPOS_POLITICAS.some((campo) => campo.clave === CLAVE_TELEFONO_CONTACTO), false);
+  assert.equal(Object.hasOwn(formularioAPoliticas(formulario), CLAVE_TELEFONO_CONTACTO), false);
 });
 
-test('politicasIguales: ignora espacios y compara los seis campos', () => {
+test('politicasIguales: ignora espacios y compara los siete campos numéricos', () => {
   assert.equal(politicasIguales(VALIDAS, { ...VALIDAS, maxPersonasPorReserva: ' 8 ' }), true);
   assert.equal(politicasIguales(VALIDAS, { ...VALIDAS, maxPersonasPorReserva: '9' }), false);
+  assert.equal(politicasIguales(VALIDAS, { ...VALIDAS, toleranciaNoShowMinutos: '30' }), false);
 });
 
 test('validarPoliticas: los valores por defecto son válidos', () => {
@@ -108,15 +119,53 @@ test('validarPoliticas: los valores por defecto son válidos', () => {
     antelacionMaximaDias: POLITICAS_POR_DEFECTO.antelacionMaximaDias,
     limiteCancelacionMinutos: POLITICAS_POR_DEFECTO.limiteCancelacionMinutos,
     ventanaCheckInMinutos: 15,
+    toleranciaNoShowMinutos: POLITICAS_POR_DEFECTO.toleranciaNoShowMinutos,
     maxReservasVigentesPorTelefono: 2,
     maxPersonasPorReserva: POLITICAS_POR_DEFECTO.maxPersonas,
   })), {});
+});
+
+// --- Teléfono de contacto: texto opcional, fuera del flujo numérico ---
+
+test('telefonoContactoAFormulario: null, ausente o no texto -> campo vacío; un teléfono llega tal cual', () => {
+  assert.equal(telefonoContactoAFormulario({ telefonoContacto: '809 555 0199' }), '809 555 0199');
+  assert.equal(telefonoContactoAFormulario({ telefonoContacto: null }), '');
+  assert.equal(telefonoContactoAFormulario({}), '');
+  assert.equal(telefonoContactoAFormulario(undefined), '');
+});
+
+test('telefonoContactoAApi: recorta y manda null cuando el campo queda vacío (sin teléfono configurado)', () => {
+  assert.equal(telefonoContactoAApi('  809 555 0199 '), '809 555 0199');
+  assert.equal(telefonoContactoAApi(''), null);
+  assert.equal(telefonoContactoAApi('   '), null);
+  assert.equal(telefonoContactoAApi(null), null);
+});
+
+test('telefonosContactoIguales: compara ignorando los espacios de los extremos', () => {
+  assert.equal(telefonosContactoIguales('809 555 0199', ' 809 555 0199 '), true);
+  assert.equal(telefonosContactoIguales('', '   '), true);
+  assert.equal(telefonosContactoIguales('', '809 555 0199'), false);
+});
+
+test('validarTelefonoContacto: vacío es válido (opcional) y espeja los rangos y mensajes del servidor', () => {
+  assert.equal(validarTelefonoContacto(''), '');
+  assert.equal(validarTelefonoContacto('   '), '');
+  assert.equal(validarTelefonoContacto(null), '');
+  assert.equal(validarTelefonoContacto('+1 (809) 555-0199'), '');
+  assert.equal(validarTelefonoContacto('809.555.0199'), '');
+  assert.equal(validarTelefonoContacto('8'.repeat(31)), 'El teléfono de contacto no puede superar los 30 caracteres.');
+  assert.equal(validarTelefonoContacto('8'.repeat(30)), '');
+  assert.equal(validarTelefonoContacto('llama al 809'),
+    'El teléfono de contacto solo puede tener dígitos, espacios, +, -, ( ) y punto.');
 });
 
 test('validarPoliticas: espeja los rangos y mensajes del servidor', () => {
   assert.equal(validarPoliticas({ ...VALIDAS, antelacionMaximaDias: '0' }).antelacionMaximaDias, 'La antelación máxima debe estar entre 1 y 365 días.');
   assert.equal(validarPoliticas({ ...VALIDAS, antelacionMaximaDias: '366' }).antelacionMaximaDias, 'La antelación máxima debe estar entre 1 y 365 días.');
   assert.equal(validarPoliticas({ ...VALIDAS, ventanaCheckInMinutos: '121' }).ventanaCheckInMinutos, 'La ventana de check-in debe estar entre 0 y 120 minutos.');
+  assert.equal(validarPoliticas({ ...VALIDAS, toleranciaNoShowMinutos: '121' }).toleranciaNoShowMinutos, 'La tolerancia de no-show debe estar entre 0 y 120 minutos.');
+  assert.equal(validarPoliticas({ ...VALIDAS, toleranciaNoShowMinutos: '120' }).toleranciaNoShowMinutos, undefined);
+  assert.equal(validarPoliticas({ ...VALIDAS, toleranciaNoShowMinutos: '0' }).toleranciaNoShowMinutos, undefined);
   assert.equal(validarPoliticas({ ...VALIDAS, maxReservasVigentesPorTelefono: '11' }).maxReservasVigentesPorTelefono, 'El máximo de reservas vigentes por teléfono debe estar entre 1 y 10.');
   assert.equal(validarPoliticas({ ...VALIDAS, maxPersonasPorReserva: '51' }).maxPersonasPorReserva, 'El tamaño máximo de grupo debe estar entre 1 y 50 personas.');
   assert.equal(validarPoliticas({ ...VALIDAS, maxPersonasPorReserva: '50' }).maxPersonasPorReserva, undefined);
@@ -145,6 +194,8 @@ test('textoLegiblePolitica: minutos en horas y días en días, junto a la unidad
   assert.equal(textoLegiblePolitica(porClave('limiteCancelacionMinutos'), '60'), '= 1 hora');
   assert.equal(textoLegiblePolitica(porClave('antelacionMaximaDias'), '30'), '= 30 días');
   assert.equal(textoLegiblePolitica(porClave('antelacionMaximaDias'), '1'), '= 1 día');
+  assert.equal(textoLegiblePolitica(porClave('toleranciaNoShowMinutos'), '15'), '= 15 minutos');
+  assert.equal(textoLegiblePolitica(porClave('toleranciaNoShowMinutos'), '60'), '= 1 hora');
   assert.equal(textoLegiblePolitica(porClave('maxPersonasPorReserva'), '8'), '');
   assert.equal(textoLegiblePolitica(porClave('antelacionMinimaMinutos'), 'abc'), '');
 });

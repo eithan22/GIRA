@@ -5,17 +5,25 @@ import { useCargaConfiguracion } from '../hooks/useCargaConfiguracion.js';
 import { invalidarParametrosOperativos } from '../hooks/useParametrosOperativos.js';
 import {
   CAMPOS_POLITICAS,
+  CLAVE_TELEFONO_CONTACTO,
+  MAXIMO_TELEFONO_CONTACTO,
   formatearFechaHoraSantoDomingo,
   formularioAPoliticas,
   politicasAFormulario,
   politicasIguales,
+  telefonoContactoAApi,
+  telefonoContactoAFormulario,
+  telefonosContactoIguales,
   textoLegiblePolitica,
   validarPoliticas,
+  validarTelefonoContacto,
 } from '../reservasPersonalFormato.js';
 import { mensajeDeError, reservasPersonalService } from '../reservasPersonalService.js';
 import {
   AVISO_RECOMENDADOS_CARGADOS,
+  AYUDA_TELEFONO_CONTACTO,
   ERROR_CORREGIR_CAMPOS,
+  ETIQUETA_TELEFONO_CONTACTO,
   EXITO_POLITICAS,
   INTRO_POLITICAS,
   TEXTOS_CAMPOS_POLITICAS,
@@ -29,12 +37,14 @@ import {
   textoUltimaActualizacion,
 } from '../reservasPersonalTextos.js';
 import CampoNumericoConfiguracion from './CampoNumericoConfiguracion.jsx';
+import CampoTextoConfiguracion from './CampoTextoConfiguracion.jsx';
 import EstadoPagina from './EstadoPagina.jsx';
 
 /**
- * Pestaña «Políticas» (GI-226, RF-CFG-01): las seis políticas de reserva con su unidad y el texto legible al lado,
- * ayuda breve por campo, «Restablecer valores recomendados» (carga los valores por defecto SIN guardar hasta que se
- * pulse Guardar; «Descartar cambios» vuelve a lo guardado) y los errores del servidor junto a cada campo.
+ * Pestaña «Políticas» (GI-226, RF-CFG-01): las políticas numéricas de reserva con su unidad y el texto legible al
+ * lado, el teléfono de contacto (texto opcional), ayuda breve por campo, «Restablecer valores recomendados» (carga
+ * los valores por defecto SIN guardar hasta que se pulse Guardar; «Descartar cambios» vuelve a lo guardado) y los
+ * errores del servidor junto a cada campo.
  */
 export default function SeccionPoliticas({ onSucio }) {
   const carga = useCargaConfiguracion((opciones) => reservasPersonalService.obtenerParametrosReserva(opciones));
@@ -46,9 +56,21 @@ export default function SeccionPoliticas({ onSucio }) {
   return <FormularioPoliticas dto={carga.datos} onSucio={onSucio} />;
 }
 
+// Errores por campo de todo el formulario: los numéricos y el teléfono, que se valida aparte porque es texto.
+function validarTodo(formulario, telefono) {
+  const errores = validarPoliticas(formulario);
+  const errorTelefono = validarTelefonoContacto(telefono);
+  if (errorTelefono) errores[CLAVE_TELEFONO_CONTACTO] = errorTelefono;
+  return errores;
+}
+
 function FormularioPoliticas({ dto, onSucio }) {
   const [base, setBase] = useState(() => politicasAFormulario(dto.parametros));
   const [formulario, setFormulario] = useState(base);
+  // El teléfono vive aparte del formulario numérico: politicasAFormulario/formularioAPoliticas convierten con
+  // Number() todo lo que tocan, y este valor es texto libre que puede quedar vacío (= sin teléfono configurado).
+  const [baseTelefono, setBaseTelefono] = useState(() => telefonoContactoAFormulario(dto.parametros));
+  const [telefono, setTelefono] = useState(baseTelefono);
   const [actualizadoEn, setActualizadoEn] = useState(dto.actualizadoEn);
   const [restablecido, setRestablecido] = useState(false);
   const [intentado, setIntentado] = useState(false);
@@ -58,11 +80,12 @@ function FormularioPoliticas({ dto, onSucio }) {
   const [enviando, setEnviando] = useState(false);
   const envioEnCursoRef = useRef(false);
   const campoRefs = useRef({});
+  const telefonoRef = useRef(null);
   const avisoRef = useRef(null);
 
   const defectos = politicasAFormulario(dto.valoresPorDefecto);
-  const hayCambios = !politicasIguales(formulario, base);
-  const erroresCliente = intentado ? validarPoliticas(formulario) : {};
+  const hayCambios = !politicasIguales(formulario, base) || !telefonosContactoIguales(telefono, baseTelefono);
+  const erroresCliente = intentado ? validarTodo(formulario, telefono) : {};
   const errores = { ...erroresCliente, ...erroresServidor };
 
   useEffect(() => {
@@ -84,8 +107,11 @@ function FormularioPoliticas({ dto, onSucio }) {
     setExito(null);
   }
 
+  // Un teléfono recomendado no existe: el valor recomendado es "ninguno", así que el campo queda vacío y nunca se
+  // carga un número de ejemplo que el restaurante pudiera guardar sin darse cuenta.
   function restablecer() {
     setFormulario(defectos);
+    setTelefono('');
     setRestablecido(true);
     setExito(null);
     setErroresServidor({});
@@ -95,6 +121,7 @@ function FormularioPoliticas({ dto, onSucio }) {
 
   function descartar() {
     setFormulario(base);
+    setTelefono(baseTelefono);
     setRestablecido(false);
     setExito(null);
     setErroresServidor({});
@@ -102,9 +129,21 @@ function FormularioPoliticas({ dto, onSucio }) {
     setIntentado(false);
   }
 
+  function cambiarTelefono(valor) {
+    setTelefono(valor);
+    setErroresServidor((actuales) => {
+      if (!actuales[CLAVE_TELEFONO_CONTACTO]) return actuales;
+      const { [CLAVE_TELEFONO_CONTACTO]: _quitado, ...resto } = actuales;
+      return resto;
+    });
+    setExito(null);
+  }
+
+  // El teléfono va al final, como en la pantalla: si el servidor marca su campo y ninguno numérico, se enfoca él.
   function enfocarPrimerError(campos) {
     const primero = CAMPOS_POLITICAS.find(({ clave }) => campos[clave]);
     if (primero) campoRefs.current[primero.clave]?.focus();
+    else if (campos[CLAVE_TELEFONO_CONTACTO]) telefonoRef.current?.focus();
   }
 
   async function guardar(evento) {
@@ -113,7 +152,7 @@ function FormularioPoliticas({ dto, onSucio }) {
     setIntentado(true);
     setErrorGeneral('');
     setExito(null);
-    const invalidos = validarPoliticas(formulario);
+    const invalidos = validarTodo(formulario, telefono);
     if (Object.keys(invalidos).length > 0) {
       setErroresServidor({});
       enfocarPrimerError(invalidos);
@@ -123,10 +162,17 @@ function FormularioPoliticas({ dto, onSucio }) {
     envioEnCursoRef.current = true;
     setEnviando(true);
     try {
-      const resultado = await reservasPersonalService.guardarParametrosReserva(formularioAPoliticas(formulario));
+      // El teléfono se agrega al cuerpo aquí, fuera del mapeo numérico: viaja recortado y como null si quedó vacío.
+      const resultado = await reservasPersonalService.guardarParametrosReserva({
+        ...formularioAPoliticas(formulario),
+        [CLAVE_TELEFONO_CONTACTO]: telefonoContactoAApi(telefono),
+      });
       const guardado = politicasAFormulario(resultado.configuracion.parametros);
+      const telefonoGuardado = telefonoContactoAFormulario(resultado.configuracion.parametros);
       setBase(guardado);
       setFormulario(guardado);
+      setBaseTelefono(telefonoGuardado);
+      setTelefono(telefonoGuardado);
       setActualizadoEn(resultado.configuracion.actualizadoEn);
       setRestablecido(false);
       setErroresServidor({});
@@ -190,6 +236,19 @@ function FormularioPoliticas({ dto, onSucio }) {
             />
           );
         })}
+
+        <CampoTextoConfiguracion
+          id={`politica-${CLAVE_TELEFONO_CONTACTO}`}
+          etiqueta={ETIQUETA_TELEFONO_CONTACTO}
+          ayuda={AYUDA_TELEFONO_CONTACTO}
+          valor={telefono}
+          error={errores[CLAVE_TELEFONO_CONTACTO]}
+          onCambiar={cambiarTelefono}
+          inputRef={telefonoRef}
+          tipo="tel"
+          modoEntrada="tel"
+          maximoCaracteres={MAXIMO_TELEFONO_CONTACTO}
+        />
       </div>
 
       <div className="reservas-personal-confirmacion-botones">

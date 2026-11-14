@@ -91,7 +91,9 @@ public class ConfiguracionReservasServiceTests
         public void Dispose() => Contexto.Dispose();
     }
 
-    private static ActualizarParametrosRequest Request(int maxPersonas = 8) => new(90, 60, 45, 10, 3, maxPersonas);
+    private static ActualizarParametrosRequest Request(
+        int maxPersonas = 8, int toleranciaNoShow = 20, string? telefono = null) =>
+        new(90, 60, 45, 10, toleranciaNoShow, 3, maxPersonas, telefono);
 
     // --- Políticas ---
 
@@ -104,7 +106,7 @@ public class ConfiguracionReservasServiceTests
 
         var dto = resultado.Value!;
         Assert.Equal(dto.ValoresPorDefecto, dto.Parametros);
-        Assert.Equal(new ParametrosEditablesDto(120, 30, 120, 15, 2, 8), dto.Parametros);
+        Assert.Equal(new ParametrosEditablesDto(120, 30, 120, 15, 15, 2, 8, null), dto.Parametros);
         Assert.Null(dto.ActualizadoEn);
         Assert.Null(dto.ActualizadoPor);
     }
@@ -138,11 +140,86 @@ public class ConfiguracionReservasServiceTests
         Assert.True(resultado.IsSuccess);
         var fila = await e.Contexto.ConfiguracionesRestaurante.SingleAsync();
         Assert.Equal(ConfiguracionRestaurante.IdUnico, fila.Id);
-        Assert.Equal((90, 60, 45, 10, 3, 8),
+        Assert.Equal((90, 60, 45, 10, 20, 3, 8),
             (fila.AntelacionMinimaMinutos, fila.AntelacionMaximaDias, fila.LimiteCancelacionMinutos,
-             fila.VentanaCheckInMinutos, fila.MaxReservasVigentesPorTelefono, fila.MaxPersonasPorReserva));
-        Assert.Equal(new ParametrosEditablesDto(90, 60, 45, 10, 3, 8), resultado.Value!.Configuracion.Parametros);
+             fila.VentanaCheckInMinutos, fila.ToleranciaNoShowMinutos, fila.MaxReservasVigentesPorTelefono,
+             fila.MaxPersonasPorReserva));
+        Assert.Null(fila.TelefonoContacto);
+        Assert.Equal(new ParametrosEditablesDto(90, 60, 45, 10, 20, 3, 8, null), resultado.Value!.Configuracion.Parametros);
         Assert.Equal(1, e.Parametros.Invalidaciones);
+    }
+
+    // --- Tolerancia de no-show y teléfono de contacto (GI-404) ---
+
+    [Fact]
+    public async Task ActualizarParametros_ConUnaToleranciaMayorQueLaFranjaMasCorta_EsConflict_Y_NoGuarda()
+    {
+        using var e = new Entorno();
+        e.Salon.Franjas =
+        [
+            new FranjaActivaInfo(Guid.NewGuid(), "Almuerzo", new TimeOnly(12, 0), new TimeOnly(13, 45)),
+            new FranjaActivaInfo(Guid.NewGuid(), "Café", new TimeOnly(16, 0), new TimeOnly(16, 30))
+        ];
+
+        var resultado = await e.Servicio.ActualizarParametrosAsync(Request(toleranciaNoShow: 30), default);
+
+        Assert.Equal(ErrorType.Conflict, resultado.Type);
+        Assert.Equal(
+            "La tolerancia de no-show no puede ser mayor o igual que la duración de la franja 'Café' (16:00–16:30).",
+            resultado.Error);
+        Assert.Empty(await e.Contexto.ConfiguracionesRestaurante.ToListAsync());
+        Assert.Equal(0, e.Parametros.Invalidaciones);
+    }
+
+    [Fact]
+    public async Task ActualizarParametros_ConUnaToleranciaMenorQueLaFranjaMasCorta_Guarda()
+    {
+        using var e = new Entorno();
+        e.Salon.Franjas = [new FranjaActivaInfo(Guid.NewGuid(), "Café", new TimeOnly(16, 0), new TimeOnly(16, 30))];
+
+        var resultado = await e.Servicio.ActualizarParametrosAsync(Request(toleranciaNoShow: 29), default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal(29, (await e.Contexto.ConfiguracionesRestaurante.SingleAsync()).ToleranciaNoShowMinutos);
+    }
+
+    [Fact]
+    public async Task ActualizarParametros_SinFranjasActivas_NoValidaLaTolerancia()
+    {
+        using var e = new Entorno();
+
+        var resultado = await e.Servicio.ActualizarParametrosAsync(Request(toleranciaNoShow: 120), default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal(120, (await e.Contexto.ConfiguracionesRestaurante.SingleAsync()).ToleranciaNoShowMinutos);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ActualizarParametros_ConTelefonoVacio_LoGuardaComoNulo(string? telefono)
+    {
+        using var e = new Entorno();
+
+        var resultado = await e.Servicio.ActualizarParametrosAsync(Request(telefono: telefono), default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Null((await e.Contexto.ConfiguracionesRestaurante.SingleAsync()).TelefonoContacto);
+        Assert.Null(resultado.Value!.Configuracion.Parametros.TelefonoContacto);
+    }
+
+    [Fact]
+    public async Task ActualizarParametros_ConTelefono_LoGuardaSinEspaciosAlrededor()
+    {
+        using var e = new Entorno();
+
+        var resultado = await e.Servicio.ActualizarParametrosAsync(Request(telefono: "  809-555-1234  "), default);
+
+        Assert.Equal("809-555-1234", (await e.Contexto.ConfiguracionesRestaurante.SingleAsync()).TelefonoContacto);
+        Assert.Equal("809-555-1234", resultado.Value!.Configuracion.Parametros.TelefonoContacto);
+        // El teléfono no tiene valor recomendado: «Restablecer valores recomendados» lo deja vacío.
+        Assert.Null(resultado.Value.Configuracion.ValoresPorDefecto.TelefonoContacto);
     }
 
     [Fact]

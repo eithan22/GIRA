@@ -15,8 +15,13 @@ public sealed record HorarioDia(bool Abierto, TimeOnly HoraApertura, TimeOnly Ho
 /// <param name="AntelacionMaxima">Antelación máxima para crear una reserva (solo reservas nuevas).</param>
 /// <param name="LimiteCancelacion">Tiempo antes del inicio de la franja hasta el cual el cliente puede cancelar.</param>
 /// <param name="VentanaCheckIn">Tiempo antes del inicio de la franja desde el cual se permite el check-in.</param>
+/// <param name="ToleranciaNoShow">
+/// Tolerancia tras la cual una reserva Confirmada sin check-in pasa a NoAsistio (GI-404), contada desde el mayor
+/// entre el inicio de la franja y el último registro de la reserva.
+/// </param>
 /// <param name="MaxReservasVigentesPorTelefono">Máximo de reservas vigentes con un mismo teléfono.</param>
 /// <param name="MaxPersonasPorReserva">Tamaño máximo de grupo configurado (el efectivo también depende de las mesas).</param>
+/// <param name="TelefonoContacto">Teléfono de contacto del restaurante; null si no se configuró.</param>
 /// <param name="Horarios">Horario de cada día de la semana.</param>
 /// <param name="DiasCerrados">Fechas concretas en las que el restaurante está cerrado.</param>
 public sealed record ParametrosReserva(
@@ -24,8 +29,10 @@ public sealed record ParametrosReserva(
     TimeSpan AntelacionMaxima,
     TimeSpan LimiteCancelacion,
     TimeSpan VentanaCheckIn,
+    TimeSpan ToleranciaNoShow,
     int MaxReservasVigentesPorTelefono,
     int MaxPersonasPorReserva,
+    string? TelefonoContacto,
     IReadOnlyDictionary<DayOfWeek, HorarioDia> Horarios,
     IReadOnlySet<DateOnly> DiasCerrados)
 {

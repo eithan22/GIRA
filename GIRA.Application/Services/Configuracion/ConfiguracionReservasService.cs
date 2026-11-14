@@ -47,6 +47,22 @@ public class ConfiguracionReservasService : IConfiguracionReservasService
     public async Task<OperationResult<ParametrosGuardadosDto>> ActualizarParametrosAsync(
         ActualizarParametrosRequest request, CancellationToken cancellationToken)
     {
+        // Los siete campos numéricos ya pasaron ActualizarParametrosRequestValidator (NotNull incluido) antes
+        // de llegar aquí, así que .Value es seguro — por eso el DTO los declara int? (ver su comentario XML).
+
+        // La tolerancia de no-show debe caber dentro de la franja más corta: si no, la reserva se marcaría
+        // NoAsistio cuando su franja ya terminó. Se valida antes de tocar la fila, igual que la validación de
+        // horario contra franjas de ActualizarHorarioAsync.
+        var franjas = await _salon.ListarFranjasActivasAsync(cancellationToken);
+        var masCorta = franjas.OrderBy(f => f.HoraFin - f.HoraInicio).FirstOrDefault();
+        if (masCorta is not null && TimeSpan.FromMinutes(request.ToleranciaNoShowMinutos!.Value) >= (masCorta.HoraFin - masCorta.HoraInicio))
+        {
+            return OperationResult.Failure<ParametrosGuardadosDto>(
+                ErrorType.Conflict,
+                $"La tolerancia de no-show no puede ser mayor o igual que la duración de la franja '{masCorta.Nombre}' " +
+                $"({DiasSemanaEs.Hora(masCorta.HoraInicio)}–{DiasSemanaEs.Hora(masCorta.HoraFin)}).");
+        }
+
         var configuracion = await _repositorio.BuscarConfiguracionAsync(cancellationToken);
         if (configuracion is null)
         {
@@ -55,12 +71,17 @@ public class ConfiguracionReservasService : IConfiguracionReservasService
             _repositorio.AgregarConfiguracion(configuracion);
         }
 
-        configuracion.AntelacionMinimaMinutos = request.AntelacionMinimaMinutos;
-        configuracion.AntelacionMaximaDias = request.AntelacionMaximaDias;
-        configuracion.LimiteCancelacionMinutos = request.LimiteCancelacionMinutos;
-        configuracion.VentanaCheckInMinutos = request.VentanaCheckInMinutos;
-        configuracion.MaxReservasVigentesPorTelefono = request.MaxReservasVigentesPorTelefono;
-        configuracion.MaxPersonasPorReserva = request.MaxPersonasPorReserva;
+        configuracion.AntelacionMinimaMinutos = request.AntelacionMinimaMinutos!.Value;
+        configuracion.AntelacionMaximaDias = request.AntelacionMaximaDias!.Value;
+        configuracion.LimiteCancelacionMinutos = request.LimiteCancelacionMinutos!.Value;
+        configuracion.VentanaCheckInMinutos = request.VentanaCheckInMinutos!.Value;
+        configuracion.ToleranciaNoShowMinutos = request.ToleranciaNoShowMinutos!.Value;
+        configuracion.MaxReservasVigentesPorTelefono = request.MaxReservasVigentesPorTelefono!.Value;
+        configuracion.MaxPersonasPorReserva = request.MaxPersonasPorReserva!.Value;
+        // Vacío o solo espacios se guarda como NULL: la base no distingue "sin teléfono" de "cadena vacía".
+        configuracion.TelefonoContacto = string.IsNullOrWhiteSpace(request.TelefonoContacto)
+            ? null
+            : request.TelefonoContacto.Trim();
 
         if (!await GuardarAsync(cancellationToken))
         {
@@ -250,13 +271,17 @@ public class ConfiguracionReservasService : IConfiguracionReservasService
 
     private static string Vigentes(int cantidad) => cantidad == 1 ? "1 reserva vigente" : $"{cantidad} reservas vigentes";
 
+    // Valores recomendados que carga «Restablecer valores recomendados»; el teléfono de contacto no tiene
+    // valor recomendado (es dato propio del restaurante), así que sale null.
     private static ParametrosEditablesDto PorDefecto() => new(
         ParametrosReservaService.ValoresPorDefecto.AntelacionMinimaMinutos,
         ParametrosReservaService.ValoresPorDefecto.AntelacionMaximaDias,
         ParametrosReservaService.ValoresPorDefecto.LimiteCancelacionMinutos,
         ParametrosReservaService.ValoresPorDefecto.VentanaCheckInMinutos,
+        ParametrosReservaService.ValoresPorDefecto.ToleranciaNoShowMinutos,
         ParametrosReservaService.ValoresPorDefecto.MaxReservasVigentesPorTelefono,
-        ParametrosReservaService.ValoresPorDefecto.MaxPersonasPorReserva);
+        ParametrosReservaService.ValoresPorDefecto.MaxPersonasPorReserva,
+        TelefonoContacto: null);
 
     private static ConfiguracionParametrosDto ADto(ConfiguracionRestaurante? c, bool incluirAuditoria)
     {
@@ -264,7 +289,8 @@ public class ConfiguracionReservasService : IConfiguracionReservasService
             ? PorDefecto()
             : new ParametrosEditablesDto(
                 c.AntelacionMinimaMinutos, c.AntelacionMaximaDias, c.LimiteCancelacionMinutos,
-                c.VentanaCheckInMinutos, c.MaxReservasVigentesPorTelefono, c.MaxPersonasPorReserva);
+                c.VentanaCheckInMinutos, c.ToleranciaNoShowMinutos, c.MaxReservasVigentesPorTelefono,
+                c.MaxPersonasPorReserva, c.TelefonoContacto);
 
         return new ConfiguracionParametrosDto(
             vigentes, PorDefecto(), c?.UpdatedAt, incluirAuditoria ? c?.UpdatedBy : null);

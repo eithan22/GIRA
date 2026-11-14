@@ -46,6 +46,12 @@ public class VisitasController : ControllerBase
     /// ser futura ni de hace más de 365 días (400, igual que un formato inválido). Es solo lectura: la visita sin
     /// reserva NO marca la mesa como ocupada en el mapa (no tiene hora de salida), y esto no lo cambia.
     /// </summary>
+    /// <remarks>
+    /// No hay endpoint para "terminar" una visita: se evaluó agregarle un estado o una hora de fin y se decidió
+    /// que el modelo la trate como un registro ya consumado, no como una sesión con ciclo de vida (ver el
+    /// comentario de <c>VisitaSinReserva</c>). Sí ocupa su mesa en su franja para las reservas y la
+    /// disponibilidad; el mapa de ocupación sigue sin contarla.
+    /// </remarks>
     [HttpGet]
     [ProducesResponseType<VisitasDelDiaDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]

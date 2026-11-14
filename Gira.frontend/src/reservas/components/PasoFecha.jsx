@@ -18,13 +18,13 @@ import {
   ERROR_PERSONAS_FORMATO,
   ERROR_PERSONAS_MINIMO,
   ETIQUETA_PERSONAS_NUMERO,
-  TELEFONO_RESTAURANTE,
   TEXTO_CARGANDO_DISPONIBILIDAD,
-  TEXTO_SIN_DISPONIBILIDAD,
   MENSAJE_ERROR_GENERICO,
   textoAyudaPersonas,
   textoGrupoGrande,
   textoMasDePersonas,
+  textoMensajeConTelefono,
+  textoSinDisponibilidad,
   textoVentanaReserva,
 } from '../reservasTextos.js';
 import Aviso from './Aviso.jsx';
@@ -167,7 +167,8 @@ export default function PasoFecha({ valor, onCambiar, onContinuar }) {
 
       let mensaje = extraerMensajeError(err, MENSAJE_ERROR_GENERICO);
       if (mensaje.toLowerCase().includes('llama al restaurante')) {
-        mensaje = `${mensaje} ${TELEFONO_RESTAURANTE}`;
+        // Solo se agrega el número si el restaurante lo configuró; si no, el mensaje del servidor va tal cual.
+        mensaje = textoMensajeConTelefono(mensaje, politicas);
       }
       setError({ tipo: 'otro', mensaje });
     }
@@ -313,7 +314,7 @@ export default function PasoFecha({ valor, onCambiar, onContinuar }) {
         </Aviso>
       )}
 
-      {sinResultados && <Aviso tipo="neutro">{TEXTO_SIN_DISPONIBILIDAD}</Aviso>}
+      {sinResultados && <Aviso tipo="neutro">{textoSinDisponibilidad(politicas)}</Aviso>}
 
       {!cargando && !error && diaCerrado && <Aviso tipo="neutro">{AVISO_DIA_CERRADO}</Aviso>}
 

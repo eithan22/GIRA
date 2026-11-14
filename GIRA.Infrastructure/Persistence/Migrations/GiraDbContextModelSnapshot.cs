@@ -63,6 +63,13 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
+                    b.Property<string>("TelefonoContacto")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("ToleranciaNoShowMinutos")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -87,6 +94,8 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("CK_ConfiguracionRestaurante_MaxPersonas", "[MaxPersonasPorReserva] BETWEEN 1 AND 50");
 
                             t.HasCheckConstraint("CK_ConfiguracionRestaurante_MaxVigentes", "[MaxReservasVigentesPorTelefono] BETWEEN 1 AND 10");
+
+                            t.HasCheckConstraint("CK_ConfiguracionRestaurante_ToleranciaNoShow", "[ToleranciaNoShowMinutos] BETWEEN 0 AND 120");
 
                             t.HasCheckConstraint("CK_ConfiguracionRestaurante_VentanaCheckIn", "[VentanaCheckInMinutos] BETWEEN 0 AND 120");
                         });

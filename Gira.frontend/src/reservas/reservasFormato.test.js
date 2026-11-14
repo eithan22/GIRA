@@ -23,9 +23,12 @@ import {
   validarPersonasCliente,
 } from './reservasFormato.js';
 import {
+  TEXTO_CONTACTAR_RESTAURANTE,
   textoGrupoGrande,
   textoLimiteCancelacion,
   textoMasDePersonas,
+  textoMensajeConTelefono,
+  textoSinDisponibilidad,
   textoVentanaReserva,
 } from './reservasTextos.js';
 
@@ -34,11 +37,14 @@ const HOY = { anio: 2026, mes: 11, dia: 1 }; // 1 de diciembre de 2026 (mes 0-ba
 
 // --- Valores por defecto: un solo sitio, espejo de ParametrosReservaService.ValoresPorDefecto ---
 
-test('POLITICAS_POR_DEFECTO: refleja los valores por defecto del backend (2 h, 30 días, 2 h, 8 personas)', () => {
+test('POLITICAS_POR_DEFECTO: refleja los valores por defecto del backend (2 h, 30 días, 2 h, 15 min, 8 personas)', () => {
   assert.equal(POLITICAS_POR_DEFECTO.antelacionMinimaMinutos, 120);
   assert.equal(POLITICAS_POR_DEFECTO.antelacionMaximaDias, 30);
   assert.equal(POLITICAS_POR_DEFECTO.limiteCancelacionMinutos, 120);
+  assert.equal(POLITICAS_POR_DEFECTO.toleranciaNoShowMinutos, 15);
   assert.equal(POLITICAS_POR_DEFECTO.maxPersonas, 8);
+  // No hay teléfono por defecto: mientras no se configure uno, los textos no muestran ningún número.
+  assert.equal(POLITICAS_POR_DEFECTO.telefonoContacto, null);
   assert.deepEqual([...POLITICAS_POR_DEFECTO.diasCerrados], []);
 });
 
@@ -64,6 +70,8 @@ test('los valores por defecto viven solo en reservasFormato.js y no quedan topes
     assert.doesNotMatch(texto, /sumarDiasLocal\([^)]*,\s*30\)/, `${nombre}: tope fijo de 30 días`);
     assert.doesNotMatch(texto, /MAX_PERSONAS_CHIPS/, `${nombre}: 8 chips fijos`);
     assert.doesNotMatch(texto, /TEXTO_(VENTANA_RESERVA|MAS_DE_8|LIMITE_CANCELACION)/, `${nombre}: textos con valores fijos`);
+    // El teléfono del restaurante sale de las políticas: ya no queda ningún placeholder sin rellenar.
+    assert.doesNotMatch(texto, /TELEFONO_RESTAURANTE|TELÉFONO DEL RESTAURANTE/, `${nombre}: placeholder de teléfono`);
   }
 });
 
@@ -72,18 +80,28 @@ test('los valores por defecto viven solo en reservasFormato.js y no quedan topes
 test('normalizarPoliticas: toma lo que llega del servidor y completa lo que falte o venga mal con el defecto', () => {
   assert.deepEqual(
     normalizarPoliticas({
-      antelacionMinimaMinutos: 45, antelacionMaximaDias: 60, limiteCancelacionMinutos: 0, maxPersonas: 4,
-      diasCerrados: ['2026-12-25'],
+      antelacionMinimaMinutos: 45, antelacionMaximaDias: 60, limiteCancelacionMinutos: 0, toleranciaNoShowMinutos: 20,
+      maxPersonas: 4, telefonoContacto: '809 555 0199', diasCerrados: ['2026-12-25'],
     }),
     {
-      antelacionMinimaMinutos: 45, antelacionMaximaDias: 60, limiteCancelacionMinutos: 0, maxPersonas: 4,
-      diasCerrados: ['2026-12-25'],
+      antelacionMinimaMinutos: 45, antelacionMaximaDias: 60, limiteCancelacionMinutos: 0, toleranciaNoShowMinutos: 20,
+      maxPersonas: 4, telefonoContacto: '809 555 0199', diasCerrados: ['2026-12-25'],
     },
   );
   assert.equal(normalizarPoliticas(null), POLITICAS_POR_DEFECTO);
   assert.equal(normalizarPoliticas({ antelacionMaximaDias: 'x', maxPersonas: 0 }).antelacionMaximaDias, 30);
   assert.equal(normalizarPoliticas({ antelacionMaximaDias: 'x', maxPersonas: 0 }).maxPersonas, 8);
+  assert.equal(normalizarPoliticas({ toleranciaNoShowMinutos: 'x' }).toleranciaNoShowMinutos, 15);
+  assert.equal(normalizarPoliticas({ toleranciaNoShowMinutos: 0 }).toleranciaNoShowMinutos, 0);
   assert.deepEqual(normalizarPoliticas({ diasCerrados: 'no' }).diasCerrados, []);
+});
+
+test('normalizarPoliticas: un teléfono vacío, con solo espacios o ausente queda en null', () => {
+  assert.equal(normalizarPoliticas({ telefonoContacto: '' }).telefonoContacto, null);
+  assert.equal(normalizarPoliticas({ telefonoContacto: '   ' }).telefonoContacto, null);
+  assert.equal(normalizarPoliticas({ telefonoContacto: null }).telefonoContacto, null);
+  assert.equal(normalizarPoliticas({}).telefonoContacto, null);
+  assert.equal(normalizarPoliticas({ telefonoContacto: ' 809 555 0199 ' }).telefonoContacto, '809 555 0199');
 });
 
 // --- Textos desde las políticas ---
@@ -108,6 +126,25 @@ test('los textos con los valores por defecto dicen lo mismo que decían antes', 
   assert.equal(textoVentanaReserva(POLITICAS_POR_DEFECTO), 'Reservamos desde hoy hasta 30 días adelante y con al menos 2 horas de anticipación.');
   assert.match(textoLimiteCancelacion(POLITICAS_POR_DEFECTO), /^Cancelación gratis hasta 2 horas antes de la franja\./);
   assert.match(textoMasDePersonas(POLITICAS_POR_DEFECTO), /^¿Más de 8\?/);
+});
+
+test('con teléfono configurado los textos invitan a llamar a ese número', () => {
+  const politicas = { ...POLITICAS_POR_DEFECTO, telefonoContacto: '809 555 0199' };
+  assert.equal(textoMasDePersonas(politicas), '¿Más de 8? Llama al 809 555 0199.');
+  assert.match(textoGrupoGrande(politicas), /llama al restaurante\. 809 555 0199$/);
+  assert.match(textoSinDisponibilidad(politicas), /Prueba otro día o llámanos al 809 555 0199\.$/);
+  assert.equal(textoMensajeConTelefono('Llama al restaurante.', politicas), 'Llama al restaurante. 809 555 0199');
+});
+
+test('sin teléfono configurado ningún texto deja un hueco: se remite al restaurante', () => {
+  const politicas = POLITICAS_POR_DEFECTO; // telefonoContacto = null
+  assert.equal(textoMasDePersonas(politicas), `¿Más de 8? ${TEXTO_CONTACTAR_RESTAURANTE}`);
+  assert.equal(textoGrupoGrande(politicas), 'Para grupos de más de 8 personas, llama al restaurante.');
+  assert.match(textoSinDisponibilidad(politicas), /Prueba otro día\. Contacta directamente al restaurante\.$/);
+  assert.equal(textoMensajeConTelefono('Llama al restaurante.', politicas), 'Llama al restaurante.');
+  for (const texto of [textoMasDePersonas(politicas), textoGrupoGrande(politicas), textoSinDisponibilidad(politicas)]) {
+    assert.doesNotMatch(texto, /\[|\]|null|undefined/);
+  }
 });
 
 test('textoVentanaReserva usa el singular con 1 día; textoLimiteCancelacion con 0 minutos habla del inicio de la franja', () => {

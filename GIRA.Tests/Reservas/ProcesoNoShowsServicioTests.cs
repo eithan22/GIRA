@@ -16,10 +16,11 @@ using Entorno = GIRA.Tests.Reservas.EntornoProceso;
 namespace GIRA.Tests.Reservas;
 
 /// <summary>
-/// Pruebas del marcado automático de no-shows (GI-161, GI-189, GI-231): fin de la franja (GI-404: sin tolerancia;
-/// el fin exacto ya cuenta), solo Confirmada, orden de las más antiguas primero, tope de 200 por ciclo, evento
-/// una sola vez tras guardar, idempotencia y aislamiento por reserva. Repositorios reales sobre EF Core
-/// InMemory y un reloj que solo avanza cuando la prueba lo ordena (hora local = UTC-4).
+/// Pruebas del marcado automático de no-shows (GI-161, GI-189, GI-231, GI-404): tolerancia configurable
+/// (estrictamente después de los minutos configurados, 15 por defecto, contados desde el mayor entre el inicio
+/// de la franja y el último registro de la reserva), solo Confirmada, orden de las más antiguas primero, tope
+/// de 200 por ciclo, evento una sola vez tras guardar, idempotencia y aislamiento por reserva. Repositorios
+/// reales sobre EF Core InMemory y un reloj que solo avanza cuando la prueba lo ordena (hora local = UTC-4).
 /// </summary>
 public class ProcesoNoShowsServicioTests
 {
@@ -29,63 +30,113 @@ public class ProcesoNoShowsServicioTests
     private static DateTimeOffset Utc(DateOnly dia, int hora, int minuto) =>
         new(dia.ToDateTime(new TimeOnly(hora, minuto)).AddHours(4), TimeSpan.Zero);
 
-    // --- Fin de la franja (GI-404): el no-show ocurre cuando la franja termina sin check-in ---
+    // --- Tolerancia (GI-404): el no-show ocurre al vencer la tolerancia configurada ---
 
     [Fact]
-    public async Task Al_Terminar_La_Franja_Se_Marca_Y_Un_Minuto_Antes_No()
+    public async Task En_La_Tolerancia_Exacta_No_Se_Marca_Y_Un_Minuto_Despues_Si()
     {
-        using var e = new Entorno(Utc(Hoy, 13, 59)); // franja 12:00–14:00: un minuto antes del fin
+        using var e = new Entorno(Utc(Hoy, 12, 15)); // franja 12:00 + 15 min exactos
         var reserva = await e.SembrarAsync(Hoy);
 
-        var antes = await e.Servicio.MarcarNoShowsAsync(default);
-        e.Reloj.Avanzar(TimeSpan.FromMinutes(1)); // 14:00 exactas: el fin cuenta como terminada
-        var enElFin = await e.Servicio.MarcarNoShowsAsync(default);
+        var enElLimite = await e.Servicio.MarcarNoShowsAsync(default);
+        e.Reloj.Avanzar(TimeSpan.FromMinutes(1));
+        var despues = await e.Servicio.MarcarNoShowsAsync(default);
 
-        Assert.Equal(0, antes.NoAsistidas);
-        Assert.Equal(1, enElFin.NoAsistidas);
+        Assert.Equal(0, enElLimite.NoAsistidas);
+        Assert.Equal(1, despues.NoAsistidas);
         Assert.Equal(EstadoReserva.NoAsistio, await e.EstadoDeAsync(reserva.Id));
     }
 
     [Fact]
-    public async Task Pasados_Los_15_Min_Del_Inicio_Ya_No_Se_Marca_Mientras_La_Franja_Siga()
+    public async Task La_Tolerancia_Se_Lee_En_Cada_Ciclo_Y_Un_Cambio_Rige_Desde_El_Siguiente()
     {
-        using var e = new Entorno(Utc(Hoy, 12, 16)); // antes se marcaba aquí (a los 15 min del inicio)
+        // Franja 12:00; a las 12:40 con 60 min de tolerancia todavía no vence, con 30 min sí.
+        using var e = new Entorno(Utc(Hoy, 12, 40));
+        e.Parametros.ToleranciaNoShow = TimeSpan.FromMinutes(60);
         var reserva = await e.SembrarAsync(Hoy);
 
-        var resultado = await e.Servicio.MarcarNoShowsAsync(default);
+        var conUnaHora = await e.Servicio.MarcarNoShowsAsync(default);
+        e.Parametros.ToleranciaNoShow = TimeSpan.FromMinutes(30);
+        var conMediaHora = await e.Servicio.MarcarNoShowsAsync(default);
 
-        Assert.Equal(0, resultado.NoAsistidas);
-        Assert.Equal(EstadoReserva.Confirmada, await e.EstadoDeAsync(reserva.Id));
+        Assert.Equal(0, conUnaHora.NoAsistidas);
+        Assert.Equal(1, conMediaHora.NoAsistidas);
+        Assert.Equal(EstadoReserva.NoAsistio, await e.EstadoDeAsync(reserva.Id));
     }
 
+    // --- GI-403: el plazo cuenta desde max(inicio de la franja, último registro de la reserva) ---
+
     [Fact]
-    public async Task Creada_Con_La_Franja_Ya_Empezada_Se_Marca_Solo_Al_Terminar_La_Franja()
+    public async Task Creada_Con_La_Franja_Ya_Empezada_Tiene_Sus_15_Min_Desde_Su_Creacion()
     {
-        // Franja 12:00–14:00; el personal la crea a las 12:50.
+        // Franja 12:00; el personal la crea a las 12:50. Con el plazo desde el inicio (12:15) se marcaría enseguida.
         using var e = new Entorno(Utc(Hoy, 12, 51));
         var reserva = await e.SembrarAsync(Hoy, 12, creadaUtc: Utc(Hoy, 12, 50).UtcDateTime);
 
         var recienCreada = await e.Servicio.MarcarNoShowsAsync(default);
-        e.Reloj.Avanzar(TimeSpan.FromMinutes(69)); // 14:00
-        var alTerminar = await e.Servicio.MarcarNoShowsAsync(default);
+        e.Reloj.Avanzar(TimeSpan.FromMinutes(14)); // 13:05 = 12:50 + 15 min exactos
+        var enElLimite = await e.Servicio.MarcarNoShowsAsync(default);
+        e.Reloj.Avanzar(TimeSpan.FromMinutes(1)); // 13:06
+        var despues = await e.Servicio.MarcarNoShowsAsync(default);
 
         Assert.Equal(0, recienCreada.NoAsistidas);
-        Assert.Equal(1, alTerminar.NoAsistidas);
+        Assert.Equal(0, enElLimite.NoAsistidas);
+        Assert.Equal(1, despues.NoAsistidas);
         Assert.Equal(EstadoReserva.NoAsistio, await e.EstadoDeAsync(reserva.Id));
     }
 
     [Fact]
-    public async Task Durante_La_Franja_Y_Reservas_Futuras_No_Se_Tocan()
+    public async Task Creada_Antes_Del_Inicio_Sigue_Con_El_Plazo_Desde_El_Inicio()
     {
-        using var e = new Entorno(Utc(Hoy, 13, 0));
-        var enFranja = await e.SembrarAsync(Hoy, 12);
+        using var e = new Entorno(Utc(Hoy, 12, 16));
+        var reserva = await e.SembrarAsync(Hoy, 12, creadaUtc: Utc(Hoy, 9, 0).UtcDateTime);
+
+        var resultado = await e.Servicio.MarcarNoShowsAsync(default);
+
+        Assert.Equal(1, resultado.NoAsistidas);
+        Assert.Equal(EstadoReserva.NoAsistio, await e.EstadoDeAsync(reserva.Id));
+    }
+
+    [Fact]
+    public async Task Modificada_Despues_Del_Inicio_Reinicia_El_Plazo()
+    {
+        // Creada a las 08:00 y movida a esta franja (12:00) a las 12:40: el plazo corre desde las 12:40.
+        using var e = new Entorno(Utc(Hoy, 12, 50));
+        var reserva = await e.SembrarAsync(
+            Hoy, 12, creadaUtc: Utc(Hoy, 8, 0).UtcDateTime, modificadaUtc: Utc(Hoy, 12, 40).UtcDateTime);
+
+        var antes = await e.Servicio.MarcarNoShowsAsync(default);
+        e.Reloj.Avanzar(TimeSpan.FromMinutes(6)); // 12:56 > 12:40 + 15
+        var despues = await e.Servicio.MarcarNoShowsAsync(default);
+
+        Assert.Equal(0, antes.NoAsistidas);
+        Assert.Equal(1, despues.NoAsistidas);
+        Assert.Equal(EstadoReserva.NoAsistio, await e.EstadoDeAsync(reserva.Id));
+    }
+
+    [Fact]
+    public async Task Sin_Registro_De_Creacion_Se_Conserva_El_Plazo_Desde_El_Inicio()
+    {
+        using var e = new Entorno(Utc(Hoy, 12, 16));
+        await e.SembrarAsync(Hoy, 12); // CreatedAt por defecto
+
+        var resultado = await e.Servicio.MarcarNoShowsAsync(default);
+
+        Assert.Equal(1, resultado.NoAsistidas);
+    }
+
+    [Fact]
+    public async Task Dentro_De_La_Tolerancia_Y_Reservas_Futuras_No_Se_Tocan()
+    {
+        using var e = new Entorno(Utc(Hoy, 12, 10));
+        var enTolerancia = await e.SembrarAsync(Hoy, 12);
         var masTarde = await e.SembrarAsync(Hoy, 18);
         var manana = await e.SembrarAsync(Hoy.AddDays(1), 12);
 
         var resultado = await e.Servicio.MarcarNoShowsAsync(default);
 
         Assert.Equal(0, resultado.NoAsistidas);
-        Assert.All(new[] { enFranja, masTarde, manana }, r => Assert.Equal(EstadoReserva.Confirmada, e.EstadoDeAsync(r.Id).Result));
+        Assert.All(new[] { enTolerancia, masTarde, manana }, r => Assert.Equal(EstadoReserva.Confirmada, e.EstadoDeAsync(r.Id).Result));
         Assert.Empty(e.Publisher.Publicados);
     }
 
@@ -96,7 +147,7 @@ public class ProcesoNoShowsServicioTests
     [InlineData(EstadoReserva.NoAsistio)]
     public async Task Solo_Se_Marcan_Las_Confirmada(EstadoReserva estado)
     {
-        using var e = new Entorno(Utc(Hoy, 14, 0)); // franja terminada de sobra
+        using var e = new Entorno(Utc(Hoy, 14, 0)); // tolerancia vencida de sobra
         var reserva = await e.SembrarAsync(Hoy, 12, estado: estado);
 
         var resultado = await e.Servicio.MarcarNoShowsAsync(default);
@@ -331,5 +382,35 @@ public class ProcesoNoShowsServicioTests
         await cancelacion.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => e.Servicio.MarcarNoShowsAsync(cancelacion.Token));
+    }
+
+    // --- Visitas sin reserva: el proceso automático no las toca ---
+
+    [Fact]
+    public async Task El_Ciclo_Completo_No_Toca_Ninguna_Visita_Sin_Reserva()
+    {
+        // Decisión de diseño: la visita sin reserva es un registro ya consumado, no una sesión con ciclo de
+        // vida; no hay nada que marcar ni que completar en ella (ver el comentario de VisitaSinReserva).
+        using var e = new Entorno(Utc(Hoy, 23, 0));
+        var reserva = await e.SembrarAsync(Hoy.AddDays(-1), 12);
+        var visita = new VisitaSinReserva
+        {
+            Id = Guid.NewGuid(), Fecha = Hoy.AddDays(-1), FranjaHorariaId = reserva.FranjaHorariaId,
+            MesaId = reserva.MesaId, PersonasReales = 3
+        };
+        e.Contexto.VisitasSinReserva.Add(visita);
+        await e.Contexto.SaveChangesAsync();
+
+        var resultado = await e.Servicio.EjecutarAsync(default);
+
+        // La reserva sí pasa a NoAsistio; la visita queda exactamente igual y no publica ningún evento.
+        Assert.Equal(1, resultado.NoAsistidas);
+        var guardada = await e.Contexto.VisitasSinReserva.AsNoTracking().SingleAsync();
+        Assert.Equal(visita.Id, guardada.Id);
+        Assert.Equal(3, guardada.PersonasReales);
+        Assert.Equal(reserva.MesaId, guardada.MesaId);
+        Assert.False(guardada.IsDeleted);
+        Assert.Null(guardada.UpdatedAt);
+        Assert.IsType<ReservaNoAsistidaEvent>(Assert.Single(e.Publisher.Publicados));
     }
 }

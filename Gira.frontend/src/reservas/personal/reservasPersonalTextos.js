@@ -384,7 +384,8 @@ export const TEXTO_DESCARTAR_Y_CAMBIAR = 'Descartar y cambiar';
 
 export const INTRO_POLITICAS =
   'Las reglas de creación (antelación, reservas por teléfono y tamaño de grupo) rigen para las reservas nuevas y no '
-  + 'invalidan las existentes. La ventana de check-in y el límite de cancelación se leen en el momento de usarlos.';
+  + 'invalidan las existentes. La ventana de check-in, la tolerancia de no-show y el límite de cancelación se leen '
+  + 'en el momento de usarlos.';
 export const TEXTO_RESTABLECER = 'Restablecer valores recomendados';
 export const TEXTO_DESCARTAR_CAMBIOS = 'Descartar cambios';
 export const AVISO_RECOMENDADOS_CARGADOS = 'Valores recomendados cargados; pulsa Guardar';
@@ -395,6 +396,14 @@ export const textoPorDefecto = (valor, unidad) => `Por defecto: ${valor} ${unida
 export const ERROR_CORREGIR_CAMPOS = 'Corrige los campos marcados antes de guardar.';
 export const TEXTO_CARGANDO_CONFIGURACION = 'Cargando la configuración…';
 export const TEXTO_CONFIGURACION_NO_CARGO = 'No pudimos cargar la configuración.';
+
+// Teléfono de contacto (campo de texto, no numérico): es opcional y nace vacío. La frase sobre qué pasa sin
+// teléfono se muestra SIEMPRE, no solo cuando el campo está vacío: así se entiende la consecuencia antes de borrarlo.
+export const ETIQUETA_TELEFONO_CONTACTO = 'Teléfono de contacto';
+export const AVISO_SIN_TELEFONO_CONTACTO = 'Sin teléfono configurado, los clientes no verán un número de contacto.';
+export const AYUDA_TELEFONO_CONTACTO =
+  'Número que se muestra al cliente cuando necesita llamar: grupos más grandes del máximo, sin disponibilidad o '
+  + `código de reserva perdido. Opcional. ${AVISO_SIN_TELEFONO_CONTACTO}`;
 
 /** Etiqueta y ayuda de cada política: qué hace y a qué reservas aplica. El valor por defecto lo pone la pantalla. */
 export const TEXTOS_CAMPOS_POLITICAS = {
@@ -413,6 +422,10 @@ export const TEXTOS_CAMPOS_POLITICAS = {
   ventanaCheckInMinutos: {
     etiqueta: 'Ventana de check-in',
     ayuda: 'Desde cuánto antes del inicio de la franja se permite el check-in (de 0 a 120). Se evalúa en el momento del check-in.',
+  },
+  toleranciaNoShowMinutos: {
+    etiqueta: 'Tolerancia de no-show',
+    ayuda: 'Minutos después del inicio de la franja tras los cuales una reserva sin check-in se marca como No asistió y libera la mesa. Por defecto 15.',
   },
   maxReservasVigentesPorTelefono: {
     etiqueta: 'Reservas vigentes por teléfono',

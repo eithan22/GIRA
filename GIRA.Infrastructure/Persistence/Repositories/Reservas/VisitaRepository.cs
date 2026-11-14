@@ -29,6 +29,28 @@ public class VisitaRepository : IVisitaRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlySet<Guid>> ListarMesasConVisitaAsync(
+        DateOnly fecha, Guid franjaId, CancellationToken cancellationToken) =>
+        (await _contexto.VisitasSinReserva
+            .Where(v => v.Fecha == fecha && v.FranjaHorariaId == franjaId && v.MesaId != null)
+            .Select(v => v.MesaId!.Value)
+            .ToListAsync(cancellationToken)).ToHashSet();
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlySet<Guid>>> ListarMesasConVisitaPorFechaAsync(
+        DateOnly fecha, CancellationToken cancellationToken)
+    {
+        var filas = await _contexto.VisitasSinReserva
+            .Where(v => v.Fecha == fecha && v.MesaId != null)
+            .Select(v => new { v.FranjaHorariaId, MesaId = v.MesaId!.Value })
+            .ToListAsync(cancellationToken);
+
+        return filas
+            .GroupBy(f => f.FranjaHorariaId)
+            .ToDictionary(g => g.Key, g => (IReadOnlySet<Guid>)g.Select(f => f.MesaId).ToHashSet());
+    }
+
+    /// <inheritdoc />
     public async Task<VisitasDelDiaLectura> ListarPorFechaAsync(DateOnly fecha, int limite, CancellationToken cancellationToken)
     {
         // Los totales salen de la tabla de visitas sola (no del join): cuentan todo el día aunque la lista se recorte.

@@ -27,7 +27,8 @@ public class DisponibilidadServiceTests
         IReadOnlyList<FranjaHoraria> franjas,
         IReadOnlyList<Reserva> reservasVigentes,
         ParametrosReservaFalso? parametros = null,
-        DateTimeOffset? ahoraUtc = null)
+        DateTimeOffset? ahoraUtc = null,
+        IReadOnlyList<VisitaSinReserva>? visitas = null)
     {
         parametros ??= new ParametrosReservaFalso();
         // Por defecto, "ahora" es la mañana del día anterior a Fecha: suficiente antelación
@@ -41,10 +42,16 @@ public class DisponibilidadServiceTests
             new MesaRepositoryFalso(mesas),
             new FranjaHorariaRepositoryFalso(franjas),
             new ReservaRepositoryFalso(reservasVigentes),
+            new VisitaRepositoryFalso([.. visitas ?? []]),
             parametros,
             validador,
             reloj);
     }
+
+    private static VisitaSinReserva Visita(Guid franjaId, Guid? mesaId, DateOnly? fecha = null) => new()
+    {
+        Id = Guid.NewGuid(), Fecha = fecha ?? Fecha, FranjaHorariaId = franjaId, MesaId = mesaId, PersonasReales = 2
+    };
 
     [Fact]
     public async Task ConsultarAsync_MesaLibreQueAlcanza_LaFranjaApareceDisponible()
@@ -402,6 +409,76 @@ public class DisponibilidadServiceTests
         Assert.Null(franja.MotivoNoDisponible);
     }
 
+    // --- Visitas sin reserva: ocupan la mesa en su franja (GI-226, GI-402) ---
+
+    [Fact]
+    public async Task ConsultarAsync_Cliente_LaUnicaMesaConCapacidadTieneVisita_LaFranjaSaleSinMesas()
+    {
+        var mesaPequena = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 2 };
+        var mesaGrande = new Mesa { Id = Guid.NewGuid(), Numero = 2, Capacidad = 6 };
+        // Para 6 personas solo cabe la mesa grande, y ahí hay una visita sin reserva.
+        var servicio = CrearServicio([mesaPequena, mesaGrande], [Almuerzo], [],
+            visitas: [Visita(Almuerzo.Id, mesaGrande.Id)]);
+
+        var resultado = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 6), default);
+
+        var franja = Assert.Single(resultado.Value!);
+        Assert.False(franja.Disponible);
+        Assert.Equal("Sin mesas disponibles para 6 personas.", franja.MotivoNoDisponible);
+    }
+
+    [Fact]
+    public async Task ConsultarAsync_Personal_LaUnicaMesaConCapacidadTieneVisita_NoSeListaLaFranja()
+    {
+        var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 4 };
+        var servicio = CrearServicio([mesa], [Almuerzo], [], ahoraUtc: LocalRd(13, 0),
+            visitas: [Visita(Almuerzo.Id, mesa.Id)]);
+
+        var resultado = await servicio.ConsultarAsync(
+            new ConsultarDisponibilidadRequest(Fecha, 2), default, AudienciaReserva.Personal);
+
+        Assert.Empty(resultado.Value!);
+    }
+
+    [Fact]
+    public async Task ConsultarAsync_UnaVisitaDeOtraFranjaODeOtraFechaNoBloquea()
+    {
+        var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 4 };
+        var tarde = new FranjaHoraria
+        {
+            Id = Guid.NewGuid(), Nombre = "Tarde", HoraInicio = new TimeOnly(16, 0), HoraFin = new TimeOnly(17, 45)
+        };
+        var servicio = CrearServicio([mesa], [Almuerzo], [],
+            visitas: [Visita(tarde.Id, mesa.Id), Visita(Almuerzo.Id, mesa.Id, Fecha.AddDays(-1))]);
+
+        var resultado = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
+
+        Assert.True(Assert.Single(resultado.Value!).Disponible);
+    }
+
+    [Fact]
+    public async Task ConsultarAsync_UnaVisitaSinMesaNoBloqueaNingunaMesa()
+    {
+        var mesa = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 4 };
+        var servicio = CrearServicio([mesa], [Almuerzo], [], visitas: [Visita(Almuerzo.Id, mesaId: null)]);
+
+        var resultado = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
+
+        Assert.True(Assert.Single(resultado.Value!).Disponible);
+    }
+
+    [Fact]
+    public async Task ConsultarAsync_ConVisitaEnUnaMesaYOtraLibre_LaFranjaSigueDisponible()
+    {
+        var conVisita = new Mesa { Id = Guid.NewGuid(), Numero = 1, Capacidad = 4 };
+        var libre = new Mesa { Id = Guid.NewGuid(), Numero = 2, Capacidad = 4 };
+        var servicio = CrearServicio([conVisita, libre], [Almuerzo], [], visitas: [Visita(Almuerzo.Id, conVisita.Id)]);
+
+        var resultado = await servicio.ConsultarAsync(new ConsultarDisponibilidadRequest(Fecha, 2), default);
+
+        Assert.True(Assert.Single(resultado.Value!).Disponible);
+    }
+
     [Fact]
     public async Task ConsultarAsync_GrupoMayorQueLaMesaMasGrande_DevuelveMensajeDeLlamarAlRestaurante()
     {
@@ -434,13 +511,16 @@ class ParametrosReservaFalso : IParametrosReservaService
     public TimeSpan AntelacionMaxima { get; set; } = TimeSpan.FromDays(ParametrosReservaService.ValoresPorDefecto.AntelacionMaximaDias);
     public TimeSpan LimiteCancelacion { get; set; } = TimeSpan.FromMinutes(ParametrosReservaService.ValoresPorDefecto.LimiteCancelacionMinutos);
     public TimeSpan VentanaCheckIn { get; set; } = TimeSpan.FromMinutes(ParametrosReservaService.ValoresPorDefecto.VentanaCheckInMinutos);
+    public TimeSpan ToleranciaNoShow { get; set; } = TimeSpan.FromMinutes(ParametrosReservaService.ValoresPorDefecto.ToleranciaNoShowMinutos);
     public int MaxReservasVigentesPorTelefono { get; set; } = ParametrosReservaService.ValoresPorDefecto.MaxReservasVigentesPorTelefono;
     public int MaxPersonasPorReserva { get; set; } = ParametrosReservaService.ValoresPorDefecto.MaxPersonasPorReserva;
+    /// <summary>Teléfono de contacto; sin valor por defecto, igual que en producción.</summary>
+    public string? TelefonoContacto { get; set; }
 
     public Task<ParametrosReserva> ObtenerAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(new ParametrosReserva(
-            AntelacionMinima, AntelacionMaxima, LimiteCancelacion, VentanaCheckIn,
-            MaxReservasVigentesPorTelefono, MaxPersonasPorReserva,
+            AntelacionMinima, AntelacionMaxima, LimiteCancelacion, VentanaCheckIn, ToleranciaNoShow,
+            MaxReservasVigentesPorTelefono, MaxPersonasPorReserva, TelefonoContacto,
             Enum.GetValues<DayOfWeek>().ToDictionary(
                 dia => dia, dia => new HorarioDia(!DiasCerrados.Contains(dia), HoraApertura, HoraCierre)),
             FechasCerradas));
@@ -456,6 +536,44 @@ class MesaRepositoryFalso : IMesaRepository
     public MesaRepositoryFalso(IReadOnlyList<Mesa> mesas) => _mesas = mesas;
     public Task<IReadOnlyList<Mesa>> ListarActivasAsync(CancellationToken cancellationToken) =>
         Task.FromResult(_mesas);
+}
+
+/// <summary>
+/// Visitas sin reserva en memoria: solo lo que necesitan la asignación de mesa y la disponibilidad. Sin
+/// visitas sembradas se comporta como una base sin walk-ins (el caso de la mayoría de las pruebas).
+/// </summary>
+class VisitaRepositoryFalso : IVisitaRepository
+{
+    private readonly List<VisitaSinReserva> _visitas;
+
+    public VisitaRepositoryFalso(params VisitaSinReserva[] visitas) => _visitas = [.. visitas];
+
+    /// <summary>Visitas que llegaron al repositorio por <see cref="Agregar"/>.</summary>
+    public List<VisitaSinReserva> Agregadas { get; } = [];
+
+    public void Agregar(VisitaSinReserva visita)
+    {
+        Agregadas.Add(visita);
+        _visitas.Add(visita);
+    }
+
+    public Task GuardarCambiosAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task<VisitasDelDiaLectura> ListarPorFechaAsync(DateOnly fecha, int limite, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<IReadOnlySet<Guid>> ListarMesasConVisitaAsync(DateOnly fecha, Guid franjaId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlySet<Guid>>(_visitas
+            .Where(v => v.Fecha == fecha && v.FranjaHorariaId == franjaId && v.MesaId is not null)
+            .Select(v => v.MesaId!.Value)
+            .ToHashSet());
+
+    public Task<IReadOnlyDictionary<Guid, IReadOnlySet<Guid>>> ListarMesasConVisitaPorFechaAsync(
+        DateOnly fecha, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, IReadOnlySet<Guid>>>(_visitas
+            .Where(v => v.Fecha == fecha && v.MesaId is not null)
+            .GroupBy(v => v.FranjaHorariaId)
+            .ToDictionary(g => g.Key, g => (IReadOnlySet<Guid>)g.Select(v => v.MesaId!.Value).ToHashSet()));
 }
 
 class FranjaHorariaRepositoryFalso : IFranjaHorariaRepository

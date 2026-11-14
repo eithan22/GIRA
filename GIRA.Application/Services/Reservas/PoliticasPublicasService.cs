@@ -43,6 +43,7 @@ public class PoliticasPublicasService : IPoliticasPublicasService
             parametros.AntelacionMaxima.Days,
             (int)parametros.LimiteCancelacion.TotalMinutes,
             maxPersonas,
+            parametros.TelefonoContacto,
             diasCerrados);
     }
 }

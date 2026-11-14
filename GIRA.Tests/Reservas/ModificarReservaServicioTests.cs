@@ -72,6 +72,7 @@ public class ModificarReservaServicioTests
                 reservas,
                 new ClienteRepository(Contexto),
                 new MesaGestionRepository(Contexto),
+                new VisitaRepository(Contexto),
                 Parametros,
                 new CrearReservaRequestValidator(Parametros, reloj),
                 new ListarReservasRequestValidator(),

@@ -20,10 +20,14 @@ public class ConfiguracionRestauranteConfiguration : IEntityTypeConfiguration<Co
             tabla.HasCheckConstraint("CK_ConfiguracionRestaurante_AntelacionMaxima", "[AntelacionMaximaDias] BETWEEN 1 AND 365");
             tabla.HasCheckConstraint("CK_ConfiguracionRestaurante_LimiteCancelacion", "[LimiteCancelacionMinutos] >= 0");
             tabla.HasCheckConstraint("CK_ConfiguracionRestaurante_VentanaCheckIn", "[VentanaCheckInMinutos] BETWEEN 0 AND 120");
+            tabla.HasCheckConstraint("CK_ConfiguracionRestaurante_ToleranciaNoShow", "[ToleranciaNoShowMinutos] BETWEEN 0 AND 120");
             tabla.HasCheckConstraint("CK_ConfiguracionRestaurante_MaxVigentes", "[MaxReservasVigentesPorTelefono] BETWEEN 1 AND 10");
             tabla.HasCheckConstraint("CK_ConfiguracionRestaurante_MaxPersonas", "[MaxPersonasPorReserva] BETWEEN 1 AND 50");
         });
 
         builder.HasKey(c => c.Id);
+
+        // Sin valor por defecto: la fila existente y las nuevas quedan en NULL hasta que se configure.
+        builder.Property(c => c.TelefonoContacto).HasMaxLength(30);
     }
 }

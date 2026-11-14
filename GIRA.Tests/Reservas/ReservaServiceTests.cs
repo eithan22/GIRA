@@ -32,7 +32,8 @@ public class ReservaServiceTests
         ClienteRepositoryFake? clienteRepo = null,
         IReadOnlyList<Mesa>? mesas = null,
         PublisherFalso? publisher = null,
-        DateTimeOffset? ahoraUtc = null)
+        DateTimeOffset? ahoraUtc = null,
+        VisitaRepositoryFalso? visitas = null)
     {
         mesas ??= [MesaPequena];
         reservaRepo ??= new ReservaRepositoryFake();
@@ -52,6 +53,7 @@ public class ReservaServiceTests
             reservaRepo,
             clienteRepo,
             new MesaGestionRepositoryFalso(),
+            visitas ?? new VisitaRepositoryFalso(),
             parametros,
             validador,
             new ListarReservasRequestValidator(),
@@ -134,6 +136,7 @@ public class ReservaServiceTests
             new ReservaRepositoryFake(),
             new ClienteRepositoryFake(),
             new MesaGestionRepositoryFalso(),
+            new VisitaRepositoryFalso(),
             parametros,
             validador,
             new ListarReservasRequestValidator(),

@@ -763,17 +763,60 @@ export const NOMBRES_DIA = Object.freeze({
 });
 
 /**
- * Las seis políticas editables, en el orden en que se muestran. `unidad` se ve junto al campo; `minimo` y `maximo`
- * espejan los rangos del servidor (ActualizarParametrosRequestValidator) solo para dar feedback antes de enviar.
+ * Las políticas numéricas editables, en el orden en que se muestran. `unidad` se ve junto al campo; `minimo` y
+ * `maximo` espejan los rangos del servidor (ActualizarParametrosRequestValidator) solo para dar feedback antes de
+ * enviar. El teléfono de contacto NO está aquí: es texto y se trata aparte (telefonoContactoAFormulario /
+ * telefonoContactoAApi), porque todo lo de esta lista pasa por Number() y por la validación de enteros.
  */
 export const CAMPOS_POLITICAS = Object.freeze([
   { clave: 'antelacionMinimaMinutos', unidad: 'minutos', minimo: 0, legible: 'duracion' },
   { clave: 'antelacionMaximaDias', unidad: 'días', minimo: 1, maximo: 365, legible: 'dias' },
   { clave: 'limiteCancelacionMinutos', unidad: 'minutos', minimo: 0, legible: 'duracion' },
   { clave: 'ventanaCheckInMinutos', unidad: 'minutos', minimo: 0, maximo: 120, legible: 'duracion' },
+  { clave: 'toleranciaNoShowMinutos', unidad: 'minutos', minimo: 0, maximo: 120, legible: 'duracion' },
   { clave: 'maxReservasVigentesPorTelefono', unidad: 'reservas', minimo: 1, maximo: 10 },
   { clave: 'maxPersonasPorReserva', unidad: 'personas', minimo: 1, maximo: 50 },
 ]);
+
+/** Clave del teléfono de contacto: la misma del DTO y de los errores por campo del servidor. */
+export const CLAVE_TELEFONO_CONTACTO = 'telefonoContacto';
+
+/** Teléfono de contacto del servidor (puede llegar null) -> valor del campo de texto, que siempre es un string. */
+export function telefonoContactoAFormulario(parametros) {
+  return String(parametros?.[CLAVE_TELEFONO_CONTACTO] ?? '');
+}
+
+/** Valor del campo -> lo que viaja en el PUT: recortado, y null cuando queda vacío («sin teléfono configurado»). */
+export function telefonoContactoAApi(texto) {
+  const limpio = String(texto ?? '').trim();
+  return limpio === '' ? null : limpio;
+}
+
+/** true si el teléfono escrito es el mismo que el guardado (ignorando los espacios de los extremos). */
+export function telefonosContactoIguales(a, b) {
+  return String(a ?? '').trim() === String(b ?? '').trim();
+}
+
+export const MAXIMO_TELEFONO_CONTACTO = 30;
+
+// Mismo juego de caracteres que ActualizarParametrosRequestValidator: dígitos, espacios, +, -, paréntesis y punto.
+const FORMATO_TELEFONO_CONTACTO = /^[0-9+\-().\s]*$/;
+
+/**
+ * Teléfono de contacto: opcional (vacío es válido y significa «sin teléfono configurado»), de hasta 30 caracteres
+ * y solo con dígitos, espacios, +, -, ( ) y punto. Mismos rangos y mismos textos que el servidor; se valida el
+ * valor recortado, que es exactamente el que viaja en el PUT. Devuelve '' cuando es válido.
+ */
+export function validarTelefonoContacto(texto) {
+  const limpio = String(texto ?? '').trim();
+  if (limpio.length > MAXIMO_TELEFONO_CONTACTO) {
+    return `El teléfono de contacto no puede superar los ${MAXIMO_TELEFONO_CONTACTO} caracteres.`;
+  }
+  if (!FORMATO_TELEFONO_CONTACTO.test(limpio)) {
+    return 'El teléfono de contacto solo puede tener dígitos, espacios, +, -, ( ) y punto.';
+  }
+  return '';
+}
 
 const MINUTOS_POR_DIA = 24 * 60;
 
@@ -797,8 +840,9 @@ function entero(texto) {
 }
 
 /**
- * Validación en el cliente de las seis políticas: { campo: mensaje } con los mismos textos y rangos que el
- * servidor. Solo da feedback antes de enviar; el servidor decide y sus errores por campo se muestran igual.
+ * Validación en el cliente de las políticas numéricas: { campo: mensaje } con los mismos textos y rangos que el
+ * servidor. Solo da feedback antes de enviar; el servidor decide y sus errores por campo se muestran igual. El
+ * teléfono de contacto no se valida aquí: es texto libre y opcional, y su formato lo decide el servidor.
  */
 export function validarPoliticas(formulario) {
   const errores = {};
@@ -822,6 +866,9 @@ export function validarPoliticas(formulario) {
   }
   if (valor.ventanaCheckInMinutos !== null && valor.ventanaCheckInMinutos > 120) {
     errores.ventanaCheckInMinutos = 'La ventana de check-in debe estar entre 0 y 120 minutos.';
+  }
+  if (valor.toleranciaNoShowMinutos !== null && valor.toleranciaNoShowMinutos > 120) {
+    errores.toleranciaNoShowMinutos = 'La tolerancia de no-show debe estar entre 0 y 120 minutos.';
   }
   if (valor.maxReservasVigentesPorTelefono !== null
     && (valor.maxReservasVigentesPorTelefono < 1 || valor.maxReservasVigentesPorTelefono > 10)) {

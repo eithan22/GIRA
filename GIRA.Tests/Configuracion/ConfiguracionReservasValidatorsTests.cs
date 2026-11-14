@@ -12,7 +12,8 @@ public class ConfiguracionReservasValidatorsTests
 
     private static ActualizarParametrosRequest Valida() => new(
         AntelacionMinimaMinutos: 120, AntelacionMaximaDias: 30, LimiteCancelacionMinutos: 120,
-        VentanaCheckInMinutos: 15, MaxReservasVigentesPorTelefono: 2, MaxPersonasPorReserva: 8);
+        VentanaCheckInMinutos: 15, ToleranciaNoShowMinutos: 15, MaxReservasVigentesPorTelefono: 2,
+        MaxPersonasPorReserva: 8, TelefonoContacto: null);
 
     private static async Task<Dictionary<string, string[]>> ErroresAsync(ActualizarParametrosRequest request)
     {
@@ -26,6 +27,40 @@ public class ConfiguracionReservasValidatorsTests
     public async Task Parametros_ConLosValoresPorDefecto_SonValidos()
     {
         Assert.Empty(await ErroresAsync(Valida()));
+    }
+
+    [Fact]
+    public async Task LosSieteCamposNumericos_SonObligatorios_SiSeOmitenEnElJson()
+    {
+        // Un campo int? ausente en el JSON llega como null (no como 0): cada uno debe rechazarse como
+        // obligatorio en vez de guardarse con un valor que el cliente nunca quiso decir.
+        Assert.Equal(
+            "La antelación mínima es obligatoria.",
+            Assert.Single((await ErroresAsync(Valida() with { AntelacionMinimaMinutos = null }))["AntelacionMinimaMinutos"]));
+
+        Assert.Equal(
+            "La antelación máxima es obligatoria.",
+            Assert.Single((await ErroresAsync(Valida() with { AntelacionMaximaDias = null }))["AntelacionMaximaDias"]));
+
+        Assert.Equal(
+            "El límite de cancelación es obligatorio.",
+            Assert.Single((await ErroresAsync(Valida() with { LimiteCancelacionMinutos = null }))["LimiteCancelacionMinutos"]));
+
+        Assert.Equal(
+            "La ventana de check-in es obligatoria.",
+            Assert.Single((await ErroresAsync(Valida() with { VentanaCheckInMinutos = null }))["VentanaCheckInMinutos"]));
+
+        Assert.Equal(
+            "La tolerancia de no-show es obligatoria.",
+            Assert.Single((await ErroresAsync(Valida() with { ToleranciaNoShowMinutos = null }))["ToleranciaNoShowMinutos"]));
+
+        Assert.Equal(
+            "El máximo de reservas vigentes por teléfono es obligatorio.",
+            Assert.Single((await ErroresAsync(Valida() with { MaxReservasVigentesPorTelefono = null }))["MaxReservasVigentesPorTelefono"]));
+
+        Assert.Equal(
+            "El tamaño máximo de grupo es obligatorio.",
+            Assert.Single((await ErroresAsync(Valida() with { MaxPersonasPorReserva = null }))["MaxPersonasPorReserva"]));
     }
 
     [Fact]
@@ -85,6 +120,55 @@ public class ConfiguracionReservasValidatorsTests
         var errores = await ErroresAsync(Valida() with { VentanaCheckInMinutos = minutos });
 
         Assert.Equal(valida, !errores.ContainsKey("VentanaCheckInMinutos"));
+    }
+
+    [Theory]
+    [InlineData(-1, false)]
+    [InlineData(0, true)]
+    [InlineData(15, true)]
+    [InlineData(120, true)]
+    [InlineData(121, false)]
+    public async Task ToleranciaNoShow_EntreCeroY120Minutos(int minutos, bool valida)
+    {
+        var errores = await ErroresAsync(Valida() with { ToleranciaNoShowMinutos = minutos });
+
+        Assert.Equal(valida, !errores.ContainsKey("ToleranciaNoShowMinutos"));
+        if (!valida)
+        {
+            Assert.Equal(
+                "La tolerancia de no-show debe estar entre 0 y 120 minutos.",
+                Assert.Single(errores["ToleranciaNoShowMinutos"]));
+        }
+    }
+
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData("", true)]
+    [InlineData("809-555-1234", true)]
+    [InlineData("+1 (809) 555.1234", true)]
+    [InlineData("809 555 1234 ext 2", false)]
+    [InlineData("llámanos", false)]
+    public async Task TelefonoContacto_SoloDigitosEspaciosYSignosDeTelefono(string? telefono, bool valida)
+    {
+        var errores = await ErroresAsync(Valida() with { TelefonoContacto = telefono });
+
+        Assert.Equal(valida, !errores.ContainsKey("TelefonoContacto"));
+        if (!valida)
+        {
+            Assert.Contains(
+                "El teléfono de contacto solo puede tener dígitos, espacios, +, -, ( ) y punto.",
+                errores["TelefonoContacto"]);
+        }
+    }
+
+    [Fact]
+    public async Task TelefonoContacto_NoPuedeSuperarLos30Caracteres()
+    {
+        var enElLimite = await ErroresAsync(Valida() with { TelefonoContacto = new string('8', 30) });
+        var pasado = await ErroresAsync(Valida() with { TelefonoContacto = new string('8', 31) });
+
+        Assert.Empty(enElLimite);
+        Assert.Contains("El teléfono de contacto no puede superar los 30 caracteres.", pasado["TelefonoContacto"]);
     }
 
     [Theory]

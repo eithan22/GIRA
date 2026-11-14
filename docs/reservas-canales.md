@@ -22,7 +22,8 @@ existentes conservan las suyas hasta que el Gerente las edite.
   reglas que por llamada. Origen: `Presencial`.
 - **Sin reserva (visita).** Un grupo que llega y se sienta de inmediato. No es una reserva: no tiene código
   ni cliente. Se registra la franja, las personas y, opcionalmente, la mesa; no se guardan datos personales.
-  **No marca la mesa como ocupada en el mapa**, porque no tiene hora de salida y no se sabe cuándo se libera.
+  **No marca la mesa como ocupada en el mapa**, porque no tiene hora de salida y no se sabe cuándo se libera; sí
+  ocupa esa mesa en esa franja para las reservas y la disponibilidad (ver «Reglas comunes»).
   Las visitas del día se consultan en la sección «Visitas sin reserva de hoy» de la Agenda (total de visitas y
   de personas, y la lista con las más recientes primero; `GET /api/visitas`, hasta 200 por día en la lista).
 
@@ -31,7 +32,11 @@ existentes conservan las suyas hasta que el Gerente las edite.
 - **Máximo de personas:** el **menor** entre el parámetro de tamaño máximo de grupo (por defecto 8) y la capacidad de
   la mesa activa más grande. Los grupos mayores se atienden por teléfono, fuera del sistema.
 - **Mesa:** se asigna automáticamente: la mesa libre de menor capacidad que alcance para el grupo en esa fecha
-  y franja. Una visita sin reserva no cuenta para esta asignación (decisión de producto pendiente).
+  y franja. Una mesa con **visita sin reserva** en esa fecha y franja cuenta como ocupada: la asignación automática
+  la salta, la disponibilidad no ofrece la franja si no queda otra mesa que alcance, y si el personal la elige a mano
+  recibe 409 («tiene una visita sin reserva en esta franja»). Al no haber hora de salida, se considera ocupada toda
+  la franja y se libera al cambiar de franja. El inverso ya existía: no se puede registrar una visita en una mesa con
+  reserva vigente en esa franja.
 - **Límite por teléfono:** como máximo el número configurado de reservas vigentes con el mismo teléfono (por defecto 2).
 - **Día cerrado:** no se puede reservar en un día de la semana cerrado ni en una fecha cerrada, por ningún canal.
 - **Disponibilidad:** la pública (`GET /api/reservas/disponibilidad`) devuelve todas las franjas activas con `disponible` y
@@ -50,22 +55,26 @@ existentes conservan las suyas hasta que el Gerente las edite.
 3. **Completada**: al terminar la franja se completa sola, o el personal la completa antes.
 4. Desde Confirmada también puede quedar **Cancelada** (el personal, hasta el inicio de la franja; el cliente,
    con al menos el límite de cancelación configurado, por defecto 2 horas) o **NoAsistio** (GI-404): si el cliente no
-   llega, la reserva se marca sola **al terminar la franja** (sin tolerancia), o el personal la marca antes con
-   **«Marcar No asistió»** desde el detalle de la reserva, una vez que la franja ya empezó (antes del inicio, el
-   personal cancela en vez de marcar). Al quedar NoAsistio la mesa se libera, se publica `ReservaNoAsistidaEvent` y el
-   check-in ya no es posible: si el cliente llega después, se registra como visita sin reserva.
+   llega, la reserva se marca sola **a los N minutos del inicio de su franja** (N = tolerancia de no-show
+   configurable, 15 minutos por defecto, contada desde el mayor entre el inicio de la franja y el último registro de
+   la reserva), o el personal la marca antes con **«Marcar No asistió»** desde el detalle de la reserva, una vez que
+   la franja ya empezó (antes del inicio, el personal cancela en vez de marcar). Al quedar NoAsistio la mesa se
+   libera, se publica `ReservaNoAsistidaEvent` y el check-in ya no es posible: si el cliente llega después, se
+   registra como visita sin reserva.
 
 > **Reserva creada con la franja en curso (RN-RES-04).** Como el personal solo puede modificar y cancelar
 > hasta el inicio de la franja, una reserva creada con la franja ya en curso no se puede modificar ni cancelar
 > después: solo se ajustan las personas reales en el check-in. Si el cliente no llega, el sistema la marca
-> NoAsistio al terminar la franja, o el personal la marca antes con «Marcar No asistió».
+> NoAsistio a los N minutos de su registro (tolerancia configurable: una reserva creada con la franja ya empezada
+> tiene su plazo completo desde que se creó), o el personal la marca antes con «Marcar No asistió».
 
-> **Limitación conocida: llegar tarde.** Mientras la reserva siga Confirmada, el cliente puede llegar durante
-> toda su franja y se le hace el check-in con normalidad (desde la ventana de check-in y hasta que la franja
-> termina). Pero una vez que la reserva pasa a NoAsistio (sola, al terminar la franja, o porque el personal la
-> marcó), ya no hay vuelta atrás: el cliente que llega después pierde la reserva y solo se le puede atender
-> como visita sin reserva, si hay una mesa libre. Por eso el personal debe marcar «No asistió» únicamente
-> cuando esté seguro de que el cliente no vendrá.
+> **Limitación conocida: llegar tarde.** Mientras la reserva siga Confirmada, el cliente puede llegar y se le hace
+> el check-in con normalidad (desde la ventana de check-in y hasta que la franja termina). Pero una vez que la
+> reserva pasa a NoAsistio (sola, a los N minutos del inicio de su franja según la tolerancia configurada, o porque
+> el personal la marcó), ya no hay vuelta atrás: el cliente que llega después pierde la reserva y solo se le puede
+> atender como visita sin reserva, si hay una mesa libre. Por eso el personal debe marcar «No asistió» únicamente
+> cuando esté seguro de que el cliente no vendrá, y la tolerancia debe ajustarse a lo que el restaurante quiera
+> esperar.
 
 > **Limitaciones de la configuración (GI-226).** Una instalación con mesas de más de 8 personas queda limitada a 8
 > hasta que se edite el parámetro de tamaño máximo de grupo. Las instalaciones existentes conservan sus franjas

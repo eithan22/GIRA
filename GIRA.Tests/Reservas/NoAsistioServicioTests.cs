@@ -59,6 +59,7 @@ public class NoAsistioServicioTests
                 reservas,
                 new ClienteRepository(Contexto),
                 new MesaGestionRepository(Contexto),
+                new VisitaRepository(Contexto),
                 parametros,
                 new CrearReservaRequestValidator(parametros, reloj),
                 new ListarReservasRequestValidator(),
@@ -74,6 +75,7 @@ public class NoAsistioServicioTests
                 new MesaRepository(Contexto),
                 new FranjaHorariaRepository(Contexto),
                 new ReservaRepository(Contexto),
+                new VisitaRepository(Contexto),
                 parametros,
                 new ConsultarDisponibilidadRequestValidator(parametros, reloj),
                 reloj);
