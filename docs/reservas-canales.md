@@ -35,10 +35,20 @@ parámetros provisionales (`ParametrosReservaService`) hasta que Configuración 
    personas reales que llegaron.
 3. **Completada**: al terminar la franja se completa sola, o el personal la completa antes.
 4. Desde Confirmada también puede quedar **Cancelada** (el personal, hasta el inicio de la franja; el cliente,
-   con al menos 2 horas de anticipación) o **NoAsistio**: si no llega, se marca sola cuando pasan 15 minutos de
-   tolerancia, contados desde el mayor entre el inicio de la franja y el momento en que se registró la reserva.
+   con al menos 2 horas de anticipación) o **NoAsistio** (GI-404): si el cliente no llega, la reserva se marca
+   sola **al terminar la franja** (sin tolerancia), o el personal la marca antes con **«Marcar No asistió»**
+   desde el detalle de la reserva, una vez que la franja ya empezó (antes del inicio, el personal cancela en
+   vez de marcar). Al quedar NoAsistio la mesa se libera, se publica `ReservaNoAsistidaEvent` y el check-in
+   ya no es posible: si el cliente llega después, se registra como visita sin reserva.
 
 > **Reserva creada con la franja en curso (RN-RES-04).** Como el personal solo puede modificar y cancelar
 > hasta el inicio de la franja, una reserva creada con la franja ya en curso no se puede modificar ni cancelar
 > después: solo se ajustan las personas reales en el check-in. Si el cliente no llega, el sistema la marca
-> NoAsistio a los 15 minutos de su registro.
+> NoAsistio al terminar la franja, o el personal la marca antes con «Marcar No asistió».
+
+> **Limitación conocida: llegar tarde.** Mientras la reserva siga Confirmada, el cliente puede llegar durante
+> toda su franja y se le hace el check-in con normalidad (desde la ventana de check-in y hasta que la franja
+> termina). Pero una vez que la reserva pasa a NoAsistio (sola, al terminar la franja, o porque el personal la
+> marcó), ya no hay vuelta atrás: el cliente que llega después pierde la reserva y solo se le puede atender
+> como visita sin reserva, si hay una mesa libre. Por eso el personal debe marcar «No asistió» únicamente
+> cuando esté seguro de que el cliente no vendrá.

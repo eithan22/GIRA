@@ -258,6 +258,25 @@ public class ReservasController : ControllerBase
         return resultado.ToActionResult();
     }
 
+    /// <summary>
+    /// GI-404: el personal marca una reserva como no asistida (Confirmada pasa a NoAsistio), solo con la
+    /// franja ya empezada; antes del inicio responde 409 y remite a cancelar. Libera la mesa y publica
+    /// una sola vez <c>ReservaNoAsistidaEvent</c>. Devuelve el detalle actualizado de la reserva.
+    /// </summary>
+    [HttpPatch("{id:guid}/no-asistio")]
+    [Authorize(Policy = Politicas.OperarReservas)]
+    [ProducesResponseType<ReservaDetalleDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> MarcarNoAsistio(Guid id, CancellationToken cancellationToken)
+    {
+        var resultado = await _reservaService.MarcarNoAsistioAsync(id, cancellationToken);
+
+        return resultado.ToActionResult();
+    }
+
     // Mismo ProblemDetails que RespuestaAutorizacionHandler para 401 — duplicado a propósito:
     // ese handler solo se activa en el middleware de autorización, que un endpoint
     // [AllowAnonymous] nunca atraviesa, así que no hay forma de reusarlo sin tocar Seguridad.

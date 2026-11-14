@@ -667,6 +667,65 @@ public class ReservaService : IReservaService
         return OperationResult.Success(detalle);
     }
 
+    /// <inheritdoc />
+    public async Task<OperationResult<ReservaDetalleDto>> MarcarNoAsistioAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var reserva = await _reservaRepository.BuscarPorIdAsync(id, cancellationToken);
+        if (reserva is null)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.NotFound, "No encontramos esa reserva.");
+        }
+
+        if (reserva.Estado != EstadoReserva.Confirmada)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.Conflict, MensajeNoAsistioNoPermitido(reserva.Estado));
+        }
+
+        // Si esto fuera null sería una violación de integridad (ver ConsultarPorCodigoAsync).
+        var franja = await _franjaHorariaRepository.BuscarPorIdAsync(reserva.FranjaHorariaId, cancellationToken)
+            ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} referencia una franja que no existe.");
+
+        // Antes del inicio de la franja el cliente aún puede llegar: lo que corresponde es cancelar.
+        if (_timeProvider.AhoraLocal() < reserva.Fecha.ToDateTime(franja.HoraInicio))
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(
+                ErrorType.Conflict, "La franja aún no empieza; si el cliente no vendrá, cancela la reserva.");
+        }
+
+        reserva.MarcarNoAsistio();
+
+        try
+        {
+            await _reservaRepository.GuardarCambiosAsync(cancellationToken);
+        }
+        catch (ReservaConflictoConcurrenciaException)
+        {
+            // Mensaje propio: el del repositorio habla de la cancelación por código.
+            return OperationResult.Failure<ReservaDetalleDto>(
+                ErrorType.Conflict, "La reserva cambió mientras se marcaba como no asistida; vuelve a consultarla.");
+        }
+
+        // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
+        await _publicadorSeguro.PublicarAsync(
+            new ReservaNoAsistidaEvent(reserva.Id, reserva.Fecha, reserva.FranjaHorariaId, reserva.Personas),
+            $"ReservaId={reserva.Id}",
+            cancellationToken);
+
+        var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken)
+            ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} desapareció después de marcarla como no asistida.");
+
+        return OperationResult.Success(detalle);
+    }
+
+    private static string MensajeNoAsistioNoPermitido(EstadoReserva estado) => estado switch
+    {
+        EstadoReserva.EnCurso => "Esta reserva ya tiene el check-in registrado; no se puede marcar como no asistida.",
+        EstadoReserva.Completada => "La reserva ya fue completada; no se puede marcar como no asistida.",
+        EstadoReserva.Cancelada => "La reserva fue cancelada; no se puede marcar como no asistida.",
+        EstadoReserva.NoAsistio => "La reserva ya fue marcada como no asistida.",
+        _ => "Solo se puede marcar como no asistida una reserva Confirmada."
+    };
+
     private static string MensajeCompletarNoPermitido(EstadoReserva estado) => estado switch
     {
         EstadoReserva.Confirmada => "Aún no se hizo el check-in; no se puede completar.",

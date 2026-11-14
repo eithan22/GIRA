@@ -95,6 +95,11 @@ export const reservasPersonalService = {
     return response.data;
   },
 
+  async marcarNoAsistio(id) {
+    const response = await api.patch(`/api/reservas/${id}/no-asistio`, null, opciones());
+    return response.data;
+  },
+
   async cancelar(id, motivo) {
     const response = await api.patch(`/api/reservas/${id}/cancelar`, { motivo }, opciones());
     return response.data;

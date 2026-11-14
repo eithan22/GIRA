@@ -459,6 +459,18 @@ export function puedeRegistrarVisita({ fecha, hoy, franja, hora }) {
   return Boolean(franja) && fecha === hoy && franja.activa === true && estadoFranja(franja, hora) !== 'noEmpezo';
 }
 
+/**
+ * GI-404: «Marcar No asistió» solo se ofrece en una reserva Confirmada cuya franja ya empezó (fecha
+ * anterior a hoy, o hoy con hora >= inicio de la franja). Antes del inicio corresponde cancelar. `fecha` y
+ * `hoy` son "aaaa-mm-dd" y `hora` es "HH:mm", los tres en Santo Domingo (contextoSantoDomingo / useAhora),
+ * nunca con la zona del navegador. Informativa: el servidor decide y su 409 se muestra tal cual.
+ */
+export function puedeMarcarNoAsistio({ estado, fecha, hoy, hora, franjaHoraInicio }) {
+  if (estado !== 'Confirmada' || !esFechaIso(fecha) || !franjaHoraInicio) return false;
+  if (fecha < hoy) return true;
+  return fecha === hoy && minutosDeHora(hora) >= minutosDeHora(franjaHoraInicio);
+}
+
 export const MAXIMO_PERSONAS_SIN_MESA = 50;
 
 /** Personas de una visita: entero ≥ 1; sin mesa hasta 50 y con mesa hasta su capacidad. */

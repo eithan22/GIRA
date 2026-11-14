@@ -85,10 +85,12 @@ export const TEXTO_CARGANDO_DATOS_MESA = 'Cargando los datos de la mesa…';
 
 export const TEXTO_ACCION_CHECKIN = 'Check-in';
 export const TEXTO_ACCION_COMPLETAR = 'Completar visita';
+export const TEXTO_ACCION_NO_ASISTIO = 'Marcar No asistió';
 export const TEXTO_ACCION_CANCELAR = 'Cancelar reserva';
 
 export const TEXTO_CONFIRMAR_CHECKIN = 'Confirmar check-in';
 export const TEXTO_CONFIRMAR_COMPLETAR = 'Sí, completar visita';
+export const TEXTO_CONFIRMAR_NO_ASISTIO = 'Sí, marcar No asistió';
 export const TEXTO_CONFIRMAR_CANCELAR = 'Sí, cancelar reserva';
 export const TEXTO_VOLVER = 'Volver';
 export const TEXTO_MANTENER_RESERVA = 'Mantener reserva';
@@ -97,15 +99,18 @@ export const TITULO_CHECKIN = '¿Cuántas personas llegaron?';
 export const CUERPO_CHECKIN = 'Se registra la llegada y la reserva pasa a En curso.';
 export const TITULO_COMPLETAR = '¿Completar la visita?';
 export const CUERPO_COMPLETAR = 'Se registra la visita como completada y la mesa queda libre.';
+export const TITULO_NO_ASISTIO = '¿Marcar como no asistida?';
+export const CUERPO_NO_ASISTIO = 'El cliente no llegó: la reserva pasa a No asistió y la mesa queda libre. Esta acción no se puede deshacer. Si el cliente llega después, regístralo como visita sin reserva.';
 export const TITULO_CANCELAR = '¿Cancelar esta reserva?';
 export const CUERPO_CANCELAR = 'La mesa quedará libre y esta acción no se puede deshacer. El motivo queda guardado en la reserva.';
 
 export const EXITO_CHECKIN = 'Check-in registrado. La reserva está En curso.';
 export const EXITO_COMPLETAR = 'Visita completada.';
 export const EXITO_CANCELAR = 'Reserva cancelada.';
+export const EXITO_NO_ASISTIO = 'Reserva marcada como No asistió. La mesa quedó libre.';
 
 // Solo informa lo que pasó; no promete ningún flujo posterior.
-export const AVISO_NO_ASISTIO = 'El cliente no llegó dentro de la tolerancia, por eso la reserva quedó como no asistida.';
+export const AVISO_NO_ASISTIO = 'El cliente no llegó, por eso la reserva quedó como no asistida.';
 
 export const ETIQUETA_PERSONAS_REALES = 'Personas que llegaron';
 export const ETIQUETA_MOTIVO = 'Motivo de la cancelación';

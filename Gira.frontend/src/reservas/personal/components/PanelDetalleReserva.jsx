@@ -7,6 +7,7 @@ import {
   formatearFechaHoraSantoDomingo,
   formatearTelefono,
   hoyEnSantoDomingo,
+  puedeMarcarNoAsistio,
 } from '../reservasPersonalFormato.js';
 import { esPeticionCancelada, mensajeDeError, reservasPersonalService } from '../reservasPersonalService.js';
 import {
@@ -15,11 +16,13 @@ import {
   EXITO_CHECKIN,
   EXITO_COMPLETAR,
   EXITO_MODIFICAR,
+  EXITO_NO_ASISTIO,
   TEXTO_DETALLE_NO_CARGO,
   TEXTO_REINTENTAR,
   TEXTO_RESERVA_NO_EXISTE,
   TITULO_MODIFICAR,
 } from '../reservasPersonalTextos.js';
+import { useAhora } from '../hooks/useAhora.js';
 import AccionesReserva from './AccionesReserva.jsx';
 import ConfirmarDescartar from './ConfirmarDescartar.jsx';
 import EstadoReservaPill from './EstadoReservaPill.jsx';
@@ -29,6 +32,7 @@ import PanelPersonal from './PanelPersonal.jsx';
 const EXITOS = {
   checkin: EXITO_CHECKIN,
   completar: EXITO_COMPLETAR,
+  noasistio: EXITO_NO_ASISTIO,
   cancelar: EXITO_CANCELAR,
   modificar: EXITO_MODIFICAR,
 };
@@ -58,6 +62,8 @@ export default function PanelDetalleReserva({
 }) {
   const id = filaInicial.id;
   const [hoy] = useState(() => hoyEnSantoDomingo());
+  // Hoy y hora de Santo Domingo (Intl), al minuto: deciden si se ofrece «Marcar No asistió».
+  const ahora = useAhora();
   const [detalle, setDetalle] = useState(null);
   const [carga, setCarga] = useState('cargando'); // 'cargando' | 'listo' | 'error'
   const [errorCarga, setErrorCarga] = useState('');
@@ -125,6 +131,7 @@ export default function PanelDetalleReserva({
       let resultado;
       if (tipo === 'checkin') resultado = await reservasPersonalService.checkIn(id, datos.personasReales);
       else if (tipo === 'completar') resultado = await reservasPersonalService.completar(id);
+      else if (tipo === 'noasistio') resultado = await reservasPersonalService.marcarNoAsistio(id);
       else if (tipo === 'modificar') resultado = await reservasPersonalService.modificar(id, datos);
       else resultado = await reservasPersonalService.cancelar(id, datos.motivo);
 
@@ -268,6 +275,13 @@ export default function PanelDetalleReserva({
               estado={fila.estado}
               detalle={detalle}
               personasReserva={fila.personas}
+              puedeNoAsistio={puedeMarcarNoAsistio({
+                estado: fila.estado,
+                fecha: fila.fecha,
+                hoy: ahora.hoy,
+                hora: ahora.hora,
+                franjaHoraInicio: fila.franjaHoraInicio,
+              })}
               enviando={enviando}
               onEjecutar={ejecutar}
               onModificar={() => { setAviso(null); setVista('modificar'); }}

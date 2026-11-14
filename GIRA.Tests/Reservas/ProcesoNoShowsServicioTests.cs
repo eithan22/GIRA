@@ -49,7 +49,7 @@ public class ProcesoNoShowsServicioTests
     [Fact]
     public async Task Pasados_Los_15_Min_Del_Inicio_Ya_No_Se_Marca_Mientras_La_Franja_Siga()
     {
-        using var e = new Entorno(Utc(Hoy, 12, 16)); // antes se marcaba aquí (tolerancia de 15 min)
+        using var e = new Entorno(Utc(Hoy, 12, 16)); // antes se marcaba aquí (a los 15 min del inicio)
         var reserva = await e.SembrarAsync(Hoy);
 
         var resultado = await e.Servicio.MarcarNoShowsAsync(default);
@@ -96,7 +96,7 @@ public class ProcesoNoShowsServicioTests
     [InlineData(EstadoReserva.NoAsistio)]
     public async Task Solo_Se_Marcan_Las_Confirmada(EstadoReserva estado)
     {
-        using var e = new Entorno(Utc(Hoy, 14, 0)); // tolerancia vencida de sobra
+        using var e = new Entorno(Utc(Hoy, 14, 0)); // franja terminada de sobra
         var reserva = await e.SembrarAsync(Hoy, 12, estado: estado);
 
         var resultado = await e.Servicio.MarcarNoShowsAsync(default);
