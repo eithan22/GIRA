@@ -22,6 +22,182 @@ namespace GIRA.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("GIRA.Domain.Entities.Configuracion.ConfiguracionRestaurante", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AntelacionMaximaDias")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AntelacionMinimaMinutos")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LimiteCancelacionMinutos")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxPersonasPorReserva")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxReservasVigentesPorTelefono")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("VentanaCheckInMinutos")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ConfiguracionRestaurante", "configuracion", t =>
+                        {
+                            t.HasCheckConstraint("CK_ConfiguracionRestaurante_AntelacionMaxima", "[AntelacionMaximaDias] BETWEEN 1 AND 365");
+
+                            t.HasCheckConstraint("CK_ConfiguracionRestaurante_AntelacionMinima", "[AntelacionMinimaMinutos] >= 0");
+
+                            t.HasCheckConstraint("CK_ConfiguracionRestaurante_FilaUnica", "[Id] = '00000000-0000-0000-0000-0000000000c1'");
+
+                            t.HasCheckConstraint("CK_ConfiguracionRestaurante_LimiteCancelacion", "[LimiteCancelacionMinutos] >= 0");
+
+                            t.HasCheckConstraint("CK_ConfiguracionRestaurante_MaxPersonas", "[MaxPersonasPorReserva] BETWEEN 1 AND 50");
+
+                            t.HasCheckConstraint("CK_ConfiguracionRestaurante_MaxVigentes", "[MaxReservasVigentesPorTelefono] BETWEEN 1 AND 10");
+
+                            t.HasCheckConstraint("CK_ConfiguracionRestaurante_VentanaCheckIn", "[VentanaCheckInMinutos] BETWEEN 0 AND 120");
+                        });
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Configuracion.DiaCerrado", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Fecha")
+                        .IsUnique()
+                        .HasDatabaseName("IX_DiaCerrado_Fecha")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("DiaCerrado", "configuracion");
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Configuracion.HorarioOperacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Abierto")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DiaSemana")
+                        .HasColumnType("int");
+
+                    b.Property<TimeOnly>("HoraApertura")
+                        .HasColumnType("time");
+
+                    b.Property<TimeOnly>("HoraCierre")
+                        .HasColumnType("time");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DiaSemana")
+                        .IsUnique()
+                        .HasDatabaseName("IX_HorarioOperacion_DiaSemana")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("HorarioOperacion", "configuracion", t =>
+                        {
+                            t.HasCheckConstraint("CK_HorarioOperacion_DiaSemana", "[DiaSemana] BETWEEN 0 AND 6");
+                        });
+                });
+
             modelBuilder.Entity("GIRA.Domain.Entities.Reservas.Cliente", b =>
                 {
                     b.Property<Guid>("Id")
@@ -127,28 +303,6 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("FranjaHoraria", "reservas");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("00000000-0000-0000-0000-000000000001"),
-                            Activa = true,
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            HoraFin = new TimeOnly(15, 0, 0),
-                            HoraInicio = new TimeOnly(12, 0, 0),
-                            IsDeleted = false,
-                            Nombre = "Almuerzo"
-                        },
-                        new
-                        {
-                            Id = new Guid("00000000-0000-0000-0000-000000000002"),
-                            Activa = true,
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            HoraFin = new TimeOnly(22, 30, 0),
-                            HoraInicio = new TimeOnly(18, 0, 0),
-                            IsDeleted = false,
-                            Nombre = "Cena"
-                        });
                 });
 
             modelBuilder.Entity("GIRA.Domain.Entities.Reservas.Mesa", b =>

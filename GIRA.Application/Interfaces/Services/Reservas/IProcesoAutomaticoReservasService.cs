@@ -13,8 +13,8 @@ public interface IProcesoAutomaticoReservasService
     Task<ResultadoProcesoReservas> EjecutarAsync(CancellationToken cancellationToken);
 
     /// <summary>
-    /// Marca NoAsistio las reservas Confirmada cuya tolerancia ya venció (RN-RES-07): pasada la
-    /// <c>ToleranciaNoShow</c> desde el inicio de su franja, hasta 200 por ciclo y las más antiguas
+    /// Marca NoAsistio las reservas Confirmada cuya franja ya terminó sin que el cliente llegara
+    /// (RN-RES-07): desde el instante en que termina la franja, hasta 200 por ciclo y las más antiguas
     /// primero. Cada reserva se procesa por separado y publica <c>ReservaNoAsistidaEvent</c> una sola
     /// vez tras guardar; una que falla no detiene a las demás y se reintenta en el ciclo siguiente.
     /// Es idempotente: una reserva ya NoAsistio no vuelve a procesarse.

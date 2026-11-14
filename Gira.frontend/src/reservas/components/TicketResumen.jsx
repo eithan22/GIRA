@@ -1,5 +1,6 @@
 import { formatearFechaLarga, formatearHora } from '../reservasFormato.js';
-import { TEXTO_LIMITE_CANCELACION } from '../reservasTextos.js';
+import { textoLimiteCancelacion } from '../reservasTextos.js';
+import { usePoliticasReserva } from '../hooks/usePoliticasReserva.js';
 
 /**
  * Resumen tipo ticket del aside oscuro de /reservar (Main/Paso2.dc.html). Es el
@@ -7,6 +8,7 @@ import { TEXTO_LIMITE_CANCELACION } from '../reservasTextos.js';
  * directo como hijo de .reservas-tarjeta, junto a .reservas-tarjeta-principal.
  */
 export default function TicketResumen({ fecha, franja, personas, onCambiar }) {
+  const { politicas } = usePoliticasReserva();
   const hayFranja = Boolean(franja);
 
   return (
@@ -75,7 +77,7 @@ export default function TicketResumen({ fecha, franja, personas, onCambiar }) {
           <svg className="reservas-ticket-nota-icono" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5eead4" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 12.5l4.5 4.5L19 7.5" />
           </svg>
-          {TEXTO_LIMITE_CANCELACION}
+          {textoLimiteCancelacion(politicas)}
         </li>
       </ul>
     </aside>

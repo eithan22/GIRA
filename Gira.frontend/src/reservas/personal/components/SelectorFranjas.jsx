@@ -1,8 +1,9 @@
 import Aviso from '../../components/Aviso.jsx';
-import { formatearHora } from '../../reservasFormato.js';
+import { formatearDuracionMinutos, formatearHora } from '../../reservasFormato.js';
+import { useParametrosOperativos } from '../hooks/useParametrosOperativos.js';
 import { esFranjaSoloPersonal } from '../reservasPersonalFormato.js';
 import {
-  AVISO_FRANJA_SOLO_PERSONAL,
+  avisoFranjaSoloPersonal,
   TEXTO_ACTUALIZAR_DISPONIBILIDAD,
   TEXTO_CONSULTANDO_DISPONIBILIDAD,
   TEXTO_ELIGE_FECHA_Y_PERSONAS,
@@ -27,14 +28,16 @@ function textoEstado(franja, soloPersonal) {
  * que no vuelven en esa lista se muestran deshabilitadas con el motivo. Si la consulta falla, el detail
  * del servidor se muestra, se puede reintentar y las franjas siguen siendo elegibles («Disponibilidad
  * sin confirmar»): el formulario nunca se bloquea. GI-403: las franjas de hoy que la web ya no puede
- * reservar (en curso o a menos de 2 h) se marcan «solo para el personal» y se avisa una vez; es
+ * reservar (en curso o a menos de la antelación mínima configurada) se marcan «solo para el personal» y se avisa una vez; es
  * informativo, el servidor decide.
  */
 export default function SelectorFranjas({
   franjas, valor, fecha, hoy, hora, onCambiar, estado, error, onReintentar, mensajeCampo, legendRef,
 }) {
+  const { antelacionMinimaMinutos } = useParametrosOperativos();
   const disponibles = franjas.filter((franja) => franja.disponible === true).length;
-  const esSoloPersonal = (franja) => franja.disponible !== false && esFranjaSoloPersonal({ fecha, hoy, hora, franja });
+  const esSoloPersonal = (franja) => franja.disponible !== false
+    && esFranjaSoloPersonal({ fecha, hoy, hora, franja, antelacionMinimaMinutos });
   const hayFranjaSoloPersonal = estado === 'listo' && franjas.some(esSoloPersonal);
   const mostrarOpciones = estado === 'listo' || estado === 'error';
 
@@ -65,7 +68,7 @@ export default function SelectorFranjas({
         <Aviso tipo="neutro">{TEXTO_SIN_DISPONIBILIDAD_PERSONAL}</Aviso>
       )}
 
-      {hayFranjaSoloPersonal && <Aviso tipo="advertencia">{AVISO_FRANJA_SOLO_PERSONAL}</Aviso>}
+      {hayFranjaSoloPersonal && <Aviso tipo="advertencia">{avisoFranjaSoloPersonal(formatearDuracionMinutos(antelacionMinimaMinutos))}</Aviso>}
 
       {mostrarOpciones && franjas.length > 0 && (
         <div className="reservas-personal-opciones">

@@ -120,7 +120,6 @@ public class ProcesoNoShowsIntegrationTests : IClassFixture<ProcesoNoShowsIntegr
 
         ProcesoAutomaticoReservasService Instancia(GiraDbContext contexto) => new(
             new ReservaRepositoryConBarrera(new ReservaRepository(contexto), barrera),
-            new ParametrosReservaFalso(),
             new PublicadorEventosSeguro(publisher, NullLogger<PublicadorEventosSeguro>.Instance),
             reloj);
 
@@ -180,7 +179,6 @@ public class ProcesoNoShowsIntegrationTests : IClassFixture<ProcesoNoShowsIntegr
 
         ProcesoAutomaticoReservasService Instancia(GiraDbContext contexto) => new(
             new ReservaRepositoryConBarrera(new ReservaRepository(contexto), barrera),
-            new ParametrosReservaFalso(),
             new PublicadorEventosSeguro(publisher, NullLogger<PublicadorEventosSeguro>.Instance),
             reloj);
 

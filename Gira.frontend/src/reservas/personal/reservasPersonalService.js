@@ -85,6 +85,43 @@ export const reservasPersonalService = {
     return response.data;
   },
 
+  // --- Configuración de reservas (GI-226): políticas, horario por día y días cerrados ---
+
+  async obtenerParametrosReserva({ signal } = {}) {
+    const response = await api.get('/api/configuracion/reservas/parametros', opciones(signal));
+    return response.data;
+  },
+
+  async guardarParametrosReserva(cuerpo) {
+    const response = await api.put('/api/configuracion/reservas/parametros', cuerpo, opciones());
+    return response.data;
+  },
+
+  async listarHorario({ signal } = {}) {
+    const response = await api.get('/api/configuracion/reservas/horario', opciones(signal));
+    return response.data;
+  },
+
+  // `dia` es el DayOfWeek de .NET: 0 = domingo … 6 = sábado.
+  async guardarHorarioDia(dia, cuerpo) {
+    const response = await api.put(`/api/configuracion/reservas/horario/${dia}`, cuerpo, opciones());
+    return response.data;
+  },
+
+  async listarDiasCerrados({ signal } = {}) {
+    const response = await api.get('/api/configuracion/reservas/dias-cerrados', opciones(signal));
+    return response.data;
+  },
+
+  async crearDiaCerrado(cuerpo) {
+    const response = await api.post('/api/configuracion/reservas/dias-cerrados', cuerpo, opciones());
+    return response.data;
+  },
+
+  async eliminarDiaCerrado(id) {
+    await api.delete(`/api/configuracion/reservas/dias-cerrados/${id}`, opciones());
+  },
+
   async checkIn(id, personasReales) {
     const response = await api.patch(`/api/reservas/${id}/check-in`, { personasReales }, opciones());
     return response.data;
@@ -92,6 +129,11 @@ export const reservasPersonalService = {
 
   async completar(id) {
     const response = await api.patch(`/api/reservas/${id}/completar`, null, opciones());
+    return response.data;
+  },
+
+  async marcarNoAsistio(id) {
+    const response = await api.patch(`/api/reservas/${id}/no-asistio`, null, opciones());
     return response.data;
   },
 

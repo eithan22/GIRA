@@ -60,6 +60,7 @@ import {
   minutosDeHora,
   origenAApi,
   paginasTotales,
+  puedeMarcarNoAsistio,
   puedeRegistrarVisita,
   rangoFechasReserva,
   resumenCambios,
@@ -866,4 +867,34 @@ test('descripcionVisita: la hora de medianoche es una hora válida y no se confu
     descripcionVisita({ horaRegistro: '00:05:00', personas: 2, franjaNombre: 'Cena', mesaNumero: 1 }),
     '00:05 · 2 personas · Cena · Mesa 1',
   );
+});
+
+// --- GI-404: «Marcar No asistió» ---
+
+const BASE_NO_ASISTIO = { estado: 'Confirmada', fecha: '2026-12-01', hoy: '2026-12-01', hora: '12:00', franjaHoraInicio: '12:00:00' };
+
+test('puedeMarcarNoAsistio: confirmada de hoy, desde el inicio exacto de la franja', () => {
+  assert.equal(puedeMarcarNoAsistio(BASE_NO_ASISTIO), true);
+  assert.equal(puedeMarcarNoAsistio({ ...BASE_NO_ASISTIO, hora: '13:45' }), true);
+});
+
+test('puedeMarcarNoAsistio: un minuto antes del inicio no se ofrece (corresponde cancelar)', () => {
+  assert.equal(puedeMarcarNoAsistio({ ...BASE_NO_ASISTIO, hora: '11:59' }), false);
+});
+
+test('puedeMarcarNoAsistio: una confirmada de un día pasado sí; una de un día futuro no', () => {
+  assert.equal(puedeMarcarNoAsistio({ ...BASE_NO_ASISTIO, fecha: '2026-11-30', hora: '08:00' }), true);
+  assert.equal(puedeMarcarNoAsistio({ ...BASE_NO_ASISTIO, fecha: '2026-12-02', hora: '23:00' }), false);
+});
+
+test('puedeMarcarNoAsistio: solo en Confirmada, sea cual sea la hora', () => {
+  for (const estado of ['EnCurso', 'Completada', 'Cancelada', 'NoAsistio', undefined]) {
+    assert.equal(puedeMarcarNoAsistio({ ...BASE_NO_ASISTIO, estado, hora: '20:00' }), false, String(estado));
+  }
+});
+
+test('puedeMarcarNoAsistio: con datos parciales (fila del mapa sin fecha ni franja) no se ofrece', () => {
+  assert.equal(puedeMarcarNoAsistio({ estado: 'Confirmada', hoy: '2026-12-01', hora: '20:00' }), false);
+  assert.equal(puedeMarcarNoAsistio({ ...BASE_NO_ASISTIO, franjaHoraInicio: undefined }), false);
+  assert.equal(puedeMarcarNoAsistio({ ...BASE_NO_ASISTIO, fecha: 'ayer' }), false);
 });

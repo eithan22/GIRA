@@ -19,12 +19,14 @@ public class ReservasController : ControllerBase
     private readonly IDisponibilidadService _disponibilidadService;
     private readonly IReservaService _reservaService;
     private readonly IAuthorizationService _authorizationService;
+    private readonly IPoliticasPublicasService _politicasPublicas;
 
-    /// <summary>Crea el controller con los servicios de disponibilidad, reservas y autorización.</summary>
+    /// <summary>Crea el controller con los servicios de disponibilidad, reservas, políticas públicas y autorización.</summary>
     public ReservasController(
         IDisponibilidadService disponibilidadService, IReservaService reservaService,
-        IAuthorizationService authorizationService)
+        IAuthorizationService authorizationService, IPoliticasPublicasService politicasPublicas)
     {
+        _politicasPublicas = politicasPublicas;
         _disponibilidadService = disponibilidadService;
         _reservaService = reservaService;
         _authorizationService = authorizationService;
@@ -47,6 +49,20 @@ public class ReservasController : ControllerBase
 
         return resultado.ToActionResult();
     }
+
+    /// <summary>
+    /// GI-226: políticas que ve el cliente en /reservar (antelación mínima y máxima, límite de cancelación, tamaño
+    /// máximo de grupo y días cerrados dentro de la ventana de reserva). Público y de solo lectura, con el mismo límite
+    /// por IP que la disponibilidad. Solo lo mínimo para mostrar textos: sin ventana de check-in, máximo por teléfono,
+    /// horarios ni datos internos.
+    /// </summary>
+    [HttpGet("politicas")]
+    [AllowAnonymous]
+    [EnableRateLimiting(LimiteReservasExtensions.PoliticaConsulta)]
+    [ProducesResponseType<PoliticasPublicasDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ObtenerPoliticas(CancellationToken cancellationToken) =>
+        Ok(await _politicasPublicas.ObtenerAsync(cancellationToken));
 
     /// <summary>
     /// GI-403: disponibilidad para el personal. A diferencia de la pública, no exige la antelación de
@@ -254,6 +270,25 @@ public class ReservasController : ControllerBase
     public async Task<IActionResult> Completar(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await _reservaService.CompletarAsync(id, cancellationToken);
+
+        return resultado.ToActionResult();
+    }
+
+    /// <summary>
+    /// GI-404: el personal marca una reserva como no asistida (Confirmada pasa a NoAsistio), solo con la
+    /// franja ya empezada; antes del inicio responde 409 y remite a cancelar. Libera la mesa y publica
+    /// una sola vez <c>ReservaNoAsistidaEvent</c>. Devuelve el detalle actualizado de la reserva.
+    /// </summary>
+    [HttpPatch("{id:guid}/no-asistio")]
+    [Authorize(Policy = Politicas.OperarReservas)]
+    [ProducesResponseType<ReservaDetalleDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> MarcarNoAsistio(Guid id, CancellationToken cancellationToken)
+    {
+        var resultado = await _reservaService.MarcarNoAsistioAsync(id, cancellationToken);
 
         return resultado.ToActionResult();
     }

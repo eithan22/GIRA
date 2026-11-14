@@ -23,6 +23,16 @@
   --reservas-borde-linea: #eff0f5;
   --reservas-fondo-tenue: #f7f8fc;
 
+  /* Franja no disponible (GI-226): sin bajar la opacidad del texto; cada par texto/fondo cumple 4,5:1 (lo comprueba
+     reservasContraste.test.js). El borde punteado cumple 3:1 contra el blanco. */
+  --reservas-franja-off-fondo: #eef0f5;
+  --reservas-franja-off-borde: #7d879a;
+  --reservas-franja-off-texto: #202a3a;
+  --reservas-franja-off-horario: #3f4a5d;
+  --reservas-franja-off-motivo: #3f4a5d;
+  --reservas-franja-off-badge-fondo: #dde1ea;
+  --reservas-franja-off-badge-texto: #2f3849;
+
   --reservas-exito-fondo: #d9f3e8;
   --reservas-exito-texto: #0b5a43;
   --reservas-exito-punto: #20a77d;

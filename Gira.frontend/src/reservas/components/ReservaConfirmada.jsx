@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatearFechaCorta, formatearHora, formatearCodigoVisual, primerNombre } from '../reservasFormato.js';
-import { AVISO_SIN_CORREO_TITULO, AVISO_SIN_CORREO_CUERPO, TEXTO_LIMITE_CANCELACION } from '../reservasTextos.js';
+import { AVISO_SIN_CORREO_TITULO, AVISO_SIN_CORREO_CUERPO, textoLimiteCancelacion } from '../reservasTextos.js';
+import { usePoliticasReserva } from '../hooks/usePoliticasReserva.js';
 import Aviso from './Aviso.jsx';
 import PortadaReservas from './PortadaReservas.jsx';
 
@@ -16,6 +17,7 @@ const PUNTOS_CONFETI = [
 
 /** Paso 3 del wizard de /reservar: confirmación con el código recién creado. */
 export default function ReservaConfirmada({ reserva, telefono, onNueva }) {
+  const { politicas } = usePoliticasReserva();
   const navigate = useNavigate();
   const [copiado, setCopiado] = useState(false);
   const codigoRef = useRef(null);
@@ -158,7 +160,7 @@ export default function ReservaConfirmada({ reserva, telefono, onNueva }) {
         </div>
       </section>
 
-      <p className="reservas-pie-nota">{TEXTO_LIMITE_CANCELACION}</p>
+      <p className="reservas-pie-nota">{textoLimiteCancelacion(politicas)}</p>
     </>
   );
 }

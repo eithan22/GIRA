@@ -21,19 +21,16 @@ public class ProcesoAutomaticoReservasService : IProcesoAutomaticoReservasServic
     public const int TopePorCiclo = 200;
 
     private readonly IReservaRepository _reservas;
-    private readonly IParametrosReservaService _parametros;
     private readonly IPublicadorEventosSeguro _publicador;
     private readonly TimeProvider _reloj;
 
-    /// <summary>Crea el servicio con el repositorio, los parámetros, el publicador seguro y el reloj.</summary>
+    /// <summary>Crea el servicio con el repositorio, el publicador seguro y el reloj.</summary>
     public ProcesoAutomaticoReservasService(
         IReservaRepository reservas,
-        IParametrosReservaService parametros,
         IPublicadorEventosSeguro publicador,
         TimeProvider reloj)
     {
         _reservas = reservas;
-        _parametros = parametros;
         _publicador = publicador;
         _reloj = reloj;
     }
@@ -53,17 +50,15 @@ public class ProcesoAutomaticoReservasService : IProcesoAutomaticoReservasServic
         var ahoraLocal = _reloj.AhoraLocal();
         var hoy = DateOnly.FromDateTime(ahoraLocal);
 
-        // Se leen ordenadas por fecha e inicio de franja (las más antiguas primero), con un tope de
-        // TopePorCiclo (200). Desde GI-403 el plazo cuenta desde max(inicio, último registro), así que ese
-        // orden ya no garantiza que toda vencida quede antes que una que aún no vence: una reserva de hoy
-        // creada hace pocos minutos sobre una franja ya empezada va adelante en la lista pero todavía no
-        // vence. Solo habría retraso si hubiera 200 de esas a la vez; incluso entonces cada una vence a
-        // los 15 min de su registro, así que las vencidas de atrás se procesan en los ciclos siguientes
-        // (se retrasan, no se pierden).
+        // Una reserva Confirmada pasa a NoAsistio cuando su franja termina sin que el cliente haya llegado
+        // (el fin exacto cuenta como terminada, igual que al completar y en el check-in). Se leen ordenadas
+        // por fecha e inicio de franja, con un tope de TopePorCiclo (200): las franjas de un mismo día no se
+        // solapan, así que ese orden equivale al del fin y las terminadas quedan siempre antes que las que
+        // aún no terminan.
         var candidatas = await _reservas.ListarPorEstadoHastaAsync(
             EstadoReserva.Confirmada, hoy, TopePorCiclo, cancellationToken);
         var vencidas = candidatas
-            .Where(c => ahoraLocal > InicioDelPlazo(c.Reserva, c.HoraInicio) + _parametros.ToleranciaNoShow)
+            .Where(c => ahoraLocal >= c.Reserva.Fecha.ToDateTime(c.HoraFin))
             .ToList();
 
         var noAsistidas = 0;
@@ -110,26 +105,6 @@ public class ProcesoAutomaticoReservasService : IProcesoAutomaticoReservasServic
 
         return new ResultadoProcesoReservas(
             noAsistidas, omitidas, fallos, TopeAlcanzado: vencidas.Count >= TopePorCiclo, TopePorCiclo);
-    }
-
-    // Desde cuándo corre la tolerancia del no-show: el mayor entre el inicio de la franja y el último
-    // registro de la reserva (creación o modificación), en hora local. Así una reserva que el personal
-    // crea (o mueve) con la franja ya empezada tiene su plazo completo y no se marca de inmediato. Para las
-    // reservas hechas antes del inicio, el último registro es anterior y el plazo sigue siendo el inicio.
-    private static DateTime InicioDelPlazo(Domain.Entities.Reservas.Reserva reserva, TimeOnly horaInicio)
-    {
-        var inicio = reserva.Fecha.ToDateTime(horaInicio);
-        var ultimoRegistro = reserva.UpdatedAt is { } modificada && modificada > reserva.CreatedAt
-            ? modificada
-            : reserva.CreatedAt;
-        if (ultimoRegistro == default)
-        {
-            return inicio; // fila sin auditoría: se conserva el comportamiento anterior
-        }
-
-        var registroLocal = TimeZoneInfo.ConvertTimeFromUtc(
-            DateTime.SpecifyKind(ultimoRegistro, DateTimeKind.Utc), HoraLocalGira.ZonaHoraria);
-        return registroLocal > inicio ? registroLocal : inicio;
     }
 
     /// <inheritdoc />

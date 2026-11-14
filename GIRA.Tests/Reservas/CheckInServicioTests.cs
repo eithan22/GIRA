@@ -16,7 +16,7 @@ using Microsoft.EntityFrameworkCore;
 namespace GIRA.Tests.Reservas;
 
 /// <summary>
-/// Pruebas del check-in (GI-165, GI-232): ventana de 30 minutos, límite en el fin de la franja,
+/// Pruebas del check-in (GI-165, GI-232): ventana de 15 minutos, límite en el fin de la franja,
 /// capacidad de la mesa, estados y mensajes. Repositorios reales sobre EF Core InMemory y reloj
 /// simulado (hora local de Santo Domingo = UTC-4).
 /// </summary>
@@ -155,26 +155,26 @@ public class CheckInServicioTests
         Assert.Empty(e.Publisher.Publicados);
     }
 
-    // --- Ventana de 30 minutos ---
+    // --- Ventana de 15 minutos (valor por defecto; configurable, GI-226) ---
 
     [Fact]
-    public async Task CheckIn_Justo_30_Minutos_Antes_Pasa()
+    public async Task CheckIn_Justo_15_Minutos_Antes_Pasa()
     {
-        using var e = new Entorno(Utc(Dia, 11, 30));
+        using var e = new Entorno(Utc(Dia, 11, 45));
         await e.SembrarAsync();
 
         Assert.True((await e.CheckInAsync(2)).IsSuccess);
     }
 
     [Fact]
-    public async Task CheckIn_31_Minutos_Antes_Es_Conflict_Solo_Con_La_Hora_Si_La_Reserva_Es_De_Hoy()
+    public async Task CheckIn_16_Minutos_Antes_Es_Conflict_Solo_Con_La_Hora_Si_La_Reserva_Es_De_Hoy()
     {
-        using var e = new Entorno(Utc(Dia, 11, 29));
+        using var e = new Entorno(Utc(Dia, 11, 44));
         await e.SembrarAsync();
 
         var resultado = await e.CheckInAsync(2);
 
-        EsFallo(resultado, ErrorType.Conflict, "El check-in se habilita a partir de las 11:30.");
+        EsFallo(resultado, ErrorType.Conflict, "El check-in se habilita a partir de las 11:45.");
         Assert.Equal(EstadoReserva.Confirmada, (await e.Contexto.Reservas.SingleAsync()).Estado);
     }
 
@@ -186,7 +186,7 @@ public class CheckInServicioTests
 
         var resultado = await e.CheckInAsync(2);
 
-        EsFallo(resultado, ErrorType.Conflict, "El check-in se habilita el 01/12 a partir de las 11:30.");
+        EsFallo(resultado, ErrorType.Conflict, "El check-in se habilita el 01/12 a partir de las 11:45.");
     }
 
     // --- Límite superior: fin de la franja ---

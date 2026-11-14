@@ -1,3 +1,5 @@
+import { formatearDuracionMinutos } from './reservasFormato.js';
+
 // Único lugar donde vive este dato: todo lo demás (reservasFormato.js, componentes)
 // debe importarlo de aquí, nunca repetirlo como texto suelto.
 export const TELEFONO_RESTAURANTE = '[TELÉFONO DEL RESTAURANTE]';
@@ -12,14 +14,35 @@ export const TEXTO_CARGANDO_DISPONIBILIDAD = 'Buscando mesas disponibles…';
 export const TEXTO_SIN_DISPONIBILIDAD =
   `No hay mesas disponibles para esa fecha y esa cantidad de personas. Prueba otro día o llámanos al ${TELEFONO_RESTAURANTE}.`;
 
-export const TEXTO_VENTANA_RESERVA =
-  'Reservamos desde hoy hasta 30 días adelante y con al menos 2 horas de anticipación.';
+// Los textos que dependen de las políticas de reserva (GI-226) reciben las políticas: nunca llevan 30 días,
+// 2 horas ni 8 personas escritos a mano.
+export const textoVentanaReserva = (politicas) => {
+  const dias = politicas.antelacionMaximaDias;
+  return `Reservamos desde hoy hasta ${dias} ${dias === 1 ? 'día' : 'días'} adelante y con al menos ${formatearDuracionMinutos(politicas.antelacionMinimaMinutos)} de anticipación.`;
+};
 
-export const TEXTO_MAS_DE_8 = `¿Más de 8? Llama al ${TELEFONO_RESTAURANTE}.`;
+export const textoMasDePersonas = (politicas) => `¿Más de ${politicas.maxPersonas}? Llama al ${TELEFONO_RESTAURANTE}.`;
+
+// Mismo texto que el servidor ("Para grupos de más de N personas, llama al restaurante.") más el teléfono.
+export const textoGrupoGrande = (politicas) =>
+  `Para grupos de más de ${politicas.maxPersonas} personas, llama al restaurante. ${TELEFONO_RESTAURANTE}`;
 
 // Regla de cancelación que el diseño repite en Confirmación y en Mi reserva · Detalle.
-export const TEXTO_LIMITE_CANCELACION =
-  'Cancelación gratis hasta 2 horas antes de la franja. Para cambiar algo, cancela y vuelve a reservar.';
+export const textoLimiteCancelacion = (politicas) =>
+  politicas.limiteCancelacionMinutos === 0
+    ? 'Puedes cancelar hasta el inicio de la franja. Para cambiar algo, cancela y vuelve a reservar.'
+    : `Cancelación gratis hasta ${formatearDuracionMinutos(politicas.limiteCancelacionMinutos)} antes de la franja. Para cambiar algo, cancela y vuelve a reservar.`;
+
+// --- Franjas y personas (Paso 1) ---
+
+export const BADGE_FRANJA_DISPONIBLE = 'Disponible';
+export const BADGE_FRANJA_NO_DISPONIBLE = 'No disponible';
+export const AVISO_DIA_CERRADO = 'El restaurante está cerrado ese día. Elige otra fecha.';
+
+export const ETIQUETA_PERSONAS_NUMERO = 'Número de personas';
+export const textoAyudaPersonas = (politicas) => `Entre 1 y ${politicas.maxPersonas} personas.`;
+export const ERROR_PERSONAS_FORMATO = 'Escribe solo números, por ejemplo 4.';
+export const ERROR_PERSONAS_MINIMO = 'Debe haber al menos 1 persona.';
 
 // Aviso de éxito tras cancelar, como en Detalle.dc.html.
 export const TEXTO_RESERVA_CANCELADA =

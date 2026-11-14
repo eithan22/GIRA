@@ -15,6 +15,7 @@ public class FranjaService : IFranjaService
 {
     private readonly IFranjaGestionRepository _franjas;
     private readonly IReservasFuturasRepository _reservasFuturas;
+    private readonly IParametrosReservaService _parametros;
     private readonly IValidator<GuardarFranjaRequest> _validador;
     private readonly IValidator<ListarSalonRequest> _validadorListado;
     private readonly TimeProvider _reloj;
@@ -22,12 +23,14 @@ public class FranjaService : IFranjaService
     public FranjaService(
         IFranjaGestionRepository franjas,
         IReservasFuturasRepository reservasFuturas,
+        IParametrosReservaService parametros,
         IValidator<GuardarFranjaRequest> validador,
         IValidator<ListarSalonRequest> validadorListado,
         TimeProvider reloj)
     {
         _franjas = franjas;
         _reservasFuturas = reservasFuturas;
+        _parametros = parametros;
         _validador = validador;
         _validadorListado = validadorListado;
         _reloj = reloj;
@@ -82,6 +85,11 @@ public class FranjaService : IFranjaService
             return Solapada();
         }
 
+        if (await FueraDelHorarioAsync(request.HoraInicio, request.HoraFin, cancellationToken) is { } fueraDeHorario)
+        {
+            return fueraDeHorario;
+        }
+
         var franja = new FranjaHoraria
         {
             Id = Guid.NewGuid(),
@@ -132,6 +140,13 @@ public class FranjaService : IFranjaService
             {
                 return Solapada();
             }
+
+            // Igual que el solapamiento, solo compite una franja activa; una inactiva se valida al reactivarla.
+            if (franja.Activa
+                && await FueraDelHorarioAsync(request.HoraInicio, request.HoraFin, cancellationToken) is { } fueraDeHorario)
+            {
+                return fueraDeHorario;
+            }
         }
 
         franja.Nombre = nombre;
@@ -159,10 +174,17 @@ public class FranjaService : IFranjaService
                     $"No se puede desactivar la franja: tiene {reservas} reserva(s) futura(s) vigente(s). Reasígnalas antes.");
             }
         }
-        else if (!franja.Activa && activa
-            && await _franjas.ExisteSolapamientoAsync(franja.HoraInicio, franja.HoraFin, id, cancellationToken))
+        else if (!franja.Activa && activa)
         {
-            return Solapada();
+            if (await _franjas.ExisteSolapamientoAsync(franja.HoraInicio, franja.HoraFin, id, cancellationToken))
+            {
+                return Solapada();
+            }
+
+            if (await FueraDelHorarioAsync(franja.HoraInicio, franja.HoraFin, cancellationToken) is { } fueraDeHorario)
+            {
+                return fueraDeHorario;
+            }
         }
 
         franja.Activa = activa;
@@ -186,6 +208,32 @@ public class FranjaService : IFranjaService
             return OperationResult.Failure<FranjaDto>(
                 ErrorType.Conflict, "La franja cambió mientras la editabas; recárgala e inténtalo de nuevo.");
         }
+    }
+
+    // Una franja activa debe caber en el horario de todos los días abiertos (GI-226): si no, devuelve el
+    // conflicto con el primer día (de lunes a domingo) y su horario; si cabe en todos, null.
+    private async Task<OperationResult<FranjaDto>?> FueraDelHorarioAsync(
+        TimeOnly inicio, TimeOnly fin, CancellationToken cancellationToken)
+    {
+        var parametros = await _parametros.ObtenerAsync(cancellationToken);
+        foreach (var dia in DiasSemanaEs.LunesADomingo)
+        {
+            if (!parametros.Horarios.TryGetValue(dia, out var horario) || !horario.Abierto)
+            {
+                continue;
+            }
+
+            if (inicio < horario.HoraApertura || fin > horario.HoraCierre)
+            {
+                return OperationResult.Failure<FranjaDto>(
+                    ErrorType.Conflict,
+                    $"La franja ({DiasSemanaEs.Hora(inicio)}–{DiasSemanaEs.Hora(fin)}) no cabe en el horario del " +
+                    $"{DiasSemanaEs.Nombre(dia)} ({DiasSemanaEs.Hora(horario.HoraApertura)}–{DiasSemanaEs.Hora(horario.HoraCierre)}). " +
+                    "Ajusta la franja o el horario de operación.");
+            }
+        }
+
+        return null;
     }
 
     private static OperationResult<FranjaDto> NoExiste() =>
