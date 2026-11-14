@@ -303,28 +303,6 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("FranjaHoraria", "reservas");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("00000000-0000-0000-0000-000000000001"),
-                            Activa = true,
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            HoraFin = new TimeOnly(15, 0, 0),
-                            HoraInicio = new TimeOnly(12, 0, 0),
-                            IsDeleted = false,
-                            Nombre = "Almuerzo"
-                        },
-                        new
-                        {
-                            Id = new Guid("00000000-0000-0000-0000-000000000002"),
-                            Activa = true,
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            HoraFin = new TimeOnly(22, 30, 0),
-                            HoraInicio = new TimeOnly(18, 0, 0),
-                            IsDeleted = false,
-                            Nombre = "Cena"
-                        });
                 });
 
             modelBuilder.Entity("GIRA.Domain.Entities.Reservas.Mesa", b =>
