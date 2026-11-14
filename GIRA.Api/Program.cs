@@ -63,6 +63,7 @@ if (app.Environment.IsDevelopment())
     await IdentitySeeder.SeedAsync(roleManager, userManager, app.Configuration);
 
     await ReservasSeeder.SeedAsync(dbContext);
+    await ConfiguracionReservasSeeder.SembrarAsync(dbContext);
 }
 
 // En Development no se redirige a https para que Swagger UI funcione con cualquier perfil de launchSettings; en el resto de entornos se mantiene.
