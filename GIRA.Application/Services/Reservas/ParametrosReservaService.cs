@@ -57,7 +57,4 @@ public class ParametrosReservaService : IParametrosReservaService
 
     /// <inheritdoc />
     public TimeSpan VentanaCheckIn => TimeSpan.FromMinutes(30);
-
-    /// <inheritdoc />
-    public TimeSpan ToleranciaNoShow => TimeSpan.FromMinutes(15);
 }

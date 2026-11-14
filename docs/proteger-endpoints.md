@@ -101,7 +101,7 @@ Todos con `GestionarSalon` (Administrador, Gerente). `{recurso}` es `zonas`, `me
 
 ### Reservas: proceso automático (no es un endpoint)
 
-Un solo `BackgroundService` (`ReservasProcesoAutomaticoService`) ejecuta cada minuto los procesos automáticos de Reservas. Hoy marca como **NoAsistio** las reservas Confirmada cuya tolerancia (`ToleranciaNoShow`, 15 min) ya venció, contada desde el mayor entre el inicio de la franja y el último registro de la reserva (creación o modificación; GI-403, para que una reserva creada con la franja ya empezada tenga su plazo completo), hasta 200 por ciclo y las más antiguas primero, y publica `ReservaNoAsistidaEvent` (GI-161). En el mismo ciclo **completa** las reservas EnCurso cuya franja ya terminó (desde el instante en que termina) y publica `VisitaCompletadaEvent` con las personas reales y `ConReserva = true` (GI-224). Cada paso procesa hasta 200 reservas por ciclo, las más antiguas primero.
+Un solo `BackgroundService` (`ReservasProcesoAutomaticoService`) ejecuta cada minuto los procesos automáticos de Reservas. Hoy marca como **NoAsistio** las reservas Confirmada cuya franja ya terminó sin check-in (desde el instante en que termina; GI-404, sin tolerancia), hasta 200 por ciclo y las más antiguas primero, y publica `ReservaNoAsistidaEvent` (GI-161). En el mismo ciclo **completa** las reservas EnCurso cuya franja ya terminó (desde el instante en que termina) y publica `VisitaCompletadaEvent` con las personas reales y `ConReserva = true` (GI-224). Cada paso procesa hasta 200 reservas por ciclo, las más antiguas primero.
 
 Configuración (sección `Reservas:ProcesoAutomatico`; un valor inválido nunca impide arrancar: se usa el valor por defecto y se registra un Warning):
 

@@ -47,7 +47,6 @@ internal sealed class EntornoProceso : IDisposable
 
         Servicio = new ProcesoAutomaticoReservasService(
             reservas,
-            new ParametrosReservaFalso(),
             new PublicadorEventosSeguro(publisher, NullLogger<PublicadorEventosSeguro>.Instance),
             Reloj);
     }

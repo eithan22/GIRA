@@ -304,7 +304,6 @@ class ParametrosReservaFalso : IParametrosReservaService
     public TimeSpan AntelacionMaxima { get; set; } = TimeSpan.FromDays(30);
     public TimeSpan LimiteCancelacion { get; set; } = TimeSpan.FromHours(2);
     public TimeSpan VentanaCheckIn { get; set; } = TimeSpan.FromMinutes(30);
-    public TimeSpan ToleranciaNoShow { get; set; } = TimeSpan.FromMinutes(15);
 }
 
 class MesaRepositoryFalso : IMesaRepository

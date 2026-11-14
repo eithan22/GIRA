@@ -32,7 +32,4 @@ public interface IParametrosReservaService
 
     /// <summary>Tiempo antes de la franja desde el cual se permite hacer check-in.</summary>
     TimeSpan VentanaCheckIn { get; }
-
-    /// <summary>Tiempo de tolerancia tras el cual una reserva Confirmada se marca NoAsistio.</summary>
-    TimeSpan ToleranciaNoShow { get; }
 }
