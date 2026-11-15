@@ -1,3 +1,4 @@
+import { formatearDuracionMinutos } from '../reservasFormato.js';
 import { ESTADOS_RESERVA } from '../reservasTextos.js';
 
 // Textos y mapas del personal. Lo genérico (colores de estado, mensaje de error
@@ -152,9 +153,15 @@ export const TEXTO_SIN_FRANJAS_ACTIVAS = 'No hay franjas activas configuradas.';
 export const TEXTO_SIN_DISPONIBILIDAD_PERSONAL = 'No hay franjas con disponibilidad para esa fecha y esas personas. Prueba otro día.';
 export const TEXTO_FRANJA_SIN_DISPONIBILIDAD = 'Sin disponibilidad (llena o ya terminó)';
 export const TEXTO_FRANJA_SOLO_PERSONAL = 'Disponible solo para el personal';
-export const avisoFranjaSoloPersonal = (antelacionTexto) =>
-  'La franja de hoy está disponible solo para el personal: el cliente web ya no puede reservarla porque '
-  + `faltan menos de ${antelacionTexto} o ya empezó. Puedes registrarla mientras no haya terminado.`;
+// Recibe la antelación mínima en minutos. Con 0 el cliente web solo se queda sin la franja cuando ya empezó: no se dice
+// «faltan menos de 0 minutos».
+export const avisoFranjaSoloPersonal = (antelacionMinimaMinutos) => {
+  const motivo = antelacionMinimaMinutos > 0
+    ? `faltan menos de ${formatearDuracionMinutos(antelacionMinimaMinutos)} o ya empezó`
+    : 'ya empezó';
+  return 'La franja de hoy está disponible solo para el personal: el cliente web ya no puede reservarla porque '
+    + `${motivo}. Puedes registrarla mientras no haya terminado.`;
+};
 export const TEXTO_FRANJA_SIN_CONFIRMAR = 'Disponibilidad sin confirmar';
 export const TEXTO_FRANJA_DISPONIBLE = 'Disponible';
 export const TEXTO_ACTUALIZAR_DISPONIBILIDAD = 'Actualizar disponibilidad';

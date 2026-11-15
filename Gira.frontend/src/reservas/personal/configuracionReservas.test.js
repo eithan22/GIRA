@@ -262,7 +262,7 @@ test('los textos del personal usan los valores recibidos, no 30 días ni 2 horas
   assert.equal(mensajeFechaFueraDeRango(45), 'Elige una fecha desde hoy hasta 45 días adelante.');
   assert.equal(mensajeFechaFueraDeRango(1), 'Elige una fecha desde hoy hasta 1 día adelante.');
   assert.match(ayudaNuevoHorario(10), /hasta 10 días adelante/);
-  assert.match(avisoFranjaSoloPersonal('90 minutos'), /faltan menos de 90 minutos/);
+  assert.match(avisoFranjaSoloPersonal(90), /faltan menos de 90 minutos/);
 });
 
 test('el frontend del personal no deja valores fijos de antelación en el código', () => {

@@ -23,7 +23,11 @@ export const textoSinDisponibilidad = (politicas) =>
 // 2 horas ni 8 personas escritos a mano.
 export const textoVentanaReserva = (politicas) => {
   const dias = politicas.antelacionMaximaDias;
-  return `Reservamos desde hoy hasta ${dias} ${dias === 1 ? 'día' : 'días'} adelante y con al menos ${formatearDuracionMinutos(politicas.antelacionMinimaMinutos)} de anticipación.`;
+  // Con antelación mínima 0 no se dice «con al menos 0 minutos de anticipación»: se reserva sin antelación mínima.
+  const antelacion = politicas.antelacionMinimaMinutos > 0
+    ? `con al menos ${formatearDuracionMinutos(politicas.antelacionMinimaMinutos)} de anticipación`
+    : 'sin antelación mínima';
+  return `Reservamos desde hoy hasta ${dias} ${dias === 1 ? 'día' : 'días'} adelante y ${antelacion}.`;
 };
 
 export const textoMasDePersonas = (politicas) =>

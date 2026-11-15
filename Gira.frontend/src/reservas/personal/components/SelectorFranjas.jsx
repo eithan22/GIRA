@@ -1,5 +1,5 @@
 import Aviso from '../../components/Aviso.jsx';
-import { formatearDuracionMinutos, formatearHora } from '../../reservasFormato.js';
+import { formatearHora } from '../../reservasFormato.js';
 import { useParametrosOperativos } from '../hooks/useParametrosOperativos.js';
 import { esFranjaSoloPersonal } from '../reservasPersonalFormato.js';
 import {
@@ -68,7 +68,7 @@ export default function SelectorFranjas({
         <Aviso tipo="neutro">{TEXTO_SIN_DISPONIBILIDAD_PERSONAL}</Aviso>
       )}
 
-      {hayFranjaSoloPersonal && <Aviso tipo="advertencia">{avisoFranjaSoloPersonal(formatearDuracionMinutos(antelacionMinimaMinutos))}</Aviso>}
+      {hayFranjaSoloPersonal && <Aviso tipo="advertencia">{avisoFranjaSoloPersonal(antelacionMinimaMinutos)}</Aviso>}
 
       {mostrarOpciones && franjas.length > 0 && (
         <div className="reservas-personal-opciones">
