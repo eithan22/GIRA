@@ -58,6 +58,12 @@ export const textoLimiteCancelacion = (politicas) => {
   return `Puedes cancelar hasta ${formatearDuracionMinutos(politicas.limiteCancelacionMinutos)} antes de tu franja. Después, ${despues}`;
 };
 
+// Límite de reservas vigentes por teléfono: el número sale de las políticas públicas (maxReservasVigentesPorTelefono),
+// nunca escrito a mano, y concuerda en singular y plural (1 reserva vigente, 2 reservas vigentes).
+export const textoReservasVigentes = (cantidad) => (cantidad === 1 ? '1 reserva vigente' : `${cantidad} reservas vigentes`);
+export const textoLimiteVigentesTicket = (politicas) => `Hasta ${textoReservasVigentes(politicas.maxReservasVigentesPorTelefono)} por teléfono.`;
+export const textoLimiteVigentesDatos = (politicas) => `Puedes tener hasta ${textoReservasVigentes(politicas.maxReservasVigentesPorTelefono)} con el mismo número.`;
+
 // --- Franjas y personas (Paso 1) ---
 
 export const BADGE_FRANJA_DISPONIBLE = 'Disponible';

@@ -81,11 +81,11 @@ test('normalizarPoliticas: toma lo que llega del servidor y completa lo que falt
   assert.deepEqual(
     normalizarPoliticas({
       antelacionMinimaMinutos: 45, antelacionMaximaDias: 60, limiteCancelacionMinutos: 0, toleranciaNoShowMinutos: 20,
-      maxPersonas: 4, telefonoContacto: '809 555 0199', diasCerrados: ['2026-12-25'],
+      maxPersonas: 4, maxReservasVigentesPorTelefono: 3, telefonoContacto: '809 555 0199', diasCerrados: ['2026-12-25'],
     }),
     {
       antelacionMinimaMinutos: 45, antelacionMaximaDias: 60, limiteCancelacionMinutos: 0, toleranciaNoShowMinutos: 20,
-      maxPersonas: 4, telefonoContacto: '809 555 0199', diasCerrados: ['2026-12-25'],
+      maxPersonas: 4, maxReservasVigentesPorTelefono: 3, telefonoContacto: '809 555 0199', diasCerrados: ['2026-12-25'],
     },
   );
   assert.equal(normalizarPoliticas(null), POLITICAS_POR_DEFECTO);

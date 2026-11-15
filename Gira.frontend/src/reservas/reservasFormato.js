@@ -119,6 +119,7 @@ export const POLITICAS_POR_DEFECTO = Object.freeze({
   limiteCancelacionMinutos: 120,
   toleranciaNoShowMinutos: 15,
   maxPersonas: 8,
+  maxReservasVigentesPorTelefono: 2,
   telefonoContacto: null,
   diasCerrados: Object.freeze([]),
 });
@@ -145,6 +146,7 @@ export function normalizarPoliticas(datos) {
     limiteCancelacionMinutos: enteroDesde(datos.limiteCancelacionMinutos, d.limiteCancelacionMinutos, 0),
     toleranciaNoShowMinutos: enteroDesde(datos.toleranciaNoShowMinutos, d.toleranciaNoShowMinutos, 0),
     maxPersonas: enteroDesde(datos.maxPersonas, d.maxPersonas, 1),
+    maxReservasVigentesPorTelefono: enteroDesde(datos.maxReservasVigentesPorTelefono, d.maxReservasVigentesPorTelefono, 1),
     telefonoContacto: textoOpcionalDesde(datos.telefonoContacto),
     diasCerrados: Array.isArray(datos.diasCerrados) ? datos.diasCerrados.filter((x) => typeof x === 'string') : [],
   };

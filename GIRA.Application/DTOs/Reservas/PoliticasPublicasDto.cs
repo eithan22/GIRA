@@ -10,6 +10,7 @@ namespace GIRA.Application.DTOs.Reservas;
 /// <param name="AntelacionMaximaDias">Hasta cuántos días antes se puede reservar.</param>
 /// <param name="LimiteCancelacionMinutos">Minutos antes del inicio de la franja hasta los que se puede cancelar.</param>
 /// <param name="MaxPersonas">Tamaño máximo efectivo de grupo: el menor entre lo configurado y la mesa activa más grande.</param>
+/// <param name="MaxReservasVigentesPorTelefono">Máximo de reservas vigentes con un mismo teléfono; las pantallas lo muestran en sus textos.</param>
 /// <param name="TelefonoContacto">Teléfono del restaurante para grupos grandes y dudas; null si no se configuró.</param>
 /// <param name="DiasCerrados">Fechas cerradas dentro de la ventana de reserva (de hoy hasta la antelación máxima).</param>
 public sealed record PoliticasPublicasDto(
@@ -17,5 +18,6 @@ public sealed record PoliticasPublicasDto(
     int AntelacionMaximaDias,
     int LimiteCancelacionMinutos,
     int MaxPersonas,
+    int MaxReservasVigentesPorTelefono,
     string? TelefonoContacto,
     IReadOnlyList<DateOnly> DiasCerrados);

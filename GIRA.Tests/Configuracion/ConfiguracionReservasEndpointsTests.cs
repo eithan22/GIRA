@@ -334,7 +334,7 @@ public class ConfiguracionReservasEndpointsTests : IAsyncLifetime
     // --- Políticas públicas ---
 
     [Fact]
-    public async Task Politicas_SinToken_Responde200ConSoloLosSeisCamposPublicos()
+    public async Task Politicas_SinToken_Responde200ConSoloLosSieteCamposPublicos()
     {
         var respuesta = await _cliente.GetAsync("/api/reservas/politicas");
 
@@ -342,10 +342,11 @@ public class ConfiguracionReservasEndpointsTests : IAsyncLifetime
         var json = await JsonAsync(respuesta);
         Assert.Equal(
             ["antelacionMinimaMinutos", "antelacionMaximaDias", "limiteCancelacionMinutos", "maxPersonas",
-             "telefonoContacto", "diasCerrados"],
+             "maxReservasVigentesPorTelefono", "telefonoContacto", "diasCerrados"],
             json.EnumerateObject().Select(p => p.Name).ToArray());
         Assert.Equal(4, json.GetProperty("maxPersonas").GetInt32()); // min(8 configurado, mesa de 4)
         Assert.Equal(30, json.GetProperty("antelacionMaximaDias").GetInt32());
+        Assert.Equal(2, json.GetProperty("maxReservasVigentesPorTelefono").GetInt32()); // valor por defecto
         // El seeder no pone ningún teléfono de ejemplo; la tolerancia de no-show no se expone al cliente.
         Assert.Equal(JsonValueKind.Null, json.GetProperty("telefonoContacto").ValueKind);
     }

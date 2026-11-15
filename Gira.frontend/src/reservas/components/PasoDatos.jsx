@@ -9,7 +9,9 @@ import {
   MENSAJE_NOMBRE_MUY_LARGO,
   MENSAJE_TELEFONO_OBLIGATORIO,
   MENSAJE_ERROR_GENERICO,
+  textoLimiteVigentesDatos,
 } from '../reservasTextos.js';
+import { usePoliticasReserva } from '../hooks/usePoliticasReserva.js';
 import Aviso from './Aviso.jsx';
 
 // Mismos límites que CrearReservaRequestValidator.cs / TelefonoRd.cs en el
@@ -41,6 +43,7 @@ function validarTelefono(digitos) {
 /** Paso 2 del wizard de /reservar: nombre y teléfono, y el envío final. */
 export default function PasoDatos({ valor, onCambiar, onAtras, onConfirmar, enviando }) {
   const { nombre, telefono } = valor;
+  const { politicas } = usePoliticasReserva();
   const [tocado, setTocado] = useState({ nombre: false, telefono: false });
   const [enviandoLocal, setEnviandoLocal] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState(null);
@@ -185,7 +188,7 @@ export default function PasoDatos({ valor, onCambiar, onAtras, onConfirmar, envi
               <path d="M8 11V8a4 4 0 0 1 8 0v3" />
             </svg>
           </span>
-          <span><strong>Tu teléfono es tu llave.</strong> Lo usamos solo para identificar tu reserva y no lo mostramos en ningún enlace. Puedes tener hasta 2 reservas vigentes con el mismo número.</span>
+          <span><strong>Tu teléfono es tu llave.</strong> Lo usamos solo para identificar tu reserva y no lo mostramos en ningún enlace. {textoLimiteVigentesDatos(politicas)}</span>
         </div>
 
         {errorEnvio?.tipo === '409-limite' && (

@@ -1,5 +1,5 @@
 import { formatearFechaLarga, formatearHora } from '../reservasFormato.js';
-import { textoLimiteCancelacion, textoZonaTicket } from '../reservasTextos.js';
+import { textoLimiteCancelacion, textoLimiteVigentesTicket, textoZonaTicket } from '../reservasTextos.js';
 import { usePoliticasReserva } from '../hooks/usePoliticasReserva.js';
 
 /**
@@ -71,7 +71,7 @@ export default function TicketResumen({ fecha, franja, personas, zonaNombre, onC
           <svg className="reservas-ticket-nota-icono" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5eead4" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 12.5l4.5 4.5L19 7.5" />
           </svg>
-          Hasta 2 reservas vigentes por teléfono.
+          {textoLimiteVigentesTicket(politicas)}
         </li>
         <li className="reservas-ticket-nota">
           <svg className="reservas-ticket-nota-icono" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5eead4" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
