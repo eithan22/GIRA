@@ -46,6 +46,8 @@
 
 .reservas-boton:disabled {
   box-shadow: none;
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 @media (hover: hover) {

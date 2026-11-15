@@ -80,10 +80,23 @@ internal static class MensajesReservas
         var hora = horaInicio.ToString(@"HH\:mm");
         var personasTexto = personas == 1 ? "1 persona" : $"{personas} personas";
         var minutosTexto = minutosFaltantes is int m
-            ? $", en {(m == 1 ? "1 minuto" : $"{m} minutos")}"
+            ? $", en {FormatearTiempoFaltante(m)}"
             : "";
         return $"La mesa {numeroMesa} tiene una reserva a las {hora} (franja {franjaNombre}, {personasTexto})" +
             $"{minutosTexto}. Si registras la visita, la mesa podría no estar libre a tiempo.";
+    }
+
+    // Menos de 60: "M min"; hora exacta: "H h"; el resto: "H h M min" (SRS v1.4 §5.2).
+    private static string FormatearTiempoFaltante(int minutos)
+    {
+        if (minutos < 60)
+        {
+            return $"{minutos} min";
+        }
+
+        var horas = minutos / 60;
+        var restoMinutos = minutos % 60;
+        return restoMinutos == 0 ? $"{horas} h" : $"{horas} h {restoMinutos} min";
     }
 
     /// <summary>Falta la fecha al consultar la disponibilidad (la consulta sin <c>fecha</c> llega como 0001-01-01).</summary>
@@ -108,4 +121,7 @@ internal static class MensajesReservas
     /// <summary>La zona elegida (GI-4xx) ya no tiene mesas disponibles en esa franja.</summary>
     public static string ZonaSinMesas(string nombreZona) =>
         $"La zona {nombreZona} ya no tiene mesas disponibles en esa franja. Elige otra zona o \"sin preferencia\".";
+
+    /// <summary>El canal del personal envió ZonaId (C3): ese canal no usa zona, la mesa se asigna a mano.</summary>
+    public const string ZonaNoAplicaPersonal = "El canal del personal no usa zona; la mesa se asigna manualmente.";
 }

@@ -18,6 +18,7 @@ import {
   TEXTO_CONFIRMAR_CHECKIN,
   TEXTO_CONFIRMAR_COMPLETAR,
   TEXTO_CONFIRMAR_NO_ASISTIO,
+  TEXTO_FRANJA_EMPEZADA,
   TEXTO_MANTENER_RESERVA,
   TEXTO_VOLVER,
   TITULO_CANCELAR,
@@ -63,6 +64,12 @@ export default function AccionesReserva({
   const disponibles = accionesPorEstado(estado, puedeNoAsistio);
   // Si el estado cambió (por ejemplo tras un 409) y la acción abierta ya no aplica, se cierra sola.
   const modoActivo = disponibles.includes(modo) ? modo : null;
+
+  // C2 (RN-RES-04): lo decide el backend con su propio reloj (detalle.puedeModificar/puedeCancelar),
+  // nunca la hora del navegador. El servidor sigue rechazando la operación igual si de todos modos se envía.
+  const modificarBloqueada = Boolean(detalle) && detalle.puedeModificar === false;
+  const cancelarBloqueada = Boolean(detalle) && detalle.puedeCancelar === false;
+  const mostrarAvisoFranjaEmpezada = modificarBloqueada || cancelarBloqueada;
 
   const capacidad = detalle?.mesaCapacidad ?? null;
   const validacionPersonas = validarPersonasReales(personasTexto, capacidad);
@@ -257,7 +264,8 @@ export default function AccionesReserva({
           type="button"
           className="reservas-boton reservas-boton--chico reservas-boton--secundario reservas-personal-boton-auto"
           onClick={onModificar}
-          disabled={!detalle}
+          disabled={!detalle || modificarBloqueada}
+          aria-describedby={modificarBloqueada ? 'accion-franja-empezada' : undefined}
         >{TEXTO_ACCION_MODIFICAR}</button>
       )}
       {disponibles.includes('completar') && (
@@ -282,7 +290,14 @@ export default function AccionesReserva({
           ref={botonCancelarRef}
           className="reservas-boton reservas-boton--chico reservas-boton--fantasma-error reservas-personal-boton-auto"
           onClick={() => setModo('cancelar')}
+          disabled={!detalle || cancelarBloqueada}
+          aria-describedby={cancelarBloqueada ? 'accion-franja-empezada' : undefined}
         >{TEXTO_ACCION_CANCELAR}</button>
+      )}
+      {mostrarAvisoFranjaEmpezada && (
+        <p id="accion-franja-empezada" className="reservas-campo-ayuda reservas-personal-acciones-aviso">
+          {TEXTO_FRANJA_EMPEZADA}
+        </p>
       )}
     </div>
   );

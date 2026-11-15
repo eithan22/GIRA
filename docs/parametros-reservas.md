@@ -95,3 +95,17 @@ dentro de 12:00–22:30). Se crean **solo si no existen** y nunca pisan lo que e
     valida por formato y la única barrera, además de la limitación de tasa, es el máximo de reservas vigentes por
     teléfono. El límite diario por IP y el bloqueo por no-show están aplazados como mejora futura (ver
     `reservas-canales.md`, «Mejoras futuras»).
+
+## Reglas relacionadas que no son parámetros (RN-RES-04)
+
+Estas reglas son fijas, no configurables desde Políticas; se documentan aquí porque dependen del inicio de la
+franja igual que la ventana de check-in y la tolerancia de no-show. Detalle completo en `reservas-canales.md`.
+
+- **Aviso de próxima reserva al registrar una visita.** Solo avisa de la franja activa **inmediatamente siguiente**
+  a aquella en la que se registra la visita (no de cualquier franja posterior del día): con el tiempo
+  mostrado como «M min» (menos de 60), «H h» (hora exacta) o «H h M min».
+- **`puedeModificar` / `puedeCancelar`.** El detalle de una reserva para el personal indica si todavía se puede
+  modificar o cancelar (Confirmada y franja sin empezar, con el reloj del servidor); la agenda deshabilita esos
+  botones cuando el backend responde `false`, en vez de mostrarlos activos y fallar solo al enviarlos.
+- **`zonaId` por el canal del personal.** El canal del personal (`Telefono`/`Presencial`) ya no ignora `zonaId` en
+  silencio: lo rechaza con 400 y el código `ZONA_NO_APLICA_PERSONAL`, porque ese canal asigna la mesa a mano.

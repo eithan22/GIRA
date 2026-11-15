@@ -224,16 +224,50 @@ public class ZonaOpcionalServicioTests
         Assert.Equal(CodigosErrorReservas.ZonaSinMesas, resultado.Codigo);
     }
 
-    // --- Canal del personal ---
+    // --- Canal del personal (C3: ya no se ignora en silencio, se rechaza con 400) ---
 
     [Fact]
-    public async Task CrearComoPersonal_IgnoraLaZonaAunqueNoExista()
+    public async Task CrearComoPersonal_ConZonaId_EsRechazadaCon400YElCodigoEstable()
     {
         var servicio = CrearReservas([MesaEn(Salon, 1)], zonas: [Salon]);
         var request = new CrearReservaRequest(
             "Ana Pérez", "8095551234", Fecha, Almuerzo.Id, 2, ZonaId: Guid.NewGuid());
 
         var resultado = await servicio.CrearComoPersonalAsync(request, OrigenReserva.Telefono, default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(ErrorType.Validation, resultado.Type);
+        Assert.Equal(CodigosErrorReservas.ZonaNoAplicaPersonal, resultado.Codigo);
+        Assert.Equal("El canal del personal no usa zona; la mesa se asigna manualmente.", resultado.Error);
+    }
+
+    [Fact]
+    public async Task CrearComoPersonal_SinZonaId_NoCambia()
+    {
+        var servicio = CrearReservas([MesaEn(Salon, 1)], zonas: [Salon]);
+        var request = new CrearReservaRequest("Ana Pérez", "8095551234", Fecha, Almuerzo.Id, 2, ZonaId: null);
+
+        var resultado = await servicio.CrearComoPersonalAsync(request, OrigenReserva.Telefono, default);
+
+        Assert.True(resultado.IsSuccess);
+    }
+
+    [Fact]
+    public async Task CrearWeb_ConZonaId_NoCambia()
+    {
+        var servicio = CrearReservas([MesaEn(Salon, 1)], zonas: [Salon]);
+
+        var resultado = await servicio.CrearAsync(Web(Salon.Id), default);
+
+        Assert.True(resultado.IsSuccess);
+    }
+
+    [Fact]
+    public async Task CrearWeb_SinZonaId_NoCambia()
+    {
+        var servicio = CrearReservas([MesaEn(Salon, 1)], zonas: [Salon]);
+
+        var resultado = await servicio.CrearAsync(Web(null), default);
 
         Assert.True(resultado.IsSuccess);
     }

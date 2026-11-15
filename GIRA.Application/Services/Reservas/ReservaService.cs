@@ -38,6 +38,17 @@ public class ReservaService : IReservaService
     // Mismo mensaje para "código no existe" y "teléfono no coincide": nunca se revela cuál falló.
     private const string MensajeCodigoOTelefonoIncorrectos = "Código o teléfono incorrectos.";
 
+    // PuedeModificar/PuedeCancelar (RN-RES-04): la misma regla que ya aplican ModificarAsync y
+    // CancelarPorPersonalAsync al rechazar la operación, calculada aquí para que el personal la vea de
+    // antemano con el reloj del servidor. Hoy ambos botones comparten la regla, pero se calculan por
+    // separado porque son conceptos distintos (RN-RES-04 vs RN-RES-05) que podrían divergir después.
+    private ReservaDetalleDto ConPermisosDeEdicion(ReservaDetalleDto detalle)
+    {
+        var puede = Enum.Parse<EstadoReserva>(detalle.Estado) == EstadoReserva.Confirmada
+            && _timeProvider.AhoraLocal() < detalle.Fecha.ToDateTime(detalle.FranjaHoraInicio);
+        return detalle with { PuedeModificar = puede, PuedeCancelar = puede };
+    }
+
     /// <summary>Crea el servicio con sus repositorios, dependencias y el reloj.</summary>
     public ReservaService(
         IMesaRepository mesaRepository,
@@ -105,6 +116,14 @@ public class ReservaService : IReservaService
         if (!validacion.IsValid)
         {
             return OperationResult.Failure<ReservaCreadaDto>(ErrorType.Validation, validacion.ToString());
+        }
+
+        // C3: el canal del personal no usa zona (la mesa se asigna a mano); antes se ignoraba en silencio
+        // un ZonaId que llegara de ese canal, ahora se rechaza para no sugerir una preferencia que nunca se aplicó.
+        if (audiencia == AudienciaReserva.Personal && request.ZonaId is not null)
+        {
+            return OperationResult.Failure<ReservaCreadaDto>(
+                ErrorType.Validation, MensajesReservas.ZonaNoAplicaPersonal, CodigosErrorReservas.ZonaNoAplicaPersonal);
         }
 
         var telefono = TelefonoRd.Normalizar(request.Telefono);
@@ -258,7 +277,7 @@ public class ReservaService : IReservaService
 
         return detalle is null
             ? OperationResult.Failure<ReservaDetalleDto>(ErrorType.NotFound, "No encontramos esa reserva.")
-            : OperationResult.Success(detalle);
+            : OperationResult.Success(ConPermisosDeEdicion(detalle));
     }
 
     /// <inheritdoc />
@@ -275,7 +294,7 @@ public class ReservaService : IReservaService
 
         return detalle is null
             ? OperationResult.Failure<ReservaDetalleDto>(ErrorType.NotFound, "No encontramos esa reserva.")
-            : OperationResult.Success(detalle);
+            : OperationResult.Success(ConPermisosDeEdicion(detalle));
     }
 
     /// <inheritdoc />
@@ -352,7 +371,7 @@ public class ReservaService : IReservaService
         var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken)
             ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} desapareció después del check-in.");
 
-        return OperationResult.Success(detalle);
+        return OperationResult.Success(ConPermisosDeEdicion(detalle));
     }
 
     /// <summary>Mesa y franja resueltas por <see cref="ValidarYAsignarMesaAsync"/>.</summary>
@@ -604,7 +623,7 @@ public class ReservaService : IReservaService
         var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken)
             ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} desapareció después de modificarla.");
 
-        return OperationResult.Success(detalle);
+        return OperationResult.Success(ConPermisosDeEdicion(detalle));
     }
 
     private static string MensajeModificarNoPermitido(EstadoReserva estado) => estado switch
@@ -671,7 +690,7 @@ public class ReservaService : IReservaService
         var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken)
             ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} desapareció después de cancelarla.");
 
-        return OperationResult.Success(detalle);
+        return OperationResult.Success(ConPermisosDeEdicion(detalle));
     }
 
     private static string MensajeCancelarPorPersonalNoPermitido(EstadoReserva estado) => estado switch
@@ -724,7 +743,7 @@ public class ReservaService : IReservaService
         var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken)
             ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} desapareció después de completarla.");
 
-        return OperationResult.Success(detalle);
+        return OperationResult.Success(ConPermisosDeEdicion(detalle));
     }
 
     /// <inheritdoc />
@@ -775,7 +794,7 @@ public class ReservaService : IReservaService
         var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken)
             ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} desapareció después de marcarla como no asistida.");
 
-        return OperationResult.Success(detalle);
+        return OperationResult.Success(ConPermisosDeEdicion(detalle));
     }
 
     private static string MensajeNoAsistioNoPermitido(EstadoReserva estado) => estado switch

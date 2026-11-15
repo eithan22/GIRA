@@ -113,6 +113,11 @@ export const EXITO_NO_ASISTIO = 'Reserva marcada como No asistió. La mesa qued�
 // Solo informa lo que pasó; no promete ningún flujo posterior.
 export const AVISO_NO_ASISTIO = 'El cliente no llegó, por eso la reserva quedó como no asistida.';
 
+// Explica por qué Modificar y Cancelar aparecen deshabilitados (C2, RN-RES-04): lo decide el backend
+// (detalle.puedeModificar / detalle.puedeCancelar), nunca la hora del navegador.
+export const TEXTO_FRANJA_EMPEZADA =
+  "La franja ya empezó; no se puede modificar ni cancelar. Si el cliente no llegó, usa \"Marcar no asistió\".";
+
 export const ETIQUETA_PERSONAS_REALES = 'Personas que llegaron';
 export const ETIQUETA_MOTIVO = 'Motivo de la cancelación';
 export const AYUDA_MOTIVO = 'Obligatorio. Entre 1 y 500 caracteres.';

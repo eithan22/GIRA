@@ -76,6 +76,16 @@ existentes conservan las suyas hasta que el Gerente las edite.
    libera, se publica `ReservaNoAsistidaEvent` y el check-in ya no es posible: si el cliente llega después, se
    registra como visita sin reserva.
 
+> **`puedeModificar` / `puedeCancelar` (RN-RES-04).** El detalle de una reserva para el personal
+> (`GET /api/reservas/{id}`, `GET /api/reservas/codigo/{codigo}` y la respuesta de check-in, modificar, cancelar,
+> completar y marcar no asistida) incluye estos dos indicadores calculados por el backend con su propio reloj
+> (America/Santo_Domingo): `true` solo si la reserva está Confirmada y su franja todavía no empezó. Antes los
+> botones Modificar/Cancelar de la agenda se mostraban siempre activos y el servidor los rechazaba con 409 recién
+> al enviarlos; ahora el personal los ve deshabilitados de antemano, con el texto «La franja ya empezó; no se puede
+> modificar ni cancelar. Si el cliente no llegó, usa "Marcar no asistió".». El frontend solo consume estos campos:
+> nunca recalcula con la hora del navegador, y el servidor sigue rechazando la operación igual si de todos modos se
+> envía (el backend sigue siendo la autoridad).
+
 > **Reserva creada con la franja en curso (RN-RES-04).** Como el personal solo puede modificar y cancelar
 > hasta el inicio de la franja, una reserva creada con la franja ya en curso no se puede modificar ni cancelar
 > después: solo se ajustan las personas reales en el check-in. Si el cliente no llega, el sistema la marca
@@ -111,6 +121,7 @@ hacer. Un error sin código asignado sigue funcionando igual que antes (el front
 | `CONTACTAR_RESTAURANTE` | El grupo supera el tamaño máximo configurado (al consultar disponibilidad o al crear): el canal web no resuelve este caso. | 400 |
 | `RESERVA_NO_CANCELABLE` | La reserva ya no está Confirmada (Cancelada, NoAsistio, EnCurso o Completada): no se puede cancelar por código. | 409 |
 | `ZONA_SIN_MESAS` | La zona elegida (solo canal web) ya no tiene mesas disponibles en esa franja, al crear. | 409 |
+| `ZONA_NO_APLICA_PERSONAL` | El canal del personal (`Telefono`/`Presencial`) envió `zonaId`, al crear: ese canal no usa zona, la mesa se asigna a mano. | 400 |
 | `LIMITE_IP_DIARIO` *(reservado, no implementado)* | Esa IP alcanzó el máximo de reservas web del día de negocio actual. | 409 |
 | `TELEFONO_BLOQUEADO_NOSHOW` *(reservado, no implementado)* | Ese teléfono tiene inasistencias recientes y el canal web no lo acepta. | 409 |
 
@@ -128,8 +139,11 @@ En `/reservar` el cliente puede elegir **una zona** (por ejemplo Salón o Terraz
   `zonasDisponibles` en cada franja de `GET /api/reservas/disponibilidad`; la disponibilidad del personal no la lleva.
 - **Cómo se asigna.** Con zona elegida, la mesa se busca solo entre las mesas de esa zona (capacidad suficiente, la de
   menor capacidad primero, sin reservas ni visitas en esa fecha y franja). Sin zona, el comportamiento es el de siempre
-  (menor capacidad de todo el salón). `POST /api/reservas` acepta `zonaId` opcional; una zona inexistente o inactiva se
-  rechaza con 400. **El canal del personal ignora `zonaId`.**
+  (menor capacidad de todo el salón). `POST /api/reservas` acepta `zonaId` opcional (solo canal web); una zona
+  inexistente o inactiva se rechaza con 400. **El canal del personal (`Telefono`/`Presencial`) rechaza `zonaId` con 400
+  y el código `ZONA_NO_APLICA_PERSONAL`** («El canal del personal no usa zona; la mesa se asigna manualmente.»): ese
+  canal asigna la mesa a mano, así que una zona no tendría efecto y antes se ignoraba en silencio. La UI del personal
+  nunca envía `zonaId`, así que esto no cambia nada visible ahí.
 - **Zona llena al confirmar.** Si la zona elegida se llenó mientras el cliente completaba sus datos, la respuesta es
   409 con código `ZONA_SIN_MESAS` («La zona X ya no tiene mesas disponibles en esa franja. Elige otra zona o "sin
   preferencia".»). Nunca se asigna en silencio una mesa de otra zona. El frontend decide por el código: vuelve al
@@ -145,13 +159,21 @@ En `/reservar` el cliente puede elegir **una zona** (por ejemplo Salón o Terraz
 ## Aviso de próxima reserva al registrar una visita
 
 Al registrar una visita sin reserva en una mesa, el sistema avisa —sin bloquear— si esa mesa tiene una reserva vigente
-(Confirmada o EnCurso) en una **franja posterior del mismo día que todavía no ha terminado**.
+(Confirmada o EnCurso) en la **franja activa INMEDIATAMENTE siguiente** a aquella en la que se registraría la visita
+(SRS v1.4 §5.2). Una reserva dos o más franjas después, o en la última franja activa del día, no genera aviso: antes
+avisaba de cualquier franja posterior del día, sin importar cuán lejos (por ejemplo, una reserva 16 horas después),
+lo que resultaba poco útil en la práctica.
 
+- **«Inmediatamente siguiente»** = la próxima franja activa del día por hora de inicio, después de aquella en la que la
+  visita se registraría (la misma regla de «franja más reciente de las activas que ya empezaron» que usa el registro
+  de la visita). Si el grupo llega en el hueco entre dos franjas, la visita se registra en la franja anterior y
+  «siguiente» es la franja después de esa.
 - **Endpoint:** `GET /api/visitas/advertencia-mesa?mesaId=…&franjaId=…&fecha=…` (la fecha es opcional; por defecto hoy en
   hora de Santo Domingo). Devuelve `hayAviso`, `mensaje`, `franjaNombre`, `horaInicio`, `personas` y `minutosFaltantes`
   (solo cuando la fecha es hoy). **Sin nombre ni teléfono del cliente.**
-- **Mensaje:** «La mesa N tiene una reserva a las HH:mm (franja X, P personas), en M minutos. Si registras la visita, la
-  mesa podría no estar libre a tiempo.»
+- **Mensaje:** «La mesa N tiene una reserva a las HH:mm (franja X, P personas), en «tiempo». Si registras la visita, la
+  mesa podría no estar libre a tiempo.» El «tiempo» se muestra así: menos de 60 minutos → «M min» (p. ej. «45 min»);
+  hora exacta → «H h» (p. ej. «1 h»); el resto → «H h M min» (p. ej. «1 h 15 min»).
 - **«Registrar de todos modos».** El aviso no cambia el registro: la visita se registra igual si el personal lo decide.
 - **Mapa de ocupación.** La mesa con una reserva posterior ese día muestra **«Próx. HH:mm»** (la más cercana que aún no
   ha terminado; solo en esa mesa). `MesaOcupacionDto` trae `proximaReservaHoraInicio` y `proximaReservaPersonas`. La
@@ -172,6 +194,34 @@ parámetro de límite de cancelación y del teléfono de contacto configurados.
 - **Los estados de la API son números** (enums sin convertir a texto): decisión del equipo; el frontend los traduce.
 - **Códigos reservados sin implementar** (`LIMITE_IP_DIARIO`, `TELEFONO_BLOQUEADO_NOSHOW`): ver «Mejoras futuras».
 - **Carrera por la última mesa:** el segundo solicitante recibe un 409 sin código (ver «Zona opcional»).
+
+## Suite de integración (SQL Server real)
+
+Además de `dotnet test` (EF Core InMemory y repositorios falsos, lo que corre en CI), hay pruebas marcadas
+`[Trait("Category", "Integration")]` que corren contra **SQL Server real** en Docker, porque necesitan concurrencia
+real (dos solicitudes a la vez) que InMemory no reproduce. El `.csproj` de `GIRA.Tests` las excluye de la corrida
+normal (`<VSTestTestCaseFilter>Category!=Integration</VSTestTestCaseFilter>`), así que hay que pedirlas aparte:
+
+```bash
+dotnet test GIRA.Tests --filter "Category=Integration"
+```
+
+| Clase | Qué prueba | Base de pruebas | User Secret |
+|---|---|---|---|
+| `ReservaServiceIntegrationTests` (GI-228) | Dos solicitudes simultáneas a la última mesa libre de una zona: una se confirma y la otra falla limpio (sin duplicar); migración de franjas de 2 horas sin romper ediciones ni uso. | `GIRA_GI228_TEST` | `ConnectionStrings:GiraGi228Test` |
+| `ProcesoNoShowsIntegrationTests` (GI-161) | Dos ejecuciones simultáneas del proceso automático de no-show: el `RowVersion` de la reserva hace que solo una la marque y publique el evento. | `GIRA_GI161_TEST` | `ConnectionStrings:GiraGi161Test` |
+
+Cada fixture (`IAsyncLifetime`) borra y vuelve a migrar su base antes de la corrida (`EnsureDeletedAsync` +
+`MigrateAsync`), así que la base **no hace falta crearla a mano**: solo necesita existir el contenedor
+`gira-sqlserver` encendido y el User Secret correspondiente en `GIRA.Tests` apuntando a ella. Cada fixture verifica
+por código que el nombre de la base en la cadena de conexión sea exactamente el de pruebas (`GIRA_GI228_TEST` /
+`GIRA_GI161_TEST`) antes de borrar nada, para no poder apuntar nunca a `GIRA_DB` por error. Configurar el secreto que
+falte (sustituyendo `<cadena-de-conexión-a-una-base-de-PRUEBA>` por una cadena real, con la misma base/puerto que
+`GiraDb` pero `Database=GIRA_GI161_TEST`):
+
+```bash
+dotnet user-secrets set "ConnectionStrings:GiraGi161Test" "<cadena-de-conexión-a-una-base-de-PRUEBA>" --project GIRA.Tests
+```
 
 ## Mejoras futuras (no implementadas)
 

@@ -753,7 +753,8 @@ public class ReservaServiceTests
         var resultado = await CrearServicio(reservaRepo: repo).ObtenerPorCodigoAsync("12345678", default);
 
         Assert.True(resultado.IsSuccess);
-        Assert.Same(detalle, resultado.Value);
+        // No Assert.Same: el servicio devuelve una copia con PuedeModificar/PuedeCancelar calculados (C1-C5 C2).
+        Assert.Equal(detalle with { PuedeModificar = resultado.Value!.PuedeModificar, PuedeCancelar = resultado.Value.PuedeCancelar }, resultado.Value);
     }
 
     [Theory]

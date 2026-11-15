@@ -11,14 +11,17 @@ namespace GIRA.Tests.Reservas;
 
 /// <summary>
 /// Pruebas de <see cref="AdvertenciaVisitaService"/> (aviso de próxima reserva al registrar una visita sin
-/// reserva): no bloquea, solo avisa si la mesa tiene una reserva vigente en una franja posterior del mismo
-/// día que todavía no ha terminado.
+/// reserva): no bloquea, y solo avisa si la mesa tiene una reserva vigente en la franja activa
+/// INMEDIATAMENTE siguiente a aquella en la que se registraría la visita (SRS v1.4 §5.2). Una reserva dos o
+/// más franjas después, o en la última franja del día, no genera aviso.
 /// </summary>
 public class AdvertenciaVisitaServicioTests
 {
     private static readonly Guid MesaId = Guid.NewGuid();
     private static readonly DateOnly Hoy = new(2026, 12, 25);
     private static readonly FranjaHoraria Almuerzo = new() { Id = Guid.NewGuid(), Nombre = "Almuerzo", HoraInicio = new(12, 0), HoraFin = new(15, 0), Activa = true };
+    // Separada de Almuerzo por una brecha de 30 min (15:00-15:30), como las franjas reales: no son contiguas.
+    private static readonly FranjaHoraria Tarde = new() { Id = Guid.NewGuid(), Nombre = "Tarde", HoraInicio = new(15, 30), HoraFin = new(17, 30), Activa = true };
     private static readonly FranjaHoraria Cena = new() { Id = Guid.NewGuid(), Nombre = "Cena", HoraInicio = new(18, 0), HoraFin = new(22, 30), Activa = true };
 
     private static AdvertenciaVisitaService CrearServicio(
@@ -28,11 +31,15 @@ public class AdvertenciaVisitaServicioTests
         var reloj = new TimeProviderFalso(ahoraUtc ?? new DateTimeOffset(Hoy.Year, Hoy.Month, Hoy.Day, 16, 0, 0, TimeSpan.Zero)); // 12:00 local
         return new AdvertenciaVisitaService(
             new ReservaRepositoryDeMesaFalso(reservas ?? []),
-            new FranjaHorariaRepositoryFalso([Almuerzo, Cena]),
+            new FranjaHorariaRepositoryFalso([Almuerzo, Tarde, Cena]),
             new MesaGestionRepositoryParaAdvertenciaFalso(mesa),
             new ConsultarAdvertenciaMesaRequestValidator(),
             reloj);
     }
+
+    // "Ahora" en hora local (America/Santo_Domingo, UTC-4) convertido a UTC para el reloj falso.
+    private static DateTimeOffset AhoraLocal(int hora, int minuto = 0) =>
+        new DateTimeOffset(Hoy.Year, Hoy.Month, Hoy.Day, hora, minuto, 0, TimeSpan.Zero).AddHours(4);
 
     private static ConsultarAdvertenciaMesaRequest Request(Guid? franjaId = null, string? fecha = null) =>
         new() { MesaId = MesaId.ToString(), FranjaId = (franjaId ?? Almuerzo.Id).ToString(), Fecha = fecha };
@@ -46,7 +53,7 @@ public class AdvertenciaVisitaServicioTests
     }
 
     [Fact]
-    public async Task SinReservaEnFranjaPosterior_SinAviso()
+    public async Task SinReservaEnFranjaSiguiente_SinAviso()
     {
         var servicio = CrearServicio([ReservaVigente(Almuerzo.Id, 2)]); // solo en la misma franja que se consulta
 
@@ -58,32 +65,59 @@ public class AdvertenciaVisitaServicioTests
     }
 
     [Fact]
-    public async Task ReservaEnFranjaSiguiente_AvisaConHoraPersonasYMinutosCorrectos()
+    public async Task ReservaEnFranjaInmediataSiguiente_Avisa()
     {
-        // "Ahora" son las 12:00 locales (CrearServicio); Cena empieza a las 18:00 = 360 minutos después.
-        var servicio = CrearServicio([ReservaVigente(Cena.Id, 5)]);
+        // "Ahora" 12:00 locales; Tarde (la franja activa INMEDIATAMENTE siguiente a Almuerzo) empieza a las
+        // 15:30 → 3 h 30 min después. Hay una brecha de 30 min entre Almuerzo y Tarde, como las franjas reales.
+        var servicio = CrearServicio([ReservaVigente(Tarde.Id, 5)]);
 
         var resultado = await servicio.ConsultarAsync(Request(), default); // franja de referencia: Almuerzo
 
         Assert.True(resultado.IsSuccess);
         var dto = resultado.Value!;
         Assert.True(dto.HayAviso);
-        Assert.Equal("Cena", dto.FranjaNombre);
-        Assert.Equal(new TimeOnly(18, 0), dto.HoraInicio);
+        Assert.Equal("Tarde", dto.FranjaNombre);
+        Assert.Equal(new TimeOnly(15, 30), dto.HoraInicio);
         Assert.Equal(5, dto.Personas);
-        Assert.Equal(360, dto.MinutosFaltantes);
-        Assert.Contains("La mesa 7 tiene una reserva a las 18:00 (franja Cena, 5 personas), en 360 minutos.", dto.Mensaje);
+        Assert.Equal(210, dto.MinutosFaltantes);
+        Assert.Contains("La mesa 7 tiene una reserva a las 15:30 (franja Tarde, 5 personas), en 3 h 30 min.", dto.Mensaje);
+    }
+
+    [Fact]
+    public async Task ReservaDosFranjasDespues_NoAvisa()
+    {
+        // La reserva está en Cena, pero la franja INMEDIATAMENTE siguiente a Almuerzo es Tarde (sin reserva):
+        // una reserva más allá de esa franja inmediata ya no genera aviso (antes de C1, sí lo hacía).
+        var servicio = CrearServicio([ReservaVigente(Cena.Id, 5)]);
+
+        var resultado = await servicio.ConsultarAsync(Request(), default); // franja de referencia: Almuerzo
+
+        Assert.True(resultado.IsSuccess);
+        Assert.False(resultado.Value!.HayAviso);
+    }
+
+    [Fact]
+    public async Task UltimaFranjaDelDia_SinAviso()
+    {
+        // Franja de referencia = Cena, la última franja activa del día: no hay "siguiente" que avisar.
+        var servicio = CrearServicio([]);
+
+        var resultado = await servicio.ConsultarAsync(Request(franjaId: Cena.Id), default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.False(resultado.Value!.HayAviso);
     }
 
     [Fact]
     public async Task ReservaCanceladaONoAsistio_NoCuentan()
     {
+        // Franja de referencia = Tarde, así que la inmediata siguiente es Cena.
         var servicio = CrearServicio([
             ReservaVigente(Cena.Id, 5, EstadoReserva.Cancelada),
             ReservaVigente(Cena.Id, 3, EstadoReserva.NoAsistio),
         ]);
 
-        var resultado = await servicio.ConsultarAsync(Request(), default);
+        var resultado = await servicio.ConsultarAsync(Request(franjaId: Tarde.Id), default);
 
         Assert.True(resultado.IsSuccess);
         Assert.False(resultado.Value!.HayAviso);
@@ -92,10 +126,10 @@ public class AdvertenciaVisitaServicioTests
     [Fact]
     public async Task ReservaEnFranjaAnterior_NoCuenta()
     {
-        // Se consulta con franja de referencia = Cena; una reserva en Almuerzo (anterior) no debe avisar.
+        // Se consulta con franja de referencia = Tarde; una reserva en Almuerzo (anterior) no debe avisar.
         var servicio = CrearServicio([ReservaVigente(Almuerzo.Id, 2)]);
 
-        var resultado = await servicio.ConsultarAsync(Request(franjaId: Cena.Id), default);
+        var resultado = await servicio.ConsultarAsync(Request(franjaId: Tarde.Id), default);
 
         Assert.True(resultado.IsSuccess);
         Assert.False(resultado.Value!.HayAviso);
@@ -105,7 +139,7 @@ public class AdvertenciaVisitaServicioTests
     public async Task FechaDistintaDeHoy_SoloHora_SinMinutos()
     {
         var mañana = Hoy.AddDays(1);
-        var servicio = CrearServicio([ReservaVigente(Cena.Id, 6, fecha: mañana)]);
+        var servicio = CrearServicio([ReservaVigente(Tarde.Id, 6, fecha: mañana)]);
 
         var resultado = await servicio.ConsultarAsync(Request(fecha: mañana.ToString("yyyy-MM-dd")), default);
 
@@ -113,17 +147,34 @@ public class AdvertenciaVisitaServicioTests
         var dto = resultado.Value!;
         Assert.True(dto.HayAviso);
         Assert.Null(dto.MinutosFaltantes);
-        Assert.DoesNotContain("minuto", dto.Mensaje);
+        Assert.DoesNotContain(" en ", dto.Mensaje);
+    }
+
+    [Theory]
+    [InlineData(14, 45, 45, "45 min")]       // menos de 60 min
+    [InlineData(14, 30, 60, "1 h")]          // hora exacta
+    [InlineData(14, 15, 75, "1 h 15 min")]   // horas y minutos
+    public async Task FormatoDelTiempoFaltante(int hora, int minuto, int minutosEsperados, string textoEsperado)
+    {
+        var servicio = CrearServicio([ReservaVigente(Tarde.Id, 2)], ahoraUtc: AhoraLocal(hora, minuto));
+
+        var resultado = await servicio.ConsultarAsync(Request(), default); // franja de referencia: Almuerzo, siguiente: Tarde (15:30)
+
+        Assert.True(resultado.IsSuccess);
+        var dto = resultado.Value!;
+        Assert.True(dto.HayAviso);
+        Assert.Equal(minutosEsperados, dto.MinutosFaltantes);
+        Assert.Contains($"en {textoEsperado}.", dto.Mensaje);
     }
 
     [Fact]
-    public async Task FranjaYaTerminada_NoCuenta()
+    public async Task FranjaSiguienteYaTerminada_NoCuenta()
     {
-        // "Ahora" son las 23:00 locales: Cena (hasta 22:30) ya terminó, así que no debe avisar aunque sea posterior a Almuerzo.
-        var ahora19Utc = new DateTimeOffset(Hoy.Year, Hoy.Month, Hoy.Day, 3, 0, 0, TimeSpan.Zero).AddDays(1); // 23:00 local = 03:00 UTC del día siguiente
-        var servicio = CrearServicio([ReservaVigente(Cena.Id, 4)], ahoraUtc: ahora19Utc);
+        // Franja de referencia = Tarde, así que la inmediata siguiente es Cena (18:00-22:30). "Ahora" son las
+        // 23:00 locales: Cena ya terminó, así que no debe avisar aunque haya una reserva vigente ahí.
+        var servicio = CrearServicio([ReservaVigente(Cena.Id, 4)], ahoraUtc: AhoraLocal(23, 0));
 
-        var resultado = await servicio.ConsultarAsync(Request(), default);
+        var resultado = await servicio.ConsultarAsync(Request(franjaId: Tarde.Id), default);
 
         Assert.True(resultado.IsSuccess);
         Assert.False(resultado.Value!.HayAviso);
