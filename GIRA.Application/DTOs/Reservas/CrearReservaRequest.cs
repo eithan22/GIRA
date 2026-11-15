@@ -8,6 +8,10 @@ namespace GIRA.Application.DTOs.Reservas;
 /// Origen es opcional: el cliente anónimo no lo manda (y si lo manda, se ignora); el
 /// personal autenticado debe mandar Telefono o Presencial (GI-222/GI-235).
 /// </summary>
+/// <param name="ZonaId">
+/// Zona preferida (GI-4xx); null = sin preferencia. Solo la usa el canal web (<see cref="OrigenReserva.Web"/>);
+/// el personal no elige zona por esta vía, aunque el campo técnicamente llegara con un valor.
+/// </param>
 public record CrearReservaRequest(
     string Nombre, string Telefono, DateOnly Fecha, Guid FranjaHorariaId, int Personas,
-    OrigenReserva? Origen = null);
+    OrigenReserva? Origen = null, Guid? ZonaId = null);

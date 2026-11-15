@@ -23,6 +23,7 @@ public class ReservaService : IReservaService
     private readonly IClienteRepository _clienteRepository;
     private readonly IMesaGestionRepository _mesaGestionRepository;
     private readonly IVisitaRepository _visitas;
+    private readonly IZonaRepository _zonas;
     private readonly IParametrosReservaService _parametros;
     private readonly IValidator<CrearReservaRequest> _validator;
     private readonly IValidator<ListarReservasRequest> _validadorListado;
@@ -45,6 +46,7 @@ public class ReservaService : IReservaService
         IClienteRepository clienteRepository,
         IMesaGestionRepository mesaGestionRepository,
         IVisitaRepository visitas,
+        IZonaRepository zonas,
         IParametrosReservaService parametros,
         IValidator<CrearReservaRequest> validator,
         IValidator<ListarReservasRequest> validadorListado,
@@ -62,6 +64,7 @@ public class ReservaService : IReservaService
         _clienteRepository = clienteRepository;
         _mesaGestionRepository = mesaGestionRepository;
         _visitas = visitas;
+        _zonas = zonas;
         _parametros = parametros;
         _validator = validator;
         _validadorListado = validadorListado;
@@ -112,7 +115,7 @@ public class ReservaService : IReservaService
         var asignacion = await ValidarYAsignarMesaAsync(
             request.Fecha, request.FranjaHorariaId, request.Personas,
             mesaPreferidaId: null, preferidaObligatoria: false, excluirReservaId: null,
-            validarHorario: true, audiencia, cancellationToken);
+            validarHorario: true, request.ZonaId, audiencia, cancellationToken);
         if (!asignacion.IsSuccess)
         {
             return OperationResult.Failure<ReservaCreadaDto>(asignacion.Type!.Value, asignacion.Error!, asignacion.Codigo);
@@ -215,8 +218,13 @@ public class ReservaService : IReservaService
                 reserva.Fecha, reserva.Personas, reserva.Origen),
             cancellationToken);
 
+        // La zona real es la de la mesa asignada, nunca la preferida pedida (que pudo ser "sin preferencia").
+        var zonaNombreMesa = await _zonas.BuscarPorIdAsync(mesaElegida.ZonaId, cancellationToken)
+            ?? throw new InvalidOperationException($"La mesa {mesaElegida.Id} referencia una zona que no existe.");
+
         return OperationResult.Success(new ReservaCreadaDto(
-            reserva.Codigo, cliente.Nombre, reserva.Fecha, franja.Nombre, franja.HoraInicio, franja.HoraFin, reserva.Personas));
+            reserva.Codigo, cliente.Nombre, reserva.Fecha, franja.Nombre, franja.HoraInicio, franja.HoraFin,
+            reserva.Personas, zonaNombreMesa.Nombre));
     }
 
     /// <inheritdoc />
@@ -357,7 +365,7 @@ public class ReservaService : IReservaService
     // antelación mínima para el cliente, o que la franja no haya terminado para el personal (GI-403).
     private async Task<OperationResult<AsignacionMesa>> ValidarYAsignarMesaAsync(
         DateOnly fecha, Guid franjaId, int personas, Guid? mesaPreferidaId, bool preferidaObligatoria,
-        Guid? excluirReservaId, bool validarHorario, AudienciaReserva audiencia, CancellationToken cancellationToken)
+        Guid? excluirReservaId, bool validarHorario, Guid? zonaId, AudienciaReserva audiencia, CancellationToken cancellationToken)
     {
         var parametros = await _parametros.ObtenerAsync(cancellationToken);
         var mesas = await _mesaRepository.ListarActivasAsync(cancellationToken);
@@ -402,6 +410,19 @@ public class ReservaService : IReservaService
             {
                 return OperationResult.Failure<AsignacionMesa>(
                     ErrorType.Validation, MensajesReservas.SinAntelacionMinima);
+            }
+        }
+
+        // Zona preferida (GI-4xx, solo canal web): se valida que exista y esté activa, igual que la franja.
+        // Null = "sin preferencia", el comportamiento de siempre.
+        Zona? zonaPreferida = null;
+        if (zonaId is { } zId)
+        {
+            zonaPreferida = await _zonas.BuscarPorIdAsync(zId, cancellationToken);
+            if (zonaPreferida is null || !zonaPreferida.Activa)
+            {
+                return OperationResult.Failure<AsignacionMesa>(
+                    ErrorType.Validation, "La zona indicada no existe o no está activa.");
             }
         }
 
@@ -531,7 +552,7 @@ public class ReservaService : IReservaService
         var asignacion = await ValidarYAsignarMesaAsync(
             request.Fecha, request.FranjaHorariaId, request.Personas,
             mesaPreferidaId: request.MesaId ?? reserva.MesaId, preferidaObligatoria: request.MesaId is not null,
-            excluirReservaId: reserva.Id, validarHorario: cambiaHorario, AudienciaReserva.Personal, cancellationToken);
+            excluirReservaId: reserva.Id, validarHorario: cambiaHorario, zonaId: null, AudienciaReserva.Personal, cancellationToken);
         if (!asignacion.IsSuccess)
         {
             return OperationResult.Failure<ReservaDetalleDto>(asignacion.Type!.Value, asignacion.Error!, asignacion.Codigo);
@@ -800,10 +821,23 @@ public class ReservaService : IReservaService
             ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} referencia un cliente que no existe.");
         var franja = await _franjaHorariaRepository.BuscarPorIdAsync(reserva.FranjaHorariaId, cancellationToken)
             ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} referencia una franja que no existe.");
+        // La zona de la mesa ACTUAL de la reserva: si el personal la movió, aquí ya se ve la zona nueva.
+        var zonaNombre = await ObtenerZonaNombrePorMesaAsync(reserva.MesaId, cancellationToken);
 
         return OperationResult.Success(new ReservaConsultadaDto(
             reserva.Codigo, cliente.Nombre, reserva.Fecha, franja.Nombre, franja.HoraInicio, franja.HoraFin,
-            reserva.Personas, reserva.Estado.ToString()));
+            reserva.Personas, reserva.Estado.ToString(), zonaNombre));
+    }
+
+    // Zona de una mesa por su id, para los DTOs públicos (ReservaCreadaDto/ReservaConsultadaDto) que muestran
+    // la zona pero nunca el número de mesa.
+    private async Task<string> ObtenerZonaNombrePorMesaAsync(Guid mesaId, CancellationToken cancellationToken)
+    {
+        var mesa = await _mesaGestionRepository.BuscarPorIdAsync(mesaId, cancellationToken)
+            ?? throw new InvalidOperationException($"La mesa {mesaId} no existe.");
+        var zona = await _zonas.BuscarPorIdAsync(mesa.ZonaId, cancellationToken)
+            ?? throw new InvalidOperationException($"La mesa {mesaId} referencia una zona que no existe.");
+        return zona.Nombre;
     }
 
     /// <inheritdoc />

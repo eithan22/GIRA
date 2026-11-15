@@ -10,8 +10,13 @@ namespace GIRA.Application.DTOs.Reservas;
 /// <param name="Nombre">Nombre de la franja.</param>
 /// <param name="HoraInicio">Hora de inicio (hora local).</param>
 /// <param name="HoraFin">Hora de fin (hora local).</param>
+/// <param name="ZonasDisponibles">
+/// Zonas activas con al menos una mesa libre de capacidad suficiente en esta franja (GI-4xx, cliente). Vacía
+/// si la franja no está disponible, o para el personal (que no elige zona por este DTO).
+/// </param>
 /// <param name="Disponible">Si la franja se puede elegir.</param>
 /// <param name="MotivoNoDisponible">Por qué no se puede elegir; null si está disponible.</param>
 public record FranjaDisponibleDto(
     Guid Id, string Nombre, TimeOnly HoraInicio, TimeOnly HoraFin,
+    IReadOnlyList<ZonaDisponibleDto> ZonasDisponibles,
     bool Disponible = true, string? MotivoNoDisponible = null);

@@ -85,4 +85,8 @@ internal static class MensajesReservas
         return $"La mesa {numeroMesa} tiene una reserva a las {hora} (franja {franjaNombre}, {personasTexto})" +
             $"{minutosTexto}. Si registras la visita, la mesa podría no estar libre a tiempo.";
     }
+
+    /// <summary>La zona elegida (GI-4xx) ya no tiene mesas disponibles en esa franja.</summary>
+    public static string ZonaSinMesas(string nombreZona) =>
+        $"La zona {nombreZona} ya no tiene mesas disponibles en esa franja. Elige otra zona o \"sin preferencia\".";
 }
