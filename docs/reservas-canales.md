@@ -55,7 +55,8 @@ existentes conservan las suyas hasta que el Gerente las edite.
 - **Disponibilidad:** la pública (`GET /api/reservas/disponibilidad`) devuelve todas las franjas activas con `disponible` y
   `motivoNoDisponible` (cerrado, fuera del rango, ya pasó, antelación mínima, sin mesas); la del personal
   (`GET /api/reservas/disponibilidad-personal`) incluye la franja de hoy en curso, solo excluye las que ya terminaron y
-  no exige la antelación mínima.
+  no exige la antelación mínima. **La fecha es obligatoria en ambas:** sin `fecha` responden 400 («La fecha es
+  obligatoria.»); una fecha válida, pasada o futura, responde como siempre.
 - **Reglas de creación y reglas operativas.** Las de creación (antelaciones, límite por teléfono, tamaño de grupo,
   horario y días cerrados) rigen para las reservas **nuevas** y no invalidan las existentes. La ventana de check-in y el
   límite de cancelación se leen en el momento de evaluarlos.

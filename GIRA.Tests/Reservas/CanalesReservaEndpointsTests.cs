@@ -142,6 +142,29 @@ public class CanalesReservaEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Disponibilidad_SinFecha_Responde400ConElMensaje_ParaElClienteYParaElPersonal()
+    {
+        var cliente = await _cliente.GetAsync("/api/reservas/disponibilidad?personas=2");
+        _cliente.UsarToken(GenerarToken(Roles.Mesero));
+        var personal = await _cliente.GetAsync("/api/reservas/disponibilidad-personal?personas=2");
+
+        Assert.Equal(HttpStatusCode.BadRequest, cliente.StatusCode);
+        Assert.Contains("La fecha es obligatoria.", await cliente.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.BadRequest, personal.StatusCode);
+        var cuerpoPersonal = await personal.Content.ReadAsStringAsync();
+        Assert.Contains("La fecha es obligatoria.", cuerpoPersonal);
+        Assert.DoesNotContain("en el pasado", cuerpoPersonal);
+    }
+
+    [Fact]
+    public async Task DisponibilidadPublica_ConFechaDeHoy_SigueRespondiendo200()
+    {
+        var respuesta = await _cliente.GetAsync(UrlPublica);
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+    }
+
+    [Fact]
     public async Task DisponibilidadPublica_FueraDeLaVentana_Responde200ConElMotivo_Y_LaDelPersonalSigueEn400()
     {
         var lejos = Hoy.AddDays(45).ToString("yyyy-MM-dd");

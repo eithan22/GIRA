@@ -86,6 +86,9 @@ internal static class MensajesReservas
             $"{minutosTexto}. Si registras la visita, la mesa podría no estar libre a tiempo.";
     }
 
+    /// <summary>Falta la fecha al consultar la disponibilidad (la consulta sin <c>fecha</c> llega como 0001-01-01).</summary>
+    public const string FechaObligatoria = "La fecha es obligatoria.";
+
     /// <summary>Visita sin reserva con el día o la fecha cerrados (no hay horario de operación hoy).</summary>
     public const string VisitaRestauranteCerradoHoy =
         "El restaurante está cerrado hoy; no se pueden registrar visitas sin reserva.";
