@@ -67,6 +67,13 @@ export default function FormularioVisita({
   // tal cual. Si el horario no llega, no se bloquea nada.
   const { restaurante } = useRestauranteAbierto({ hoy, hora });
   const restauranteCerrado = Boolean(restaurante) && restaurante.estado !== 'abierto';
+  const avisoCerrado = restauranteCerrado && (
+    <Aviso tipo="advertencia" rol="alert">
+      {restaurante.estado === 'cerradoHoy'
+        ? TEXTO_RESTAURANTE_CERRADO_HOY
+        : textoRestauranteCerradoAhora(restaurante.apertura, restaurante.cierre)}
+    </Aviso>
+  );
   const franjasVisita = franjasParaVisita(franjas, hora);
   const defecto = franjaDefectoVisita(franjasVisita);
 
@@ -181,7 +188,8 @@ export default function FormularioVisita({
   }
 
   if (!defecto) {
-    return (
+    // Cerrado y sin ninguna franja empezada (p. ej. de madrugada): se dice que está cerrado, no solo que no empezó ninguna.
+    return avisoCerrado || (
       <Aviso tipo="neutro">{textoSinFranjaEmpezada(formatearHora(inicioPrimeraFranja(franjas)))}</Aviso>
     );
   }
@@ -252,13 +260,7 @@ export default function FormularioVisita({
       onSubmit={(evento) => { evento.preventDefault(); if (puedeRevisar) setFase('confirmar'); }}
       noValidate
     >
-      {restauranteCerrado && (
-        <Aviso tipo="advertencia" rol="alert">
-          {restaurante.estado === 'cerradoHoy'
-            ? TEXTO_RESTAURANTE_CERRADO_HOY
-            : textoRestauranteCerradoAhora(restaurante.apertura, restaurante.cierre)}
-        </Aviso>
-      )}
+      {avisoCerrado}
 
       <fieldset className="reservas-personal-grupo">
         <legend className="reservas-campo-etiqueta">Franja *</legend>
