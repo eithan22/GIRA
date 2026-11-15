@@ -48,6 +48,13 @@ public interface IReservaRepository
     Task<bool> ExisteVigenteAsync(Guid mesaId, DateOnly fecha, Guid franjaId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Reservas vigentes (Confirmada o EnCurso) de una mesa en una fecha, en cualquier franja (aviso de
+    /// próxima reserva al registrar una visita sin reserva). El servicio que llama filtra por franja
+    /// posterior; aquí no se conoce el horario de las franjas.
+    /// </summary>
+    Task<IReadOnlyList<Reserva>> ListarVigentesDeMesaAsync(Guid mesaId, DateOnly fecha, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Reservas en el <paramref name="estado"/> indicado con fecha hasta <paramref name="fechaMaxima"/>, con seguimiento
     /// de cambios y las horas de inicio y fin de su franja, ordenadas de la más antigua a la más reciente (fecha e inicio
     /// de franja) y limitadas a <paramref name="limite"/> (GI-161 y GI-224). Es el insumo de los procesos automáticos.

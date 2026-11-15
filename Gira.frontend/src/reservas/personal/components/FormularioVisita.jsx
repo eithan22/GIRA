@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Aviso from '../../components/Aviso.jsx';
 import { formatearHora } from '../../reservasFormato.js';
+import { useAdvertenciaMesa } from '../hooks/useAdvertenciaMesa.js';
 import { useAhora } from '../hooks/useAhora.js';
 import { useMesasLibres } from '../hooks/useMesasLibres.js';
 import {
@@ -87,6 +88,10 @@ export default function FormularioVisita({
     : [];
   const mesaElegida = opciones.find((opcion) => opcion.mesaId === mesaId) ?? null;
   const validacionPersonas = validarPersonasVisita(personas, mesaElegida?.capacidad ?? null);
+
+  // Aviso no bloqueante: si la mesa elegida tiene una reserva vigente en una franja posterior de hoy.
+  const advertenciaMesa = useAdvertenciaMesa({ mesaId: mesaElegida?.mesaId ?? '', franjaId, fecha: hoy });
+  const hayAvisoMesa = advertenciaMesa.estado === 'listo' && Boolean(advertenciaMesa.advertencia?.hayAviso);
 
   // Si la mesa preseleccionada deja de estar libre, se quita y se avisa: nunca se registra «sin mesa» por sorpresa.
   useEffect(() => {
@@ -207,6 +212,12 @@ export default function FormularioVisita({
         <p id="visita-confirmar-texto" className="reservas-personal-confirmacion-titulo">
           {textoConfirmarVisita(validacionPersonas.valor, mesaElegida?.numero)}
         </p>
+        {hayAvisoMesa && (
+          <Aviso tipo="advertencia" rol="alert">{advertenciaMesa.advertencia.mensaje}</Aviso>
+        )}
+        {advertenciaMesa.estado === 'error' && (
+          <Aviso tipo="neutro">No pudimos comprobar si esta mesa tiene una reserva más tarde; puedes registrar la visita igual.</Aviso>
+        )}
         {aviso && <Aviso tipo="error">{aviso}</Aviso>}
         <div className="reservas-personal-confirmacion-botones">
           <button
@@ -214,14 +225,14 @@ export default function FormularioVisita({
             className="reservas-boton reservas-boton--chico reservas-boton--primario reservas-personal-boton-auto"
             onClick={registrar}
             disabled={enviando}
-          >{enviando ? TEXTO_REGISTRANDO_VISITA : TEXTO_CONFIRMAR_VISITA}</button>
+          >{enviando ? TEXTO_REGISTRANDO_VISITA : (hayAvisoMesa ? 'Registrar de todos modos' : TEXTO_CONFIRMAR_VISITA)}</button>
           <button
             type="button"
             ref={volverRef}
             className="reservas-boton reservas-boton--chico reservas-boton--secundario reservas-personal-boton-auto"
             onClick={() => setFase('editar')}
             disabled={enviando}
-          >{TEXTO_VOLVER}</button>
+          >{hayAvisoMesa ? 'Cancelar' : TEXTO_VOLVER}</button>
         </div>
       </section>
     );

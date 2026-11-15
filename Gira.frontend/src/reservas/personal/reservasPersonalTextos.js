@@ -252,6 +252,18 @@ export function textoConflictoMesaInactiva(cliente) {
     : 'Mesa inactiva con reserva vigente';
 }
 
+// "Próx. HH:mm": aviso discreto de la próxima reserva vigente de la mesa, en una franja posterior a la que
+// muestra el mapa, que todavía no ha terminado (GI-4xx). No es un estado ni cambia el color de la mesa.
+export function textoProximaReservaMapa(hora) {
+  return `Próx. ${hora}`;
+}
+
+export function textoProximaReservaMapaAccesible(hora, personas) {
+  return personas != null
+    ? `próxima reserva a las ${hora}, ${personas} ${personas === 1 ? 'persona' : 'personas'}`
+    : `próxima reserva a las ${hora}`;
+}
+
 export function textoZonaResumen(libres, total) {
   return `${libres} ${libres === 1 ? 'libre' : 'libres'} de ${total} ${total === 1 ? 'mesa' : 'mesas'}`;
 }

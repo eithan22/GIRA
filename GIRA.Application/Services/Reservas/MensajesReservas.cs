@@ -68,4 +68,21 @@ internal static class MensajesReservas
     /// </summary>
     public static string MesaConVisita(int numeroMesa) =>
         $"La mesa {numeroMesa} tiene una visita sin reserva en esta franja. Elige otra mesa o franja.";
+
+    /// <summary>
+    /// Aviso (no bloqueante) al registrar una visita: la mesa tiene una reserva vigente en una franja
+    /// posterior del mismo día. <paramref name="minutosFaltantes"/> es null si la fecha consultada no es
+    /// hoy (ver <see cref="GIRA.Application.DTOs.Reservas.AdvertenciaMesaDto"/>).
+    /// </summary>
+    public static string AvisoProximaReserva(
+        int numeroMesa, TimeOnly horaInicio, string franjaNombre, int personas, int? minutosFaltantes)
+    {
+        var hora = horaInicio.ToString(@"HH\:mm");
+        var personasTexto = personas == 1 ? "1 persona" : $"{personas} personas";
+        var minutosTexto = minutosFaltantes is int m
+            ? $", en {(m == 1 ? "1 minuto" : $"{m} minutos")}"
+            : "";
+        return $"La mesa {numeroMesa} tiene una reserva a las {hora} (franja {franjaNombre}, {personasTexto})" +
+            $"{minutosTexto}. Si registras la visita, la mesa podría no estar libre a tiempo.";
+    }
 }

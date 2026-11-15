@@ -201,4 +201,82 @@ public class VisitaEndpointsTests : IAsyncLifetime
         Assert.Contains("La mesa 9402 tiene una reserva en esta franja.", await respuesta.Content.ReadAsStringAsync());
         Assert.Empty(_registro.Visitas);
     }
+
+    // --- GET /api/visitas/advertencia-mesa (aviso de próxima reserva, Fase 2) ---
+
+    private Task<HttpResponseMessage> ConsultarAdvertencia(Guid mesaId, Guid franjaId, string? fecha = null) =>
+        _cliente.GetAsync($"/api/visitas/advertencia-mesa?mesaId={mesaId}&franjaId={franjaId}" + (fecha is null ? "" : $"&fecha={fecha}"));
+
+    [Fact]
+    public async Task AdvertenciaMesa_Sin_Token_Responde_401()
+    {
+        var respuesta = await ConsultarAdvertencia(_mesaLibreId, _almuerzoId);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task AdvertenciaMesa_Rol_Sin_OperarReservas_Responde_403()
+    {
+        _cliente.UsarToken(GenerarToken(Guid.NewGuid(), Roles.Cocina));
+
+        var respuesta = await ConsultarAdvertencia(_mesaLibreId, _almuerzoId);
+
+        Assert.Equal(HttpStatusCode.Forbidden, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task AdvertenciaMesa_SinReservaEnFranjaPosterior_SinAviso()
+    {
+        _cliente.UsarToken(GenerarToken(Guid.NewGuid(), Roles.Mesero));
+
+        // _mesaReservadaId tiene una reserva en Almuerzo, la misma franja consultada: no es "posterior".
+        var respuesta = await ConsultarAdvertencia(_mesaReservadaId, _almuerzoId);
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        var dto = await respuesta.Content.ReadFromJsonAsync<AdvertenciaMesaDto>();
+        Assert.False(dto!.HayAviso);
+        Assert.Null(dto.Mensaje);
+    }
+
+    [Fact]
+    public async Task AdvertenciaMesa_ConReservaEnFranjaPosterior_AvisaSinDatosPersonales()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var contexto = scope.ServiceProvider.GetRequiredService<GiraDbContext>();
+            var cliente = new Cliente { Id = Guid.NewGuid(), Nombre = "Cliente de Cena", Telefono = "8095550606" };
+            var reservaCena = new Reserva
+            {
+                Id = Guid.NewGuid(), Codigo = "60606060", ClienteId = cliente.Id, MesaId = _mesaLibreId,
+                FranjaHorariaId = _cenaId, Fecha = Dia, Personas = 4, Origen = OrigenReserva.Telefono
+            };
+            contexto.Clientes.Add(cliente);
+            contexto.Reservas.Add(reservaCena);
+            await contexto.SaveChangesAsync();
+        }
+        _cliente.UsarToken(GenerarToken(Guid.NewGuid(), Roles.Mesero));
+
+        var respuesta = await ConsultarAdvertencia(_mesaLibreId, _almuerzoId);
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        var dto = await respuesta.Content.ReadFromJsonAsync<AdvertenciaMesaDto>();
+        Assert.True(dto!.HayAviso);
+        Assert.Equal("Cena Visitas", dto.FranjaNombre);
+        Assert.Equal(new TimeOnly(18, 0), dto.HoraInicio);
+        Assert.Equal(4, dto.Personas);
+        Assert.Equal(300, dto.MinutosFaltantes); // "ahora" son las 13:00; Cena empieza a las 18:00
+        Assert.DoesNotContain("Cliente de Cena", dto.Mensaje);
+        Assert.DoesNotContain("8095550606", dto.Mensaje);
+    }
+
+    [Fact]
+    public async Task AdvertenciaMesa_MesaInexistente_Responde_404()
+    {
+        _cliente.UsarToken(GenerarToken(Guid.NewGuid(), Roles.Mesero));
+
+        var respuesta = await ConsultarAdvertencia(Guid.NewGuid(), _almuerzoId);
+
+        Assert.Equal(HttpStatusCode.NotFound, respuesta.StatusCode);
+    }
 }

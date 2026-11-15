@@ -16,6 +16,12 @@ public sealed record ReservaVigenteLectura(
     Guid MesaId, Guid ReservaId, EstadoReserva Estado, string ClienteNombre, int Personas, int? PersonasReales);
 
 /// <summary>
+/// Reserva vigente de una mesa en una franja posterior a la que muestra el mapa (GI-4xx, "Próx. HH:mm"). Sin
+/// datos personales del cliente.
+/// </summary>
+public sealed record ProximaReservaLectura(Guid MesaId, TimeOnly FranjaHoraInicio, TimeOnly FranjaHoraFin, int Personas);
+
+/// <summary>
 /// Lecturas del mapa de ocupación (GI-167). Solo lectura: sin seguimiento de cambios, con proyección
 /// directa (sin cargar entidades ni el teléfono del cliente), respetando el borrado lógico.
 /// </summary>
@@ -32,4 +38,11 @@ public interface IOcupacionRepository
 
     /// <summary>Reservas Confirmada o EnCurso de esa fecha y franja.</summary>
     Task<IReadOnlyList<ReservaVigenteLectura>> ListarReservasVigentesAsync(DateOnly fecha, Guid franjaId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reservas vigentes (Confirmada o EnCurso) de esa fecha, en franjas que empiezan después de
+    /// <paramref name="posteriorA"/> (GI-4xx: "Próx. HH:mm" del mapa). El servicio que llama decide, con la
+    /// hora actual, cuál todavía no ha terminado y cuál es la más cercana por mesa.
+    /// </summary>
+    Task<IReadOnlyList<ProximaReservaLectura>> ListarProximasReservasAsync(DateOnly fecha, TimeOnly posteriorA, CancellationToken cancellationToken);
 }

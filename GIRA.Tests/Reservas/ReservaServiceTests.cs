@@ -860,6 +860,10 @@ class ReservaRepositoryFake : IReservaRepository
     public Task<IReadOnlyList<Reserva>> ListarVigentesPorFechaAsync(DateOnly fecha, CancellationToken cancellationToken) =>
         Task.FromResult(VigentesPorFecha);
 
+    // No lo usa ReservaService; se implementa solo para satisfacer la interfaz (ver AdvertenciaVisitaService).
+    public Task<IReadOnlyList<Reserva>> ListarVigentesDeMesaAsync(Guid mesaId, DateOnly fecha, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
     public Task<Reserva?> BuscarPorCodigoYTelefonoAsync(string codigo, string telefono, CancellationToken cancellationToken)
     {
         UltimoCodigoRecibido = codigo;

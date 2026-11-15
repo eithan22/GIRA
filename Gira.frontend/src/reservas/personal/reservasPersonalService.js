@@ -186,6 +186,17 @@ export const reservasPersonalService = {
     return response.data;
   },
 
+  /**
+   * GET /api/visitas/advertencia-mesa: aviso (no bloqueante) de si la mesa tiene una reserva vigente en
+   * una franja posterior del mismo día. Devuelve AdvertenciaMesaDto; `hayAviso: false` si no hay ninguna.
+   */
+  async obtenerAdvertenciaMesa({ mesaId, franjaId, fecha }, { signal } = {}) {
+    const response = await api.get('/api/visitas/advertencia-mesa', opciones(signal, {
+      params: limpiar({ mesaId, franjaId, fecha }),
+    }));
+    return response.data;
+  },
+
   // --- Mapa de ocupación (GI-167). También es la fuente de mesas libres para modificar y visitas. ---
 
   async obtenerOcupacion({ fecha, franjaId }, { signal } = {}) {

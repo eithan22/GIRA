@@ -33,6 +33,8 @@ class ReservaRepositoryDecorador : IReservaRepository
     public virtual void Descartar(Reserva reserva) => Real.Descartar(reserva);
     public virtual Task<bool> ExisteVigenteAsync(Guid mesaId, DateOnly fecha, Guid franjaId, CancellationToken cancellationToken) =>
         Real.ExisteVigenteAsync(mesaId, fecha, franjaId, cancellationToken);
+    public virtual Task<IReadOnlyList<Reserva>> ListarVigentesDeMesaAsync(Guid mesaId, DateOnly fecha, CancellationToken cancellationToken) =>
+        Real.ListarVigentesDeMesaAsync(mesaId, fecha, cancellationToken);
     public virtual Task<bool> ExisteCodigoAsync(string codigo, CancellationToken cancellationToken) =>
         Real.ExisteCodigoAsync(codigo, cancellationToken);
     public virtual void Agregar(Reserva reserva) => Real.Agregar(reserva);

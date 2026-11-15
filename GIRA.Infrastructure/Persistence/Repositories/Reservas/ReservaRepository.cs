@@ -30,6 +30,16 @@ public class ReservaRepository : IReservaRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Reserva>> ListarVigentesDeMesaAsync(
+        Guid mesaId, DateOnly fecha, CancellationToken cancellationToken)
+    {
+        return await _contexto.Reservas
+            .Where(r => r.MesaId == mesaId && r.Fecha == fecha
+                && (r.Estado == EstadoReserva.Confirmada || r.Estado == EstadoReserva.EnCurso))
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
     public Task<int> ContarVigentesPorTelefonoAsync(string telefono, CancellationToken cancellationToken)
     {
         return _contexto.Reservas

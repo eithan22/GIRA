@@ -46,11 +46,17 @@ export const textoGrupoGrande = (politicas) =>
 export const textoMensajeConTelefono = (mensaje, politicas) =>
   (politicas.telefonoContacto ? `${mensaje} ${politicas.telefonoContacto}` : mensaje);
 
-// Regla de cancelación que el diseño repite en Confirmación y en Mi reserva · Detalle.
-export const textoLimiteCancelacion = (politicas) =>
-  politicas.limiteCancelacionMinutos === 0
-    ? 'Puedes cancelar hasta el inicio de la franja. Para cambiar algo, cancela y vuelve a reservar.'
-    : `Cancelación gratis hasta ${formatearDuracionMinutos(politicas.limiteCancelacionMinutos)} antes de la franja. Para cambiar algo, cancela y vuelve a reservar.`;
+// Regla de cancelación que el diseño repite en Confirmación y en Mi reserva · Detalle. Sin la palabra "gratis":
+// cancelar no tiene costo en ningún caso, así que no hace falta decirlo; lo relevante es el plazo.
+export const textoLimiteCancelacion = (politicas) => {
+  if (politicas.limiteCancelacionMinutos === 0) {
+    return 'Puedes cancelar hasta el inicio de la franja. Para cambiar algo, cancela y vuelve a reservar.';
+  }
+  const despues = politicas.telefonoContacto
+    ? `llama al ${politicas.telefonoContacto}.`
+    : 'contacta directamente al restaurante.';
+  return `Puedes cancelar hasta ${formatearDuracionMinutos(politicas.limiteCancelacionMinutos)} antes de tu franja. Después, ${despues}`;
+};
 
 // --- Franjas y personas (Paso 1) ---
 

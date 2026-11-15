@@ -60,4 +60,17 @@ public class OcupacionRepository : IOcupacionRepository
             .Select(x => new ReservaVigenteLectura(x.r.MesaId, x.r.Id, x.r.Estado, x.c.Nombre, x.r.Personas, x.r.PersonasReales))
             .ToListAsync(cancellationToken);
     }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ProximaReservaLectura>> ListarProximasReservasAsync(
+        DateOnly fecha, TimeOnly posteriorA, CancellationToken cancellationToken)
+    {
+        return await _contexto.Reservas
+            .AsNoTracking()
+            .Where(r => r.Fecha == fecha && (r.Estado == EstadoReserva.Confirmada || r.Estado == EstadoReserva.EnCurso))
+            .Join(_contexto.FranjasHorarias.AsNoTracking(), r => r.FranjaHorariaId, f => f.Id, (r, f) => new { r, f })
+            .Where(x => x.f.HoraInicio > posteriorA)
+            .Select(x => new ProximaReservaLectura(x.r.MesaId, x.f.HoraInicio, x.f.HoraFin, x.r.Personas))
+            .ToListAsync(cancellationToken);
+    }
 }

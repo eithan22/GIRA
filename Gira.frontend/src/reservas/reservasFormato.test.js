@@ -117,15 +117,24 @@ test('los textos usan los valores de las políticas, no 30 días / 2 horas / 8 p
   const politicas = { ...POLITICAS_POR_DEFECTO, antelacionMaximaDias: 45, antelacionMinimaMinutos: 90, limiteCancelacionMinutos: 180, maxPersonas: 20 };
 
   assert.equal(textoVentanaReserva(politicas), 'Reservamos desde hoy hasta 45 días adelante y con al menos 90 minutos de anticipación.');
-  assert.match(textoLimiteCancelacion(politicas), /^Cancelación gratis hasta 3 horas antes de la franja\./);
+  assert.match(textoLimiteCancelacion(politicas), /^Puedes cancelar hasta 3 horas antes de tu franja\./);
   assert.match(textoMasDePersonas(politicas), /^¿Más de 20\?/);
   assert.match(textoGrupoGrande(politicas), /^Para grupos de más de 20 personas, llama al restaurante\./);
 });
 
 test('los textos con los valores por defecto dicen lo mismo que decían antes', () => {
   assert.equal(textoVentanaReserva(POLITICAS_POR_DEFECTO), 'Reservamos desde hoy hasta 30 días adelante y con al menos 2 horas de anticipación.');
-  assert.match(textoLimiteCancelacion(POLITICAS_POR_DEFECTO), /^Cancelación gratis hasta 2 horas antes de la franja\./);
+  assert.match(textoLimiteCancelacion(POLITICAS_POR_DEFECTO), /^Puedes cancelar hasta 2 horas antes de tu franja\./);
   assert.match(textoMasDePersonas(POLITICAS_POR_DEFECTO), /^¿Más de 8\?/);
+});
+
+test('textoLimiteCancelacion sin "gratis": con teléfono invita a llamar, sin teléfono remite al restaurante', () => {
+  const conTelefono = { ...POLITICAS_POR_DEFECTO, telefonoContacto: '809 555 0199' };
+  assert.equal(textoLimiteCancelacion(conTelefono), 'Puedes cancelar hasta 2 horas antes de tu franja. Después, llama al 809 555 0199.');
+  assert.equal(textoLimiteCancelacion(POLITICAS_POR_DEFECTO), 'Puedes cancelar hasta 2 horas antes de tu franja. Después, contacta directamente al restaurante.');
+  for (const texto of [textoLimiteCancelacion(conTelefono), textoLimiteCancelacion(POLITICAS_POR_DEFECTO)]) {
+    assert.doesNotMatch(texto, /gratis|gratuita|sin costo/i);
+  }
 });
 
 test('con teléfono configurado los textos invitan a llamar a ese número', () => {

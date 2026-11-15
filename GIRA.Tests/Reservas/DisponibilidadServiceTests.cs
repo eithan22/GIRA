@@ -599,6 +599,8 @@ class ReservaRepositoryFalso : IReservaRepository
         Task.FromResult<IReadOnlyList<Reserva>>(_reservas.Where(r => r.Fecha == fecha).ToList());
 
     // No los usa DisponibilidadService; se implementan solo para satisfacer la interfaz.
+    public Task<IReadOnlyList<Reserva>> ListarVigentesDeMesaAsync(Guid mesaId, DateOnly fecha, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
     public Task<int> ContarVigentesPorTelefonoAsync(string telefono, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
     public Task<Reserva?> BuscarPorCodigoYTelefonoAsync(string codigo, string telefono, CancellationToken cancellationToken) =>

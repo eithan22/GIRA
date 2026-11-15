@@ -16,11 +16,13 @@ namespace GIRA.Api.Controllers.Reservas;
 public class VisitasController : ControllerBase
 {
     private readonly IVisitaService _visitas;
+    private readonly IAdvertenciaVisitaService _advertencia;
 
-    /// <summary>Crea el controlador con el servicio de visitas.</summary>
-    public VisitasController(IVisitaService visitas)
+    /// <summary>Crea el controlador con el servicio de visitas y el de aviso de próxima reserva.</summary>
+    public VisitasController(IVisitaService visitas, IAdvertenciaVisitaService advertencia)
     {
         _visitas = visitas;
+        _advertencia = advertencia;
     }
 
     /// <summary>
@@ -58,6 +60,24 @@ public class VisitasController : ControllerBase
     public async Task<IActionResult> Listar([FromQuery] ListarVisitasRequest request, CancellationToken cancellationToken)
     {
         var resultado = await _visitas.ListarAsync(request, cancellationToken);
+
+        return resultado.ToActionResult();
+    }
+
+    /// <summary>
+    /// Aviso (no bloqueante) de próxima reserva: si la mesa tiene una reserva vigente en una franja
+    /// posterior del mismo día que todavía no ha terminado, para que el personal decida antes de registrar
+    /// una visita sin reserva ahí. No cambia el registro de la visita (<see cref="Registrar"/>), que sigue
+    /// permitido aunque haya aviso.
+    /// </summary>
+    [HttpGet("advertencia-mesa")]
+    [ProducesResponseType<AdvertenciaMesaDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AdvertenciaMesa(
+        [FromQuery] ConsultarAdvertenciaMesaRequest request, CancellationToken cancellationToken)
+    {
+        var resultado = await _advertencia.ConsultarAsync(request, cancellationToken);
 
         return resultado.ToActionResult();
     }

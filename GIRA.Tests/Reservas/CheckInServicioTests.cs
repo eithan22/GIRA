@@ -331,6 +331,8 @@ class ReservaRepositoryConConflicto : IReservaRepository
 
     public Task<IReadOnlyList<Reserva>> ListarVigentesPorFechaAsync(DateOnly fecha, CancellationToken cancellationToken) =>
         _real.ListarVigentesPorFechaAsync(fecha, cancellationToken);
+    public Task<IReadOnlyList<Reserva>> ListarVigentesDeMesaAsync(Guid mesaId, DateOnly fecha, CancellationToken cancellationToken) =>
+        _real.ListarVigentesDeMesaAsync(mesaId, fecha, cancellationToken);
     public Task<int> ContarVigentesPorTelefonoAsync(string telefono, CancellationToken cancellationToken) =>
         _real.ContarVigentesPorTelefonoAsync(telefono, cancellationToken);
     public Task<Reserva?> BuscarPorCodigoYTelefonoAsync(string codigo, string telefono, CancellationToken cancellationToken) =>
