@@ -86,6 +86,22 @@ internal static class MensajesReservas
             $"{minutosTexto}. Si registras la visita, la mesa podría no estar libre a tiempo.";
     }
 
+    /// <summary>Visita sin reserva con el día o la fecha cerrados (no hay horario de operación hoy).</summary>
+    public const string VisitaRestauranteCerradoHoy =
+        "El restaurante está cerrado hoy; no se pueden registrar visitas sin reserva.";
+
+    /// <summary>Visita sin reserva fuera del horario de operación de hoy (antes de abrir o después de cerrar).</summary>
+    public static string VisitaRestauranteCerradoAhora(TimeOnly apertura, TimeOnly cierre) =>
+        $"El restaurante está cerrado ahora; el horario de hoy es de {apertura:HH\\:mm} a {cierre:HH\\:mm}. " +
+        "No se pueden registrar visitas sin reserva fuera de horario.";
+
+    /// <summary>
+    /// La franja pedida para la visita no es la más reciente de las que ya empezaron: la visita se registra en la
+    /// franja actual o, entre franjas, en la última que empezó.
+    /// </summary>
+    public static string VisitaFranjaNoVigente(string franjaNombre, TimeOnly inicio, TimeOnly fin) =>
+        $"Esa franja ya no es la actual: la visita se registra en la franja {franjaNombre} ({inicio:HH\\:mm}–{fin:HH\\:mm}).";
+
     /// <summary>La zona elegida (GI-4xx) ya no tiene mesas disponibles en esa franja.</summary>
     public static string ZonaSinMesas(string nombreZona) =>
         $"La zona {nombreZona} ya no tiene mesas disponibles en esa franja. Elige otra zona o \"sin preferencia\".";

@@ -38,6 +38,8 @@ public class VisitaServicioTests
         public FranjaHoraria Almuerzo { get; private set; } = null!;
         public FranjaHoraria Cena { get; private set; } = null!;
 
+        public ParametrosReservaFalso Parametros { get; }
+
         public Entorno(DateTimeOffset ahoraUtc, IPublisher publisher, NullLogger<PublicadorEventosSeguro>? logger = null)
         {
             Opciones = new DbContextOptionsBuilder<GiraDbContext>()
@@ -45,6 +47,7 @@ public class VisitaServicioTests
                 .Options;
             Contexto = new GiraDbContext(Opciones);
             var reloj = new TimeProviderFalso(ahoraUtc);
+            Parametros = new ParametrosReservaFalso();
 
             Servicio = new VisitaService(
                 new VisitaRepository(Contexto),
@@ -52,13 +55,14 @@ public class VisitaServicioTests
                 new MesaGestionRepository(Contexto),
                 new ZonaRepository(Contexto),
                 new ReservaRepository(Contexto),
+                Parametros,
                 new RegistrarVisitaRequestValidator(),
                 new ListarVisitasRequestValidator(reloj),
                 new PublicadorEventosSeguro(publisher, logger ?? NullLogger<PublicadorEventosSeguro>.Instance),
                 reloj);
         }
 
-        public async Task SembrarAsync(bool zonaActiva = true, bool mesaActiva = true, bool almuerzoActivo = true)
+        public async Task SembrarAsync(bool zonaActiva = true, bool mesaActiva = true, bool almuerzoActivo = true, bool cenaActiva = true)
         {
             Zona = new Zona { Id = Guid.NewGuid(), Nombre = "Salón", Activa = zonaActiva };
             Mesa = new Mesa { Id = Guid.NewGuid(), Numero = 5, Capacidad = 4, ZonaId = Zona.Id, Activa = mesaActiva };
@@ -69,7 +73,7 @@ public class VisitaServicioTests
             };
             Cena = new FranjaHoraria
             {
-                Id = Guid.NewGuid(), Nombre = "Cena", HoraInicio = new TimeOnly(18, 0), HoraFin = new TimeOnly(22, 30)
+                Id = Guid.NewGuid(), Nombre = "Cena", HoraInicio = new TimeOnly(18, 0), HoraFin = new TimeOnly(22, 30), Activa = cenaActiva
             };
             Contexto.Zonas.Add(Zona);
             Contexto.Mesas.Add(Mesa);
@@ -227,13 +231,16 @@ public class VisitaServicioTests
     [Fact]
     public async Task Un_Minuto_Antes_Del_Inicio_De_La_Franja_Es_Conflict()
     {
-        using var e = new Entorno(Utc(11, 59), new PublisherFalso());
+        // Antes eran las 11:59 con el Almuerzo: ahora a esa hora el restaurante está cerrado (abre a las 12:00) y
+        // el mensaje es el del horario (ver Antes_De_La_Apertura_...). Se prueba con la Cena a las 17:59, con el
+        // restaurante abierto y el Almuerzo ya empezado.
+        using var e = new Entorno(Utc(17, 59), new PublisherFalso());
         await e.SembrarAsync();
 
-        var resultado = await e.RegistrarAsync(e.Almuerzo.Id, null, 2);
+        var resultado = await e.RegistrarAsync(e.Cena.Id, null, 2);
 
         EsFallo(resultado, ErrorType.Conflict,
-            "La franja Almuerzo empieza a las 12:00; todavía no se puede registrar una visita en ella.");
+            "La franja Cena empieza a las 18:00; todavía no se puede registrar una visita en ella.");
         Assert.Equal(0, await e.Contexto.VisitasSinReserva.CountAsync());
     }
 
@@ -250,8 +257,11 @@ public class VisitaServicioTests
     }
 
     [Fact]
-    public async Task Una_Franja_Ya_Terminada_Se_Acepta()
+    public async Task Entre_Franjas_Se_Acepta_La_Ultima_Que_Empezo_Aunque_Ya_Haya_Terminado()
     {
+        // Antes: "Una_Franja_Ya_Terminada_Se_Acepta" (se aceptaba cualquier franja que ya hubiera empezado).
+        // Ahora solo se acepta la más reciente que empezó; con el Almuerzo (12:00–15:00) y la Cena (18:00) a las
+        // 16:00 la última que empezó es el Almuerzo.
         using var e = new Entorno(Utc(16, 0), new PublisherFalso()); // Almuerzo terminó a las 15:00
         await e.SembrarAsync();
 
@@ -338,11 +348,146 @@ public class VisitaServicioTests
     [Fact]
     public async Task Una_Reserva_De_Otra_Franja_No_Bloquea_La_Mesa()
     {
-        using var e = new Entorno(Utc(19, 0), new PublisherFalso());
+        // Antes el reloj marcaba las 19:00 y se registraba en el Almuerzo (ya anterior): la regla nueva exige la franja
+        // más reciente, así que se prueba a las 13:00, con el Almuerzo vigente y la reserva en la Cena (otra franja).
+        using var e = new Entorno(Utc(13, 0), new PublisherFalso());
         await e.SembrarAsync();
         await e.SembrarReservaAsync(e.Cena, EstadoReserva.Confirmada);
 
         Assert.True((await e.RegistrarAsync(e.Almuerzo.Id, e.Mesa.Id, 2)).IsSuccess);
+    }
+
+    // --- Restaurante abierto ahora (el cierre es exclusivo, igual que el fin de una franja) ---
+
+    [Fact]
+    public async Task Con_El_Dia_De_La_Semana_Cerrado_Es_Conflict()
+    {
+        using var e = new Entorno(Utc(13, 0), new PublisherFalso()); // 1-dic-2026 es martes
+        e.Parametros.DiasCerrados = new HashSet<DayOfWeek> { DayOfWeek.Tuesday };
+        await e.SembrarAsync();
+
+        var resultado = await e.RegistrarAsync(e.Almuerzo.Id, e.Mesa.Id, 2);
+
+        EsFallo(resultado, ErrorType.Conflict, "El restaurante está cerrado hoy; no se pueden registrar visitas sin reserva.");
+        Assert.Equal(0, await e.Contexto.VisitasSinReserva.CountAsync());
+    }
+
+    [Fact]
+    public async Task Con_La_Fecha_De_Hoy_Cerrada_Es_Conflict()
+    {
+        using var e = new Entorno(Utc(13, 0), new PublisherFalso());
+        e.Parametros.FechasCerradas = new HashSet<DateOnly> { Dia };
+        await e.SembrarAsync();
+
+        var resultado = await e.RegistrarAsync(e.Almuerzo.Id, null, 2);
+
+        EsFallo(resultado, ErrorType.Conflict, "El restaurante está cerrado hoy; no se pueden registrar visitas sin reserva.");
+    }
+
+    [Fact]
+    public async Task Antes_De_La_Apertura_Es_Conflict_Con_El_Horario_Del_Dia()
+    {
+        using var e = new Entorno(Utc(11, 59), new PublisherFalso()); // abre a las 12:00
+        await e.SembrarAsync();
+
+        var resultado = await e.RegistrarAsync(e.Almuerzo.Id, null, 2);
+
+        EsFallo(resultado, ErrorType.Conflict,
+            "El restaurante está cerrado ahora; el horario de hoy es de 12:00 a 22:30. " +
+            "No se pueden registrar visitas sin reserva fuera de horario.");
+    }
+
+    [Fact]
+    public async Task Despues_Del_Cierre_Es_Conflict_Aunque_La_Franja_Ya_Haya_Empezado()
+    {
+        // Caso real de la prueba: 23:26 con el restaurante cerrando a las 22:30.
+        using var e = new Entorno(Utc(23, 26), new PublisherFalso());
+        await e.SembrarAsync();
+
+        var resultado = await e.RegistrarAsync(e.Cena.Id, e.Mesa.Id, 2);
+
+        EsFallo(resultado, ErrorType.Conflict,
+            "El restaurante está cerrado ahora; el horario de hoy es de 12:00 a 22:30. " +
+            "No se pueden registrar visitas sin reserva fuera de horario.");
+        Assert.Equal(0, await e.Contexto.VisitasSinReserva.CountAsync());
+    }
+
+    [Fact]
+    public async Task En_El_Instante_Exacto_Del_Cierre_Es_Conflict_Y_Un_Minuto_Antes_Se_Acepta()
+    {
+        using var cierre = new Entorno(Utc(22, 30), new PublisherFalso());
+        await cierre.SembrarAsync();
+        Assert.False((await cierre.RegistrarAsync(cierre.Cena.Id, null, 2)).IsSuccess);
+
+        using var antes = new Entorno(Utc(22, 29), new PublisherFalso());
+        await antes.SembrarAsync();
+        Assert.True((await antes.RegistrarAsync(antes.Cena.Id, null, 2)).IsSuccess);
+    }
+
+    [Fact]
+    public async Task Con_Un_Horario_Editado_Se_Usa_El_Horario_Configurado()
+    {
+        using var e = new Entorno(Utc(21, 0), new PublisherFalso());
+        e.Parametros.HoraCierre = new TimeOnly(20, 0); // el restaurante cierra a las 20:00
+        await e.SembrarAsync();
+
+        var resultado = await e.RegistrarAsync(e.Cena.Id, null, 2);
+
+        EsFallo(resultado, ErrorType.Conflict,
+            "El restaurante está cerrado ahora; el horario de hoy es de 12:00 a 20:00. " +
+            "No se pueden registrar visitas sin reserva fuera de horario.");
+    }
+
+    // --- Franja más reciente de las que ya empezaron ---
+
+    [Fact]
+    public async Task Una_Franja_Anterior_Es_Conflict_Y_El_Mensaje_Nombra_La_Franja_Correcta()
+    {
+        using var e = new Entorno(Utc(19, 0), new PublisherFalso()); // la Cena (18:00) ya empezó
+        await e.SembrarAsync();
+
+        var resultado = await e.RegistrarAsync(e.Almuerzo.Id, e.Mesa.Id, 2);
+
+        EsFallo(resultado, ErrorType.Conflict,
+            "Esa franja ya no es la actual: la visita se registra en la franja Cena (18:00–22:30).");
+        Assert.Equal(0, await e.Contexto.VisitasSinReserva.CountAsync());
+    }
+
+    [Fact]
+    public async Task La_Franja_Actual_Se_Acepta_Cuando_Hay_Una_Anterior()
+    {
+        using var e = new Entorno(Utc(19, 0), new PublisherFalso());
+        await e.SembrarAsync();
+
+        Assert.True((await e.RegistrarAsync(e.Cena.Id, e.Mesa.Id, 2)).IsSuccess);
+    }
+
+    [Fact]
+    public async Task Entre_Tres_Franjas_Se_Acepta_Solo_La_Ultima_Empezada_Y_Se_Rechaza_La_Anterior()
+    {
+        using var e = new Entorno(Utc(17, 0), new PublisherFalso()); // entre la Tarde (15:30–16:30) y la Cena (18:00)
+        await e.SembrarAsync();
+        var tarde = new FranjaHoraria
+        {
+            Id = Guid.NewGuid(), Nombre = "Tarde", HoraInicio = new TimeOnly(15, 30), HoraFin = new TimeOnly(16, 30)
+        };
+        e.Contexto.FranjasHorarias.Add(tarde);
+        await e.Contexto.SaveChangesAsync();
+
+        EsFallo(await e.RegistrarAsync(e.Almuerzo.Id, null, 2), ErrorType.Conflict,
+            "Esa franja ya no es la actual: la visita se registra en la franja Tarde (15:30–16:30).");
+        Assert.True((await e.RegistrarAsync(tarde.Id, null, 2)).IsSuccess);
+        EsFallo(await e.RegistrarAsync(e.Cena.Id, null, 2), ErrorType.Conflict,
+            "La franja Cena empieza a las 18:00; todavía no se puede registrar una visita en ella.");
+    }
+
+    [Fact]
+    public async Task Una_Franja_Inactiva_No_Cuenta_Como_La_Mas_Reciente()
+    {
+        using var e = new Entorno(Utc(19, 0), new PublisherFalso());
+        await e.SembrarAsync(cenaActiva: false); // la Cena (18:00) está inactiva: la última activa que empezó es el Almuerzo
+
+        Assert.True((await e.RegistrarAsync(e.Almuerzo.Id, null, 2)).IsSuccess);
     }
 
     // --- Handler que falla ---

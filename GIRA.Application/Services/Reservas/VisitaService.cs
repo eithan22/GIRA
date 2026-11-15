@@ -20,6 +20,7 @@ public class VisitaService : IVisitaService
     private readonly IMesaGestionRepository _mesas;
     private readonly IZonaRepository _zonas;
     private readonly IReservaRepository _reservas;
+    private readonly IParametrosReservaService _parametros;
     private readonly IValidator<RegistrarVisitaRequest> _validador;
     private readonly IValidator<ListarVisitasRequest> _validadorListado;
     private readonly IPublicadorEventosSeguro _publicador;
@@ -32,11 +33,13 @@ public class VisitaService : IVisitaService
         IMesaGestionRepository mesas,
         IZonaRepository zonas,
         IReservaRepository reservas,
+        IParametrosReservaService parametros,
         IValidator<RegistrarVisitaRequest> validador,
         IValidator<ListarVisitasRequest> validadorListado,
         IPublicadorEventosSeguro publicador,
         TimeProvider reloj)
     {
+        _parametros = parametros;
         _visitas = visitas;
         _franjas = franjas;
         _mesas = mesas;
@@ -91,6 +94,28 @@ public class VisitaService : IVisitaService
             return OperationResult.Failure<VisitaDto>(ErrorType.Validation, validacion.ToString());
         }
 
+        // Solo hoy (hora del servidor, America/Santo_Domingo).
+        var ahoraLocal = _reloj.AhoraLocal();
+        var hoy = DateOnly.FromDateTime(ahoraLocal);
+        var horaActual = TimeOnly.FromDateTime(ahoraLocal);
+
+        // Regla 1: el restaurante debe estar abierto AHORA. Una visita es un grupo que llega y se sienta de
+        // inmediato, así que fuera del horario de operación (día o fecha cerrados, antes de abrir o después de
+        // cerrar) no se registra. La apertura es inclusiva y el cierre exclusivo, igual que el fin de una franja
+        // (el fin exacto cuenta como terminada).
+        var parametros = await _parametros.ObtenerAsync(cancellationToken);
+        if (parametros.HorarioDelDia(hoy) is not { } horario)
+        {
+            return OperationResult.Failure<VisitaDto>(ErrorType.Conflict, MensajesReservas.VisitaRestauranteCerradoHoy);
+        }
+
+        if (horaActual < horario.HoraApertura || horaActual >= horario.HoraCierre)
+        {
+            return OperationResult.Failure<VisitaDto>(
+                ErrorType.Conflict,
+                MensajesReservas.VisitaRestauranteCerradoAhora(horario.HoraApertura, horario.HoraCierre));
+        }
+
         var franja = await _franjas.BuscarPorIdAsync(request.FranjaHorariaId, cancellationToken);
         if (franja is null)
         {
@@ -102,16 +127,29 @@ public class VisitaService : IVisitaService
             return OperationResult.Failure<VisitaDto>(ErrorType.Conflict, "La franja indicada no está activa.");
         }
 
-        // Solo hoy (hora del servidor). La franja debe haber empezado; no se exige que siga vigente:
-        // un cliente sin reserva puede llegar entre franjas (por ejemplo, a las 16:00).
-        var ahoraLocal = _reloj.AhoraLocal();
-        var hoy = DateOnly.FromDateTime(ahoraLocal);
-        if (TimeOnly.FromDateTime(ahoraLocal) < franja.HoraInicio)
+        // La franja debe haber empezado.
+        if (horaActual < franja.HoraInicio)
         {
             var inicio = franja.HoraInicio.ToString("HH:mm", CultureInfo.InvariantCulture);
             return OperationResult.Failure<VisitaDto>(
                 ErrorType.Conflict,
                 $"La franja {franja.Nombre} empieza a las {inicio}; todavía no se puede registrar una visita en ella.");
+        }
+
+        // Regla 2: la visita se registra en la franja MÁS RECIENTE de las activas que ya empezaron: la actual o,
+        // si el cliente llega entre franjas (por ejemplo, a las 16:30), la última que empezó. Una franja anterior
+        // ya no corresponde al momento en que el grupo se sienta, y así la visita no bloquea una mesa en una
+        // franja que ya pasó.
+        var activas = (await _franjas.ListarTodasAsync(cancellationToken)).Where(f => f.Activa);
+        var masReciente = activas
+            .Where(f => f.HoraInicio <= horaActual)
+            .OrderByDescending(f => f.HoraInicio)
+            .FirstOrDefault();
+        if (masReciente is not null && masReciente.Id != franja.Id)
+        {
+            return OperationResult.Failure<VisitaDto>(
+                ErrorType.Conflict,
+                MensajesReservas.VisitaFranjaNoVigente(masReciente.Nombre, masReciente.HoraInicio, masReciente.HoraFin));
         }
 
         Mesa? mesa = null;

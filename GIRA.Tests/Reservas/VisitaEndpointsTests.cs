@@ -179,6 +179,27 @@ public class VisitaEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Con_El_Restaurante_Cerrado_Responde_409_Con_El_Horario_Del_Dia()
+    {
+        // Caso real: 23:26 locales (03:26 UTC del día siguiente) con el horario por defecto 12:00–22:30.
+        await using var fabricaCerrado = new GiraApiFactoryConReloj(
+            new DateTimeOffset(2026, 12, 2, 3, 26, 0, TimeSpan.Zero), _ => { });
+        using var clienteCerrado = fabricaCerrado.CreateClient();
+        using (var scope = fabricaCerrado.Services.CreateScope())
+        {
+            var token = scope.ServiceProvider.GetRequiredService<ITokenService>()
+                .GenerarAccessToken(Guid.NewGuid(), "personal@gira.local", "Personal de Prueba", [Roles.Mesero]).Token;
+            clienteCerrado.UsarToken(token);
+        }
+
+        var respuesta = await clienteCerrado.PostAsJsonAsync(
+            "/api/visitas", new RegistrarVisitaRequest(Guid.NewGuid(), null, 2));
+
+        Assert.Equal(HttpStatusCode.Conflict, respuesta.StatusCode);
+        Assert.Contains("El restaurante está cerrado ahora; el horario de hoy es de 12:00 a 22:30", await respuesta.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Franja_Futura_Responde_409_Con_Su_Hora_De_Inicio()
     {
         _cliente.UsarToken(GenerarToken(Guid.NewGuid(), Roles.Mesero));
