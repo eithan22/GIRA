@@ -1,6 +1,7 @@
 using System.Globalization;
 using FluentValidation;
 using GIRA.Application.Common;
+using GIRA.Application.Common.Reservas;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Events.Reservas;
 using GIRA.Application.Interfaces.Repository.Reservas;
@@ -114,7 +115,7 @@ public class ReservaService : IReservaService
             validarHorario: true, audiencia, cancellationToken);
         if (!asignacion.IsSuccess)
         {
-            return OperationResult.Failure<ReservaCreadaDto>(asignacion.Type!.Value, asignacion.Error!);
+            return OperationResult.Failure<ReservaCreadaDto>(asignacion.Type!.Value, asignacion.Error!, asignacion.Codigo);
         }
 
         var franja = asignacion.Value!.Franja;
@@ -129,7 +130,8 @@ public class ReservaService : IReservaService
         {
             return OperationResult.Failure<ReservaCreadaDto>(
                 ErrorType.Conflict,
-                MensajesReservas.LimiteVigentesPorTelefono(audiencia, parametros.MaxReservasVigentesPorTelefono));
+                MensajesReservas.LimiteVigentesPorTelefono(audiencia, parametros.MaxReservasVigentesPorTelefono),
+                CodigosErrorReservas.LimiteVigentes);
         }
 
         // --- Solo ahora, con la reserva confirmada como posible, se toca al cliente. Se guarda
@@ -331,10 +333,11 @@ public class ReservaService : IReservaService
         }
         catch (ReservaConflictoConcurrenciaException)
         {
-            // Mensaje propio: el del repositorio habla de la cancelación y la pantalla pública lo
-            // compara por subcadena, así que no se toca.
+            // El texto se deja igual (el del repositorio habla de la cancelación), pero el frontend ya
+            // no depende de él: decide por CodigosErrorReservas.CambioConcurrente.
             return OperationResult.Failure<ReservaDetalleDto>(
-                ErrorType.Conflict, "La reserva cambió mientras se procesaba el check-in; vuelve a consultarla.");
+                ErrorType.Conflict, "La reserva cambió mientras se procesaba el check-in; vuelve a consultarla.",
+                CodigosErrorReservas.CambioConcurrente);
         }
 
         var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken)
@@ -365,7 +368,8 @@ public class ReservaService : IReservaService
         {
             return OperationResult.Failure<AsignacionMesa>(
                 ErrorType.Validation,
-                MensajesReservas.GrupoGrande(audiencia, tamanoMaximo));
+                MensajesReservas.GrupoGrande(audiencia, tamanoMaximo),
+                CodigosErrorReservas.ContactarRestaurante);
         }
 
         var franjas = await _franjaHorariaRepository.ListarActivasAsync(cancellationToken);
@@ -530,7 +534,7 @@ public class ReservaService : IReservaService
             excluirReservaId: reserva.Id, validarHorario: cambiaHorario, AudienciaReserva.Personal, cancellationToken);
         if (!asignacion.IsSuccess)
         {
-            return OperationResult.Failure<ReservaDetalleDto>(asignacion.Type!.Value, asignacion.Error!);
+            return OperationResult.Failure<ReservaDetalleDto>(asignacion.Type!.Value, asignacion.Error!, asignacion.Codigo);
         }
 
         var mesa = asignacion.Value!.Mesa;
@@ -553,9 +557,10 @@ public class ReservaService : IReservaService
             }
             catch (ReservaConflictoConcurrenciaException)
             {
-                // Mensaje propio: el del repositorio habla de la cancelación y la pantalla pública lo compara por subcadena.
+                // El texto se deja igual, pero el frontend ya no depende de él.
                 return OperationResult.Failure<ReservaDetalleDto>(
-                    ErrorType.Conflict, "La reserva cambió mientras se modificaba; vuelve a consultarla.");
+                    ErrorType.Conflict, "La reserva cambió mientras se modificaba; vuelve a consultarla.",
+                    CodigosErrorReservas.CambioConcurrente);
             }
 
             // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
@@ -621,9 +626,10 @@ public class ReservaService : IReservaService
         }
         catch (ReservaConflictoConcurrenciaException)
         {
-            // Mensaje propio: el del repositorio habla de la cancelación por código y la pantalla pública lo compara por subcadena.
+            // El texto se deja igual, pero el frontend ya no depende de él.
             return OperationResult.Failure<ReservaDetalleDto>(
-                ErrorType.Conflict, "La reserva cambió mientras se cancelaba; vuelve a consultarla.");
+                ErrorType.Conflict, "La reserva cambió mientras se cancelaba; vuelve a consultarla.",
+                CodigosErrorReservas.CambioConcurrente);
         }
 
         // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
@@ -673,9 +679,10 @@ public class ReservaService : IReservaService
         }
         catch (ReservaConflictoConcurrenciaException)
         {
-            // Mensaje propio: el del repositorio habla de la cancelación y la pantalla pública lo compara por subcadena.
+            // El texto se deja igual, pero el frontend ya no depende de él.
             return OperationResult.Failure<ReservaDetalleDto>(
-                ErrorType.Conflict, "La reserva cambió mientras se completaba la visita; vuelve a consultarla.");
+                ErrorType.Conflict, "La reserva cambió mientras se completaba la visita; vuelve a consultarla.",
+                CodigosErrorReservas.CambioConcurrente);
         }
 
         // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
@@ -723,9 +730,10 @@ public class ReservaService : IReservaService
         }
         catch (ReservaConflictoConcurrenciaException)
         {
-            // Mensaje propio: el del repositorio habla de la cancelación por código.
+            // El texto se deja igual, pero el frontend ya no depende de él.
             return OperationResult.Failure<ReservaDetalleDto>(
-                ErrorType.Conflict, "La reserva cambió mientras se marcaba como no asistida; vuelve a consultarla.");
+                ErrorType.Conflict, "La reserva cambió mientras se marcaba como no asistida; vuelve a consultarla.",
+                CodigosErrorReservas.CambioConcurrente);
         }
 
         // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
@@ -819,7 +827,8 @@ public class ReservaService : IReservaService
 
         if (reserva.Estado != EstadoReserva.Confirmada)
         {
-            return OperationResult.Failure(ErrorType.Conflict, "Esta reserva ya no se puede cancelar.");
+            return OperationResult.Failure(
+                ErrorType.Conflict, "Esta reserva ya no se puede cancelar.", CodigosErrorReservas.ReservaNoCancelable);
         }
 
         // Si esto fuera null sería una violación de integridad (ver ConsultarPorCodigoAsync).
@@ -834,7 +843,8 @@ public class ReservaService : IReservaService
         {
             return OperationResult.Failure(
                 ErrorType.Conflict,
-                $"Ya no se puede cancelar esta reserva; debe hacerse con al menos {MensajesReservas.Duracion(limiteCancelacion)} de anticipación.");
+                $"Ya no se puede cancelar esta reserva; debe hacerse con al menos {MensajesReservas.Duracion(limiteCancelacion)} de anticipación.",
+                CodigosErrorReservas.CancelacionFueraDePlazo);
         }
 
         reserva.Cancelar(null);
@@ -845,7 +855,9 @@ public class ReservaService : IReservaService
         }
         catch (ReservaConflictoConcurrenciaException ex)
         {
-            return OperationResult.Failure(ErrorType.Conflict, ex.Message);
+            // El texto lo pone el repositorio (ver ReservaRepository.GuardarCambiosAsync); el código es el
+            // mismo CambioConcurrente de las demás rutas, el frontend ya no depende del texto.
+            return OperationResult.Failure(ErrorType.Conflict, ex.Message, CodigosErrorReservas.CambioConcurrente);
         }
 
         await _publisher.Publish(

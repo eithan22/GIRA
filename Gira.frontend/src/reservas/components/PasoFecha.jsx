@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { reservasService, esPeticionCancelada, extraerMensajeError } from '../reservasService.js';
+import { reservasService, esPeticionCancelada, extraerMensajeError, codigoDeError, CODIGOS_ERROR } from '../reservasService.js';
 import {
   cantidadChipsPersonas,
   diaCerradoEnFranjas,
@@ -37,6 +37,11 @@ const DURACION_BLOQUEO_429_MS = 10_000;
 // "Noche" por horario, no por nombre: una franja que arranca a las 17:00 o
 // después usa el icono de luna, sin depender de que se llame "Cena".
 const HORA_INICIO_NOCHE = '17:00';
+
+// Códigos de error cuyo mensaje invita a llamar al restaurante: se les agrega el teléfono de
+// contacto si está configurado. Por ahora solo CONTACTAR_RESTAURANTE (Fase 1); la Fase 4 agrega
+// LIMITE_IP_DIARIO y TELEFONO_BLOQUEADO_NOSHOW a este mismo conjunto, sin tocar la lógica de abajo.
+const CODIGOS_CON_TELEFONO_DE_CONTACTO = new Set([CODIGOS_ERROR.CONTACTAR_RESTAURANTE]);
 
 function IconoFranja({ nocturna }) {
   if (nocturna) {
@@ -166,7 +171,7 @@ export default function PasoFecha({ valor, onCambiar, onContinuar }) {
       }
 
       let mensaje = extraerMensajeError(err, MENSAJE_ERROR_GENERICO);
-      if (mensaje.toLowerCase().includes('llama al restaurante')) {
+      if (CODIGOS_CON_TELEFONO_DE_CONTACTO.has(codigoDeError(err))) {
         // Solo se agrega el número si el restaurante lo configuró; si no, el mensaje del servidor va tal cual.
         mensaje = textoMensajeConTelefono(mensaje, politicas);
       }

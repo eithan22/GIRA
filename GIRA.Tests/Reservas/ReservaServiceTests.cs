@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using GIRA.Infrastructure.Services.Reservas;
 using GIRA.Application.Common;
+using GIRA.Application.Common.Reservas;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Events.Reservas;
 using GIRA.Application.Interfaces.Repository.Reservas;
@@ -33,13 +34,14 @@ public class ReservaServiceTests
         IReadOnlyList<Mesa>? mesas = null,
         PublisherFalso? publisher = null,
         DateTimeOffset? ahoraUtc = null,
-        VisitaRepositoryFalso? visitas = null)
+        VisitaRepositoryFalso? visitas = null,
+        ParametrosReservaFalso? parametros = null)
     {
         mesas ??= [MesaPequena];
         reservaRepo ??= new ReservaRepositoryFake();
         clienteRepo ??= new ClienteRepositoryFake();
         publisher ??= new PublisherFalso();
-        var parametros = new ParametrosReservaFalso();
+        parametros ??= new ParametrosReservaFalso();
 
         // "Ahora" por defecto: la mañana del día anterior a Fecha (antelación de sobra).
         var ahoraPorDefecto = Fecha.AddDays(-1).ToDateTime(new TimeOnly(8, 0)).AddHours(4);
@@ -194,6 +196,25 @@ public class ReservaServiceTests
         Assert.True(resultado.IsFailure);
         Assert.Equal(GIRA.Application.Common.ErrorType.Conflict, resultado.Type);
         Assert.Contains("2 reservas vigentes", resultado.Error);
+        Assert.Equal(CodigosErrorReservas.LimiteVigentes, resultado.Codigo);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    public async Task CrearAsync_LimiteDeVigentesConMaximoDistintoDeDos_SigueDevolviendoElCodigoDeLimite(int maximo)
+    {
+        // El bug que corrige esta fase: el mensaje con máximo 1 o 3 no contiene la subcadena "2 reservas
+        // vigentes" que usaba el frontend; el código estable no depende de cuántas diga el texto.
+        var reservaRepo = new ReservaRepositoryFake { VigentesPorTelefono = maximo };
+        var parametros = new ParametrosReservaFalso { MaxReservasVigentesPorTelefono = maximo };
+        var servicio = CrearServicio(reservaRepo: reservaRepo, parametros: parametros);
+
+        var resultado = await servicio.CrearAsync(Request(), default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(GIRA.Application.Common.ErrorType.Conflict, resultado.Type);
+        Assert.Equal(CodigosErrorReservas.LimiteVigentes, resultado.Codigo);
     }
 
     [Fact]
@@ -460,6 +481,7 @@ public class ReservaServiceTests
         Assert.True(resultado.IsFailure);
         Assert.Equal(GIRA.Application.Common.ErrorType.Conflict, resultado.Type);
         Assert.Equal("Esta reserva ya no se puede cancelar.", resultado.Error);
+        Assert.Equal(CodigosErrorReservas.ReservaNoCancelable, resultado.Codigo);
     }
 
     [Fact]
@@ -511,6 +533,32 @@ public class ReservaServiceTests
     }
 
     [Fact]
+    public async Task CancelarPorCodigoAsync_DentroDelLimiteDeCancelacion_Devuelve409ConCodigoDeFueraDePlazo()
+    {
+        var cliente = new Cliente { Id = Guid.NewGuid(), Nombre = "Ana Pérez", Telefono = "8095551234" };
+        var reserva = new Reserva
+        {
+            Id = Guid.NewGuid(), Codigo = "12345678", ClienteId = cliente.Id,
+            FranjaHorariaId = Almuerzo.Id, Fecha = Fecha, Personas = 2
+        };
+        var reservaRepo = new ReservaRepositoryFake
+        {
+            ReservaPorCodigoYTelefono = reserva,
+            ClienteDeLaReservaPorCodigoYTelefono = cliente
+        };
+        // Almuerzo empieza a las 12:00; "ahora" es 11:00 del mismo día (1h antes), dentro del límite de 2h.
+        var servicio = CrearServicio(reservaRepo: reservaRepo, ahoraUtc: LocalRd(11, 0));
+
+        var resultado = await servicio.CancelarPorCodigoAsync("12345678", new CancelarReservaRequest("8095551234"), default);
+
+        Assert.True(resultado.IsFailure);
+        Assert.Equal(GIRA.Application.Common.ErrorType.Conflict, resultado.Type);
+        Assert.Contains("de anticipación", resultado.Error);
+        Assert.Equal(CodigosErrorReservas.CancelacionFueraDePlazo, resultado.Codigo);
+        Assert.Equal(EstadoReserva.Confirmada, reserva.Estado); // no se canceló
+    }
+
+    [Fact]
     public async Task CancelarPorCodigoAsync_ConflictoDeConcurrenciaAlGuardar_Devuelve409SinPublicarElEvento()
     {
         var cliente = new Cliente { Id = Guid.NewGuid(), Nombre = "Ana Pérez", Telefono = "8095551234" };
@@ -532,6 +580,7 @@ public class ReservaServiceTests
 
         Assert.True(resultado.IsFailure);
         Assert.Equal(GIRA.Application.Common.ErrorType.Conflict, resultado.Type);
+        Assert.Equal(CodigosErrorReservas.CambioConcurrente, resultado.Codigo);
         Assert.Empty(publisher.Publicados);
     }
 
@@ -653,6 +702,7 @@ public class ReservaServiceTests
 
         Assert.True(resultado.IsFailure);
         Assert.Equal("Para grupos de más de 8 personas, llama al restaurante.", resultado.Error);
+        Assert.Equal(CodigosErrorReservas.ContactarRestaurante, resultado.Codigo);
     }
 
     [Fact]
@@ -773,6 +823,7 @@ public class ReservaServiceTests
         Assert.True(resultado.IsFailure);
         Assert.Equal(ErrorType.NotFound, resultado.Type);
         Assert.Equal("No encontramos esa reserva.", resultado.Error);
+        Assert.Null(resultado.Codigo); // compatibilidad: un error sin código estable sigue funcionando igual
         Assert.Equal(["99999999"], repo.CodigosConsultados);
     }
 

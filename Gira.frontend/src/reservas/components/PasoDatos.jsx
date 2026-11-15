@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { extraerMensajeError } from '../reservasService.js';
+import { CODIGOS_ERROR, codigoDeError, extraerMensajeError } from '../reservasService.js';
 import {
   AYUDA_TELEFONO_FORMATO,
   AYUDA_TELEFONO_CORTA,
@@ -81,8 +81,9 @@ export default function PasoDatos({ valor, onCambiar, onAtras, onConfirmar, envi
         bloqueoTimerRef.current = setTimeout(() => setBloqueado429(false), DURACION_BLOQUEO_429_MS);
       } else if (status === 409) {
         const mensaje = extraerMensajeError(err, MENSAJE_ERROR_GENERICO);
+        // Por código, no por texto: con máximo 1 o 3 el mensaje no dice "2 reservas vigentes".
         setErrorEnvio({
-          tipo: mensaje.includes('2 reservas vigentes') ? '409-limite' : '409-mesa',
+          tipo: codigoDeError(err) === CODIGOS_ERROR.LIMITE_VIGENTES ? '409-limite' : '409-mesa',
           mensaje,
         });
       } else if (status === 400) {

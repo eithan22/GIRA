@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { reservasService, extraerMensajeError } from '../reservasService.js';
+import { reservasService, extraerMensajeError, codigoDeError, CODIGOS_ERROR } from '../reservasService.js';
 import { formatearFechaCorta, formatearHora, formatearCodigoVisual, primerNombre } from '../reservasFormato.js';
 import {
   ESTADOS_RESERVA,
@@ -17,13 +17,12 @@ import { usePoliticasReserva } from '../hooks/usePoliticasReserva.js';
 
 const DURACION_BLOQUEO_429_MS = 10_000;
 
-// Los 3 textos de 409 que puede devolver /codigo/{codigo}/cancelar: se
-// distinguen por una sub-cadena del mensaje porque el servidor no manda un
-// código de error propio, solo el detail en texto.
-function tipoDe409(mensaje) {
-  if (mensaje.includes('anticipación')) return '409-anticipacion'; // límite de 2h
-  if (mensaje.includes('cambió mientras se procesaba')) return '409-concurrencia';
-  return '409-ya-no-confirmada'; // "Esta reserva ya no se puede cancelar."
+// Los 3 tipos de 409 que puede devolver /codigo/{codigo}/cancelar, por el código estable del
+// servidor (nunca por el texto, que puede cambiar de redacción).
+function tipoDe409(codigo) {
+  if (codigo === CODIGOS_ERROR.CANCELACION_FUERA_DE_PLAZO) return '409-anticipacion'; // límite de 2h
+  if (codigo === CODIGOS_ERROR.CAMBIO_CONCURRENTE) return '409-concurrencia';
+  return '409-ya-no-confirmada'; // CODIGOS_ERROR.RESERVA_NO_CANCELABLE, o un código que no se reconozca
 }
 
 const TIPOS_409_CON_VOLVER_A_CONSULTAR = ['409-concurrencia', '409-ya-no-confirmada'];
@@ -116,7 +115,7 @@ export default function DetalleReserva({ reserva, credenciales, onCancelada, onV
         if (bloqueoTimerRef.current) clearTimeout(bloqueoTimerRef.current);
         bloqueoTimerRef.current = setTimeout(() => setBloqueado429(false), DURACION_BLOQUEO_429_MS);
       } else if (status === 409) {
-        const tipo = tipoDe409(mensaje);
+        const tipo = tipoDe409(codigoDeError(err));
         setErrorCancelar({ tipo, mensaje });
         // Fuera del límite de anticipación: reintentar siempre va a volver a
         // fallar (el tiempo no retrocede), así que "Sí, cancelar" queda

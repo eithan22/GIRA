@@ -1,5 +1,6 @@
 using FluentValidation;
 using GIRA.Application.Common;
+using GIRA.Application.Common.Reservas;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Interfaces.Repository.Reservas;
 using GIRA.Application.Interfaces.Services.Reservas;
@@ -73,7 +74,8 @@ public class DisponibilidadService : IDisponibilidadService
             {
                 return OperationResult.Failure<IReadOnlyList<FranjaDisponibleDto>>(
                     ErrorType.Validation,
-                    MensajesReservas.GrupoGrande(audiencia, tamanoMaximo));
+                    MensajesReservas.GrupoGrande(audiencia, tamanoMaximo),
+                    CodigosErrorReservas.ContactarRestaurante);
             }
         }
 

@@ -80,3 +80,25 @@ existentes conservan las suyas hasta que el Gerente las edite.
 > hasta que se edite el parámetro de tamaño máximo de grupo. Las instalaciones existentes conservan sus franjas
 > anteriores. Reducir el horario o cerrar un día no cancela las reservas ya hechas. Detalle en
 > [parametros-reservas.md](parametros-reservas.md).
+
+## Códigos de error estables
+
+Los errores 4xx de Reservas que el frontend necesita distinguir sin leer el texto de `detail` (que puede cambiar
+de redacción, de idioma o según un parámetro configurado) llevan además un código estable en la extensión
+`codigo` del `ProblemDetails` de respuesta: `{ "status": 409, "detail": "...", "codigo": "LIMITE_VIGENTES" }`. El
+mensaje en español se conserva igual, para mostrarlo al usuario; el código es solo para que el cliente decida qué
+hacer. Un error sin código asignado sigue funcionando igual que antes (el frontend cae a su tratamiento genérico).
+
+| Código | Cuándo ocurre | HTTP |
+|---|---|---|
+| `LIMITE_VIGENTES` | El teléfono ya alcanzó el máximo de reservas vigentes configurado, al crear. | 409 |
+| `CANCELACION_FUERA_DE_PLAZO` | Se intentó cancelar por código fuera del límite de cancelación configurado. | 409 |
+| `CAMBIO_CONCURRENTE` | Otra solicitud modificó la misma reserva antes de que esta terminara de procesarse (check-in, modificar, cancelar, completar, marcar no asistida). | 409 |
+| `CONTACTAR_RESTAURANTE` | El grupo supera el tamaño máximo configurado (al consultar disponibilidad o al crear): el canal web no resuelve este caso. | 400 |
+| `RESERVA_NO_CANCELABLE` | La reserva ya no está Confirmada (Cancelada, NoAsistio, EnCurso o Completada): no se puede cancelar por código. | 409 |
+| `ZONA_SIN_MESAS` *(reservado, Fase 3)* | La zona elegida ya no tiene mesas disponibles en esa franja. | 409 |
+| `LIMITE_IP_DIARIO` *(reservado, Fase 4)* | Esa IP alcanzó el máximo de reservas web del día de negocio actual. | 409 |
+| `TELEFONO_BLOQUEADO_NOSHOW` *(reservado, Fase 4)* | Ese teléfono tiene inasistencias recientes y el canal web no lo acepta. | 409 |
+
+Los tres últimos están declarados en `CodigosErrorReservas.cs` para fijar el nombre final, pero el backend todavía
+no los devuelve: se implementan en las fases 3 y 4.

@@ -1,4 +1,5 @@
 using GIRA.Application.Common;
+using GIRA.Application.Common.Reservas;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Interfaces.Repository.Reservas;
 using GIRA.Application.Interfaces.Services.Reservas;
@@ -269,6 +270,8 @@ public class DisponibilidadServiceTests
             "Las mesas admiten como máximo 8 personas. Los grupos más grandes se atienden por teléfono, fuera del sistema.",
             personal.Error);
         Assert.Equal("Para grupos de más de 8 personas, llama al restaurante.", cliente.Error);
+        Assert.Equal(CodigosErrorReservas.ContactarRestaurante, personal.Codigo);
+        Assert.Equal(CodigosErrorReservas.ContactarRestaurante, cliente.Codigo);
     }
 
     [Fact]
@@ -491,6 +494,7 @@ public class DisponibilidadServiceTests
         Assert.Equal(GIRA.Application.Common.ErrorType.Validation, resultado.Type);
         Assert.Contains("6 personas", resultado.Error);
         Assert.Contains("llama al restaurante", resultado.Error);
+        Assert.Equal(CodigosErrorReservas.ContactarRestaurante, resultado.Codigo);
     }
 }
 

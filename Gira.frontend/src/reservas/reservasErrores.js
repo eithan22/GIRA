@@ -3,6 +3,30 @@
 
 const CODIGOS_CON_DETALLE_VISIBLE = [400, 404, 409, 429];
 
+/**
+ * Catálogo de códigos estables que el backend manda en `ProblemDetails.codigo` (ver
+ * CodigosErrorReservas.cs). El frontend decide por este código, nunca por el texto de `detail`
+ * (que puede cambiar de redacción o según un parámetro configurado, como el máximo de vigentes).
+ */
+export const CODIGOS_ERROR = {
+  LIMITE_VIGENTES: 'LIMITE_VIGENTES',
+  CANCELACION_FUERA_DE_PLAZO: 'CANCELACION_FUERA_DE_PLAZO',
+  CAMBIO_CONCURRENTE: 'CAMBIO_CONCURRENTE',
+  CONTACTAR_RESTAURANTE: 'CONTACTAR_RESTAURANTE',
+  RESERVA_NO_CANCELABLE: 'RESERVA_NO_CANCELABLE',
+  // Reservados para las fases 3 y 4; el backend todavía no los manda.
+  ZONA_SIN_MESAS: 'ZONA_SIN_MESAS',
+  LIMITE_IP_DIARIO: 'LIMITE_IP_DIARIO',
+  TELEFONO_BLOQUEADO_NOSHOW: 'TELEFONO_BLOQUEADO_NOSHOW',
+};
+
+// Código estable del error, o null si el servidor no mandó ninguno (errores sin código asignado
+// todavía, o cualquier error que no sea un ProblemDetails de este backend).
+export function codigoDeError(error) {
+  const codigo = error?.response?.data?.codigo;
+  return typeof codigo === 'string' && codigo ? codigo : null;
+}
+
 // Devuelve el `detail` del servidor en 400/404/409/429; en cualquier otro caso
 // (500, error de red, timeout) devuelve el texto genérico que pase el llamador,
 // sin exponer nunca el mensaje crudo del error.

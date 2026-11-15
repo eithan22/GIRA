@@ -11,9 +11,9 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// El mensaje del servidor se extrae en reservasErrores.js (puro, con pruebas); se reexporta aquí para no
-// cambiar a quienes ya lo importan de este módulo.
-export { extraerMensajeError } from './reservasErrores.js';
+// El mensaje del servidor y el código estable se extraen en reservasErrores.js (puro, con pruebas);
+// se reexportan aquí para no cambiar a quienes ya importan de este módulo.
+export { CODIGOS_ERROR, codigoDeError, extraerMensajeError } from './reservasErrores.js';
 
 // Para que Paso 1 ignore en silencio la petición de disponibilidad que canceló
 // al cambiar de día o de personas, en vez de mostrarla como error.
