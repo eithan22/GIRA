@@ -15,7 +15,8 @@ existentes conservan las suyas hasta que el Gerente las edite.
 
 - **Web.** El cliente reserva por su cuenta desde `/reservar`, sin cuenta. Debe hacerlo con al menos la antelación
   mínima (por defecto 2 horas) y hasta la antelación máxima (por defecto 30 días). `/reservar` muestra **todas** las
-  franjas del día: las que no se pueden elegir salen deshabilitadas con su motivo. Origen: `Web`.
+  franjas del día: las que no se pueden elegir salen deshabilitadas con su motivo. Puede elegir una **zona** opcional
+  (ver «Zona opcional en la reserva web»). Origen: `Web`.
 - **Por llamada.** El personal registra la reserva de quien llama, desde Agenda → Nueva reserva. Puede ser
   para hoy, sin la antelación mínima, mientras la franja no haya terminado. Origen: `Telefono`.
 - **En persona.** El personal registra la reserva con el cliente presente en el restaurante, con las mismas
@@ -36,7 +37,8 @@ existentes conservan las suyas hasta que el Gerente las edite.
   la salta, la disponibilidad no ofrece la franja si no queda otra mesa que alcance, y si el personal la elige a mano
   recibe 409 («tiene una visita sin reserva en esta franja»). Al no haber hora de salida, se considera ocupada toda
   la franja y se libera al cambiar de franja. El inverso ya existía: no se puede registrar una visita en una mesa con
-  reserva vigente en esa franja.
+  reserva vigente en esa franja. En la web el cliente puede acotar la búsqueda a una zona (ver «Zona opcional en la
+  reserva web»); el personal no.
 - **Límite por teléfono:** como máximo el número configurado de reservas vigentes con el mismo teléfono (por defecto 2).
 - **Día cerrado:** no se puede reservar en un día de la semana cerrado ni en una fecha cerrada, por ningún canal.
 - **Disponibilidad:** la pública (`GET /api/reservas/disponibilidad`) devuelve todas las franjas activas con `disponible` y
@@ -96,9 +98,77 @@ hacer. Un error sin código asignado sigue funcionando igual que antes (el front
 | `CAMBIO_CONCURRENTE` | Otra solicitud modificó la misma reserva antes de que esta terminara de procesarse (check-in, modificar, cancelar, completar, marcar no asistida). | 409 |
 | `CONTACTAR_RESTAURANTE` | El grupo supera el tamaño máximo configurado (al consultar disponibilidad o al crear): el canal web no resuelve este caso. | 400 |
 | `RESERVA_NO_CANCELABLE` | La reserva ya no está Confirmada (Cancelada, NoAsistio, EnCurso o Completada): no se puede cancelar por código. | 409 |
-| `ZONA_SIN_MESAS` *(reservado, Fase 3)* | La zona elegida ya no tiene mesas disponibles en esa franja. | 409 |
-| `LIMITE_IP_DIARIO` *(reservado, Fase 4)* | Esa IP alcanzó el máximo de reservas web del día de negocio actual. | 409 |
-| `TELEFONO_BLOQUEADO_NOSHOW` *(reservado, Fase 4)* | Ese teléfono tiene inasistencias recientes y el canal web no lo acepta. | 409 |
+| `ZONA_SIN_MESAS` | La zona elegida (solo canal web) ya no tiene mesas disponibles en esa franja, al crear. | 409 |
+| `LIMITE_IP_DIARIO` *(reservado, no implementado)* | Esa IP alcanzó el máximo de reservas web del día de negocio actual. | 409 |
+| `TELEFONO_BLOQUEADO_NOSHOW` *(reservado, no implementado)* | Ese teléfono tiene inasistencias recientes y el canal web no lo acepta. | 409 |
 
-Los tres últimos están declarados en `CodigosErrorReservas.cs` para fijar el nombre final, pero el backend todavía
-no los devuelve: se implementan en las fases 3 y 4.
+`LIMITE_IP_DIARIO` y `TELEFONO_BLOQUEADO_NOSHOW` están declarados en `CodigosErrorReservas.cs` para fijar el nombre
+final, pero el backend **no los devuelve**: quedan reservados para las mejoras futuras (ver más abajo). No se quitan
+ni se usan.
+
+## Zona opcional en la reserva web
+
+En `/reservar` el cliente puede elegir **una zona** (por ejemplo Salón o Terraza) o dejar «Sin preferencia».
+
+- **Cuándo aparece el selector.** Después de elegir la franja, y solo si **2 o más zonas tienen una mesa libre de
+  capacidad suficiente en esa franja**. Con una sola zona con lugar (o una sola zona activa) no se pregunta nada y la
+  mesa se asigna como siempre. Las zonas llenas **no se ofrecen** (se ocultan, no se deshabilitan). La lista sale de
+  `zonasDisponibles` en cada franja de `GET /api/reservas/disponibilidad`; la disponibilidad del personal no la lleva.
+- **Cómo se asigna.** Con zona elegida, la mesa se busca solo entre las mesas de esa zona (capacidad suficiente, la de
+  menor capacidad primero, sin reservas ni visitas en esa fecha y franja). Sin zona, el comportamiento es el de siempre
+  (menor capacidad de todo el salón). `POST /api/reservas` acepta `zonaId` opcional; una zona inexistente o inactiva se
+  rechaza con 400. **El canal del personal ignora `zonaId`.**
+- **Zona llena al confirmar.** Si la zona elegida se llenó mientras el cliente completaba sus datos, la respuesta es
+  409 con código `ZONA_SIN_MESAS` («La zona X ya no tiene mesas disponibles en esa franja. Elige otra zona o "sin
+  preferencia".»). Nunca se asigna en silencio una mesa de otra zona. El frontend decide por el código: vuelve al
+  Paso 1 con el mensaje, con la disponibilidad actualizada y la zona sin elegir.
+- **Qué ve el cliente al confirmar y al consultar.** `ReservaCreadaDto` y `ReservaConsultadaDto` incluyen `zonaNombre`.
+  **Nunca se muestra el número de mesa ni su capacidad**, porque el personal puede mover la reserva de mesa el mismo día.
+- **La zona no se guarda como preferencia aparte.** La zona de una reserva es **siempre la de su mesa actual**: si el
+  personal la mueve a una mesa de otra zona, la consulta posterior por código muestra la zona nueva.
+- **Carrera por la última mesa.** Si dos solicitudes simultáneas se disputan la última mesa de una zona, una se
+  confirma y la otra recibe **409 sin código** con el texto genérico «Esa mesa ya fue tomada, intenta otra franja.»
+  (la zona podría tener todavía otras mesas libres, así que no se usa `ZONA_SIN_MESAS` en ese caso).
+
+## Aviso de próxima reserva al registrar una visita
+
+Al registrar una visita sin reserva en una mesa, el sistema avisa —sin bloquear— si esa mesa tiene una reserva vigente
+(Confirmada o EnCurso) en una **franja posterior del mismo día que todavía no ha terminado**.
+
+- **Endpoint:** `GET /api/visitas/advertencia-mesa?mesaId=…&franjaId=…&fecha=…` (la fecha es opcional; por defecto hoy en
+  hora de Santo Domingo). Devuelve `hayAviso`, `mensaje`, `franjaNombre`, `horaInicio`, `personas` y `minutosFaltantes`
+  (solo cuando la fecha es hoy). **Sin nombre ni teléfono del cliente.**
+- **Mensaje:** «La mesa N tiene una reserva a las HH:mm (franja X, P personas), en M minutos. Si registras la visita, la
+  mesa podría no estar libre a tiempo.»
+- **«Registrar de todos modos».** El aviso no cambia el registro: la visita se registra igual si el personal lo decide.
+- **Mapa de ocupación.** La mesa con una reserva posterior ese día muestra **«Próx. HH:mm»** (la más cercana que aún no
+  ha terminado; solo en esa mesa). `MesaOcupacionDto` trae `proximaReservaHoraInicio` y `proximaReservaPersonas`. La
+  visita sin reserva no cuenta como «próxima»: no tiene hora de salida.
+
+## Texto de cancelación
+
+El texto que repiten Confirmación y «Mi reserva · Detalle» **ya no usa la palabra «gratis»**: cancelar no tiene costo en
+ningún caso, así que solo se indica el plazo («Puedes cancelar hasta 2 horas antes de tu franja. Después, llama al … /
+contacta directamente al restaurante.»; con límite 0: «Puedes cancelar hasta el inicio de la franja…»). Sale del
+parámetro de límite de cancelación y del teléfono de contacto configurados.
+
+## Limitaciones conocidas
+
+- **El teléfono solo se valida por formato** (809/829/849 + 7 dígitos): no se verifica que exista ni que sea de quien
+  reserva. Las únicas barreras contra reservas falsas son el máximo de reservas vigentes por teléfono y la limitación de
+  tasa (en creación: 30/min por usuario autenticado y 5/min por IP para invitados).
+- **Los estados de la API son números** (enums sin convertir a texto): decisión del equipo; el frontend los traduce.
+- **Códigos reservados sin implementar** (`LIMITE_IP_DIARIO`, `TELEFONO_BLOQUEADO_NOSHOW`): ver «Mejoras futuras».
+- **Carrera por la última mesa:** el segundo solicitante recibe un 409 sin código (ver «Zona opcional»).
+
+## Mejoras futuras (no implementadas)
+
+Decididas como fuera del alcance actual; no hay código, parámetros ni migraciones para ellas.
+
+- **IP real tras un proxy** (`ForwardedHeaders` con `KnownProxies`/`KnownNetworks` de configuración): hoy los limitadores
+  leen `RemoteIpAddress`, que tras un proxy es la IP del proxy.
+- **Límite diario de reservas web por IP** (con hash de la IP, nunca en claro) y **bloqueo web por reputación de
+  no-show** (por teléfono y ventana de días); sus códigos `LIMITE_IP_DIARIO` y `TELEFONO_BLOQUEADO_NOSHOW` quedan reservados.
+- **CAPTCHA**, **tope de mesas por la web** y **verificación del teléfono por SMS**.
+- **Estados como texto en la API** (en vez de números).
+- **«Terminar visita»**: dar a la visita sin reserva una hora de salida para liberar la mesa antes de que acabe la franja.

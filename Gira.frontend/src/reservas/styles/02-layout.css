@@ -204,9 +204,12 @@
      igual que el padding de MovilReservar.dc.html: sin esto, la tarjeta toca
      el borde de la pantalla porque .reservas-pagina no tiene padding propio
      (no se le puede dar: rompería el fondo a sangre de .reservas-portada). */
+  /* nowrap: en columna, con flex-wrap:wrap el ancho del hijo seguía a su contenido (482px en un viewport de 390)
+     y la tarjeta quedaba recortada por overflow:hidden; sin wrap el hijo se estira al ancho de la tarjeta. */
   .reservas-tarjeta {
     width: calc(100% - 32px);
     flex-direction: column;
+    flex-wrap: nowrap;
     margin: -64px auto 24px;
     border-radius: 20px;
   }

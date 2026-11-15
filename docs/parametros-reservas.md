@@ -91,3 +91,7 @@ dentro de 12:00–22:30). Se crean **solo si no existen** y nunca pisan lo que e
 10. **Llegar tarde.** Mientras la reserva siga Confirmada el cliente puede llegar durante toda su franja, pero el
     proceso automático la marca No asistió al vencer la tolerancia configurada; una vez No asistió pierde la reserva
     y solo se le puede atender como visita sin reserva (ver `reservas-canales.md`).
+11. **Sin parámetros contra reservas falsas.** Las políticas siguen siendo las ocho de arriba. El teléfono solo se
+    valida por formato y la única barrera, además de la limitación de tasa, es el máximo de reservas vigentes por
+    teléfono. El límite diario por IP y el bloqueo por no-show están aplazados como mejora futura (ver
+    `reservas-canales.md`, «Mejoras futuras»).

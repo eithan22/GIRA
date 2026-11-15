@@ -1,5 +1,5 @@
 /* Selector de zona de /reservar (GI-4xx): radios nativos con aspecto de chip; el radio queda visible para teclado. */
-.reservas-zonas { border: 0; margin: 0 0 8px; padding: 0; min-width: 0; }
+.reservas-zonas { border: 0; margin: 28px 0 8px; padding: 0; min-width: 0; }
 .reservas-zonas-titulo { padding: 0; }
 .reservas-zonas-opciones { display: flex; flex-wrap: wrap; gap: 10px; }
 .reservas-zona { position: relative; display: inline-flex; }
