@@ -58,6 +58,7 @@ public class CheckInServicioTests
                 new ClienteRepository(Contexto),
                 new MesaGestionRepository(Contexto),
                 new VisitaRepository(Contexto),
+                new ZonaRepository(Contexto),
                 parametros,
                 new CrearReservaRequestValidator(parametros, reloj),
                 new ListarReservasRequestValidator(),
@@ -359,7 +360,11 @@ class ReservaRepositoryConConflicto : IReservaRepository
 /// <summary>Repositorio de gestión de mesas que no se usa en las pruebas de creación de reservas.</summary>
 class MesaGestionRepositoryFalso : IMesaGestionRepository
 {
-    public Task<Mesa?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken) => throw new NotImplementedException();
+    // La consulta por código resuelve la zona a partir de la mesa (GI-4xx): se devuelve una mesa cualquiera con
+    // zona; ZonaRepositoryFalso (sin zonas sembradas) la resuelve a una zona activa.
+    public Mesa? MesaFija { get; init; }
+    public Task<Mesa?> BuscarPorIdAsync(Guid id, CancellationToken cancellationToken) =>
+        Task.FromResult<Mesa?>(MesaFija ?? new Mesa { Id = id, Numero = 1, Capacidad = 4, ZonaId = Guid.NewGuid(), Activa = true });
     public Task<bool> ExisteNumeroAsync(int numero, Guid? excluirId, CancellationToken cancellationToken) => throw new NotImplementedException();
     public Task<PagedResult<Mesa>> ListarAsync(Guid? zonaId, bool? activa, int page, int pageSize, CancellationToken cancellationToken) => throw new NotImplementedException();
     public void Agregar(Mesa mesa) => throw new NotImplementedException();

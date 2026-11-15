@@ -50,7 +50,7 @@ public class VisitaYMesaDeReservaTests : IDisposable
         var reloj = new TimeProviderFalso(new DateTimeOffset(2026, 12, 1, 16, 0, 0, TimeSpan.Zero)); // 12:00 local
         _servicio = new ReservaService(
             new MesaRepository(_db), new FranjaHorariaRepository(_db), new ReservaRepository(_db), new ClienteRepository(_db),
-            new MesaGestionRepository(_db), new VisitaRepository(_db), _parametros,
+            new MesaGestionRepository(_db), new VisitaRepository(_db), new ZonaRepository(_db), _parametros,
             new CrearReservaRequestValidator(_parametros, reloj), new ListarReservasRequestValidator(),
             new CheckInRequestValidator(), new CancelarPorPersonalRequestValidator(),
             new ModificarReservaRequestValidator(), new GeneradorCodigoReserva(), _publisher,

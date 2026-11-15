@@ -115,7 +115,7 @@ public class ReservaService : IReservaService
         var asignacion = await ValidarYAsignarMesaAsync(
             request.Fecha, request.FranjaHorariaId, request.Personas,
             mesaPreferidaId: null, preferidaObligatoria: false, excluirReservaId: null,
-            validarHorario: true, request.ZonaId, audiencia, cancellationToken);
+            validarHorario: true, audiencia == AudienciaReserva.Cliente ? request.ZonaId : null, audiencia, cancellationToken);
         if (!asignacion.IsSuccess)
         {
             return OperationResult.Failure<ReservaCreadaDto>(asignacion.Type!.Value, asignacion.Error!, asignacion.Codigo);
@@ -123,6 +123,11 @@ public class ReservaService : IReservaService
 
         var franja = asignacion.Value!.Franja;
         var mesaElegida = asignacion.Value.Mesa;
+
+        // La zona real es la de la mesa asignada (nunca la pedida, que pudo ser "sin preferencia"). Se resuelve
+        // ANTES de guardar: si fallara aquí no puede quedar una reserva creada con una respuesta de error.
+        var zonaNombreMesa = (await _zonas.BuscarPorIdAsync(mesaElegida.ZonaId, cancellationToken))?.Nombre
+            ?? throw new InvalidOperationException($"La mesa {mesaElegida.Id} referencia una zona que no existe.");
 
         // Limitación conocida y aceptada: esta cuenta y el guardado final no están en la misma
         // transacción, así que dos solicitudes del mismo teléfono a la vez podrían dejar pasar
@@ -218,13 +223,9 @@ public class ReservaService : IReservaService
                 reserva.Fecha, reserva.Personas, reserva.Origen),
             cancellationToken);
 
-        // La zona real es la de la mesa asignada, nunca la preferida pedida (que pudo ser "sin preferencia").
-        var zonaNombreMesa = await _zonas.BuscarPorIdAsync(mesaElegida.ZonaId, cancellationToken)
-            ?? throw new InvalidOperationException($"La mesa {mesaElegida.Id} referencia una zona que no existe.");
-
         return OperationResult.Success(new ReservaCreadaDto(
             reserva.Codigo, cliente.Nombre, reserva.Fecha, franja.Nombre, franja.HoraInicio, franja.HoraFin,
-            reserva.Personas, zonaNombreMesa.Nombre));
+            reserva.Personas, zonaNombreMesa));
     }
 
     /// <inheritdoc />
@@ -483,10 +484,18 @@ public class ReservaService : IReservaService
             }
         }
 
+        // Con zona preferida (GI-4xx) los candidatos se limitan a las mesas de esa zona; sin ella, todas.
         var mesaElegida = mesas
-            .Where(m => m.Capacidad >= personas)
+            .Where(m => m.Capacidad >= personas && (zonaPreferida is null || m.ZonaId == zonaPreferida.Id))
             .OrderBy(m => m.Capacidad)
             .FirstOrDefault(m => !mesasOcupadasIds.Contains(m.Id));
+
+        if (mesaElegida is null && zonaPreferida is not null)
+        {
+            // Nunca se cae en silencio a otra zona: el cliente decide.
+            return OperationResult.Failure<AsignacionMesa>(
+                ErrorType.Conflict, MensajesReservas.ZonaSinMesas(zonaPreferida.Nombre), CodigosErrorReservas.ZonaSinMesas);
+        }
 
         if (mesaElegida is null)
         {

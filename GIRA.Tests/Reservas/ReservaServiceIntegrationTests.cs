@@ -282,6 +282,44 @@ public class ReservaServiceIntegrationTests : IClassFixture<ReservaServiceIntegr
     }
 
     [Fact]
+    public async Task CrearAsync_DosSolicitudesSimultaneasALaUltimaMesaDeUnaZona_UnaExitosaYLaOtraFallaLimpio()
+    {
+        using var proveedor = CrearProveedor(_conexion);
+
+        // Capacidad 14, única de esta prueba; zona propia con una sola mesa (la "última" de la zona).
+        const int capacidad = 14;
+        Guid zonaId;
+
+        using (var scopeDatos = proveedor.CreateScope())
+        {
+            var db = scopeDatos.ServiceProvider.GetRequiredService<GiraDbContext>();
+            var zona = new Zona { Id = Guid.NewGuid(), Nombre = $"Zona-GI4xx-ultima-{Guid.NewGuid():N}" };
+            zonaId = zona.Id;
+            db.Zonas.Add(zona);
+            db.Mesas.Add(new Mesa { Id = Guid.NewGuid(), Numero = 9005, Capacidad = capacidad, ZonaId = zona.Id });
+            await db.SaveChangesAsync();
+        }
+
+        var fecha = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(6));
+
+        using var scope1 = proveedor.CreateScope();
+        using var scope2 = proveedor.CreateScope();
+        var servicio1 = scope1.ServiceProvider.GetRequiredService<IReservaService>();
+        var servicio2 = scope2.ServiceProvider.GetRequiredService<IReservaService>();
+
+        var resultados = await Task.WhenAll(
+            servicio1.CrearAsync(new CrearReservaRequest(
+                "Prueba Uno", GenerarTelefonoUnico(), fecha, FranjaAlmuerzoId, capacidad, ZonaId: zonaId), default),
+            servicio2.CrearAsync(new CrearReservaRequest(
+                "Prueba Dos", GenerarTelefonoUnico(), fecha, FranjaAlmuerzoId, capacidad, ZonaId: zonaId), default));
+
+        Assert.Equal(1, resultados.Count(r => r.IsSuccess));
+        var fallida = resultados.Single(r => r.IsFailure);
+        Assert.Equal(ErrorType.Conflict, fallida.Type);
+        Assert.Contains(resultados, r => r.IsSuccess && r.Value!.ZonaNombre.StartsWith("Zona-GI4xx-ultima-"));
+    }
+
+    [Fact]
     public async Task CrearAsync_MismoTelefonoNuevoEnDosSolicitudesSimultaneas_QuedaUnSoloCliente()
     {
         using var proveedor = CrearProveedor(_conexion);

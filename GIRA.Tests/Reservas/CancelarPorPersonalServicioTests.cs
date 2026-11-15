@@ -66,6 +66,7 @@ public class CancelarPorPersonalServicioTests
                 new ClienteRepository(Contexto),
                 new MesaGestionRepository(Contexto),
                 new VisitaRepository(Contexto),
+                new ZonaRepository(Contexto),
                 parametros,
                 new CrearReservaRequestValidator(parametros, reloj),
                 new ListarReservasRequestValidator(),

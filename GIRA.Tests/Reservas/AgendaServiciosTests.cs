@@ -54,6 +54,7 @@ public class AgendaServiciosTests
                 clientes,
                 new MesaGestionRepository(Contexto),
                 new VisitaRepository(Contexto),
+                new ZonaRepository(Contexto),
                 parametros,
                 new CrearReservaRequestValidator(parametros, reloj),
                 new ListarReservasRequestValidator(),

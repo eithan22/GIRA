@@ -44,6 +44,7 @@ public class DisponibilidadServiceTests
             new FranjaHorariaRepositoryFalso(franjas),
             new ReservaRepositoryFalso(reservasVigentes),
             new VisitaRepositoryFalso([.. visitas ?? []]),
+            new ZonaRepositoryFalso(),
             parametros,
             validador,
             reloj);
