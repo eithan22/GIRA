@@ -171,3 +171,14 @@ export const ESTADO_DESCONOCIDO = {
   punto: '#5d687c',
   puedeCancelar: false,
 };
+
+// --- Zona opcional (GI-4xx) ---
+export const ETIQUETA_ZONA = 'Zona';
+export const TITULO_SELECTOR_ZONA = '¿Dónde prefieres sentarte?';
+export const ETIQUETA_SIN_PREFERENCIA = 'Sin preferencia';
+export const AYUDA_SELECTOR_ZONA =
+  'Solo mostramos las zonas con mesa libre en esa franja. Si se llena antes de confirmar, te avisamos y eliges de nuevo.';
+export const TEXTO_TICKET_SIN_ZONA = 'Te asignaremos una mesa en la zona disponible.';
+// Resumen del ticket: la zona elegida, o el aviso de que se asigna en la zona disponible. Nunca el número de mesa.
+export const textoZonaTicket = (zonaNombre) =>
+  (zonaNombre ? `Zona elegida: ${zonaNombre}. La mesa exacta la asignamos nosotros.` : TEXTO_TICKET_SIN_ZONA);

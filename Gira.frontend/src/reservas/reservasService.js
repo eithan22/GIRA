@@ -39,9 +39,10 @@ export const reservasService = {
 
   // Nunca manda Origen: el backend lo ignora de todos modos en el camino de
   // invitado, pero tampoco se arma el campo aquí para que no quede ninguna duda.
-  async crearReserva({ nombre, telefono, fecha, franjaHorariaId, personas }) {
+  async crearReserva({ nombre, telefono, fecha, franjaHorariaId, personas, zonaId }) {
     const response = await api.post('/api/reservas', {
       nombre, telefono, fecha, franjaHorariaId, personas,
+      ...(zonaId ? { zonaId } : {}),
     });
     return response.data;
   },

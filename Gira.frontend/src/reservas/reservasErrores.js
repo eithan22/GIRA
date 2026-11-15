@@ -14,7 +14,7 @@ export const CODIGOS_ERROR = {
   CAMBIO_CONCURRENTE: 'CAMBIO_CONCURRENTE',
   CONTACTAR_RESTAURANTE: 'CONTACTAR_RESTAURANTE',
   RESERVA_NO_CANCELABLE: 'RESERVA_NO_CANCELABLE',
-  // Reservados para las fases 3 y 4; el backend todavía no los manda.
+  // ZONA_SIN_MESAS ya lo manda el backend (Fase 3); los dos de abajo están reservados para la Fase 4.
   ZONA_SIN_MESAS: 'ZONA_SIN_MESAS',
   LIMITE_IP_DIARIO: 'LIMITE_IP_DIARIO',
   TELEFONO_BLOQUEADO_NOSHOW: 'TELEFONO_BLOQUEADO_NOSHOW',

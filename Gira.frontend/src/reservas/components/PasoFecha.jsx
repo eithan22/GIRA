@@ -27,7 +27,9 @@ import {
   textoSinDisponibilidad,
   textoVentanaReserva,
 } from '../reservasTextos.js';
+import { zonaSigueDisponible } from '../zonasReserva.js';
 import Aviso from './Aviso.jsx';
+import SelectorZona from './SelectorZona.jsx';
 
 // El tamaño máximo de grupo, la ventana de fechas y los textos salen de las políticas del servidor
 // (usePoliticasReserva); el servidor sigue decidiendo cada reserva.
@@ -61,8 +63,8 @@ function IconoFranja({ nocturna }) {
 }
 
 /** Paso 1 del wizard de /reservar: fecha, personas y franja horaria. */
-export default function PasoFecha({ valor, onCambiar, onContinuar }) {
-  const { fecha, personas, franja } = valor;
+export default function PasoFecha({ valor, aviso, onCambiar, onContinuar }) {
+  const { fecha, personas, franja, zonaId } = valor;
   const { politicas } = usePoliticasReserva();
   const dias = generarDiasChip(5, politicas);
   const limites = obtenerLimiteFechas(politicas);
@@ -184,7 +186,14 @@ export default function PasoFecha({ valor, onCambiar, onContinuar }) {
     setCargando(false);
     // La franja elegida debe seguir existiendo y poder elegirse en la lista nueva.
     if (franja && !franjaSigueDisponible(franja, lista)) {
-      onCambiar({ franja: null });
+      onCambiar({ franja: null, zonaId: null });
+      return;
+    }
+    // Sigue disponible: se toma la versión nueva (sus zonas con mesa libre pudieron cambiar) y, si la zona
+    // elegida ya no se ofrece en ella, se vuelve a "sin preferencia".
+    const nueva = franja && lista.find((f) => f.id === franja.id);
+    if (nueva) {
+      onCambiar({ franja: nueva, ...(zonaSigueDisponible(zonaId, nueva) ? {} : { zonaId: null }) });
     }
   }
 
@@ -319,6 +328,8 @@ export default function PasoFecha({ valor, onCambiar, onContinuar }) {
         </Aviso>
       )}
 
+      {aviso && <Aviso tipo="advertencia" rol="alert">{aviso}</Aviso>}
+
       {sinResultados && <Aviso tipo="neutro">{textoSinDisponibilidad(politicas)}</Aviso>}
 
       {!cargando && !error && diaCerrado && <Aviso tipo="neutro">{AVISO_DIA_CERRADO}</Aviso>}
@@ -341,7 +352,8 @@ export default function PasoFecha({ valor, onCambiar, onContinuar }) {
                 aria-describedby={seleccionable ? undefined : idMotivo}
                 className={`reservas-franja${activa ? ' reservas-franja--activa' : ''}${seleccionable ? '' : ' reservas-franja--deshabilitada'}`}
                 onClick={() => {
-                  if (seleccionable) onCambiar({ franja: f });
+                  // Al cambiar de franja la zona elegida se conserva solo si también tiene mesa libre en la nueva.
+                  if (seleccionable) onCambiar({ franja: f, zonaId: zonaSigueDisponible(zonaId, f) ? zonaId : null });
                 }}
               >
                 <span className="reservas-franja-encabezado">
@@ -370,6 +382,10 @@ export default function PasoFecha({ valor, onCambiar, onContinuar }) {
             );
           })}
         </div>
+      )}
+
+      {!cargando && !error && franja && (
+        <SelectorZona franja={franja} zonaId={zonaId} onElegir={(id) => onCambiar({ zonaId: id })} />
       )}
 
       <div className="reservas-acciones-paso">

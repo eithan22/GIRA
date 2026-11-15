@@ -1,5 +1,5 @@
 import { formatearFechaLarga, formatearHora } from '../reservasFormato.js';
-import { textoLimiteCancelacion } from '../reservasTextos.js';
+import { textoLimiteCancelacion, textoZonaTicket } from '../reservasTextos.js';
 import { usePoliticasReserva } from '../hooks/usePoliticasReserva.js';
 
 /**
@@ -7,7 +7,7 @@ import { usePoliticasReserva } from '../hooks/usePoliticasReserva.js';
  * <aside> completo (incluye reservas-tarjeta-ticket): las páginas lo colocan
  * directo como hijo de .reservas-tarjeta, junto a .reservas-tarjeta-principal.
  */
-export default function TicketResumen({ fecha, franja, personas, onCambiar }) {
+export default function TicketResumen({ fecha, franja, personas, zonaNombre, onCambiar }) {
   const { politicas } = usePoliticasReserva();
   const hayFranja = Boolean(franja);
 
@@ -65,7 +65,7 @@ export default function TicketResumen({ fecha, franja, personas, onCambiar }) {
           <svg className="reservas-ticket-nota-icono" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5eead4" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 12.5l4.5 4.5L19 7.5" />
           </svg>
-          La mesa se asigna sola al confirmar.
+          {textoZonaTicket(zonaNombre)}
         </li>
         <li className="reservas-ticket-nota">
           <svg className="reservas-ticket-nota-icono" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5eead4" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">

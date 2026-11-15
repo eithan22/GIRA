@@ -1,0 +1,26 @@
+/* Selector de zona de /reservar (GI-4xx): radios nativos con aspecto de chip; el radio queda visible para teclado. */
+.reservas-zonas { border: 0; margin: 0 0 8px; padding: 0; min-width: 0; }
+.reservas-zonas-titulo { padding: 0; }
+.reservas-zonas-opciones { display: flex; flex-wrap: wrap; gap: 10px; }
+.reservas-zona { position: relative; display: inline-flex; }
+.reservas-zona-radio { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.reservas-zona-etiqueta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: var(--reservas-radio-chip);
+  border: 2px solid var(--reservas-borde-suave);
+  background: var(--reservas-blanco);
+  color: var(--reservas-texto);
+  font-weight: 600;
+  cursor: pointer;
+}
+.reservas-zona-etiqueta--activa { border-color: var(--reservas-morado); background: var(--reservas-fondo-tenue); color: var(--reservas-morado-fuerte); }
+.reservas-zona-radio:focus-visible + .reservas-zona-etiqueta { outline: 3px solid var(--reservas-morado); outline-offset: 2px; }
+.reservas-zonas-ayuda { margin-top: 10px; }
+
+@media (max-width: 480px) {
+  .reservas-zonas-opciones { display: grid; grid-template-columns: 1fr 1fr; }
+  .reservas-zona-etiqueta { width: 100%; justify-content: center; }
+}

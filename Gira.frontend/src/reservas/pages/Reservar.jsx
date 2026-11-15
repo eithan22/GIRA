@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { reservasService } from '../reservasService.js';
+import { reservasService, codigoDeError, CODIGOS_ERROR, extraerMensajeError } from '../reservasService.js';
+import { nombreZonaElegida } from '../zonasReserva.js';
+import { MENSAJE_ERROR_GENERICO } from '../reservasTextos.js';
 import PortadaReservas from '../components/PortadaReservas.jsx';
 import PasoFecha from '../components/PasoFecha.jsx';
 import PasoDatos from '../components/PasoDatos.jsx';
@@ -15,13 +17,15 @@ function hoyIso() {
 }
 
 function valorInicial() {
-  return { fecha: hoyIso(), personas: 2, franja: null, nombre: '', telefono: '', reserva: null };
+  return { fecha: hoyIso(), personas: 2, franja: null, zonaId: null, nombre: '', telefono: '', reserva: null };
 }
 
 /** Ruta pública /reservar: wizard de 2 pasos + confirmación, todo en una página. */
 export default function Reservar() {
   const [fase, setFase] = useState('fecha');
   const [valor, setValor] = useState(valorInicial);
+  // Mensaje que se muestra al volver al Paso 1 (hoy: la zona elegida se llenó antes de confirmar).
+  const [avisoPaso1, setAvisoPaso1] = useState(null);
   const tituloRef = useRef(null);
   const primerMontajeRef = useRef(true);
 
@@ -40,25 +44,46 @@ export default function Reservar() {
   }, [fase]);
 
   function actualizar(parcial) {
+    // Cualquier cambio en la selección descarta el aviso de "zona llena": ya no aplica a lo que se eligió.
+    if ('fecha' in parcial || 'personas' in parcial || 'zonaId' in parcial || (parcial.franja && parcial.franja.id !== valor.franja?.id)) {
+      setAvisoPaso1(null);
+    }
     setValor((actual) => ({ ...actual, ...parcial }));
   }
 
   // Origen nunca se manda: el backend lo ignora en el camino de invitado, y
   // aquí tampoco se arma el campo para que no quede ninguna duda.
   async function confirmar({ nombre, telefono }) {
-    const reserva = await reservasService.crearReserva({
-      nombre,
-      telefono,
-      fecha: valor.fecha,
-      franjaHorariaId: valor.franja.id,
-      personas: valor.personas,
-    });
+    let reserva;
+    try {
+      reserva = await reservasService.crearReserva({
+        nombre,
+        telefono,
+        fecha: valor.fecha,
+        franjaHorariaId: valor.franja.id,
+        personas: valor.personas,
+        zonaId: valor.zonaId,
+      });
+    } catch (error) {
+      // Se decide por el código, no por el texto: la zona elegida se llenó mientras el cliente llenaba sus
+      // datos. Se vuelve al Paso 1 (que se vuelve a montar y consulta la disponibilidad fresca) con el mensaje
+      // del servidor; la zona se limpia para que elija otra o "sin preferencia". Los demás errores los
+      // maneja PasoDatos.
+      if (codigoDeError(error) === CODIGOS_ERROR.ZONA_SIN_MESAS) {
+        setAvisoPaso1(extraerMensajeError(error, MENSAJE_ERROR_GENERICO));
+        setValor((actual) => ({ ...actual, nombre, telefono, zonaId: null }));
+        setFase('fecha');
+        return;
+      }
+      throw error;
+    }
     setValor((actual) => ({ ...actual, nombre, telefono, reserva }));
     setFase('confirmada');
   }
 
   function nuevaReserva() {
     setValor(valorInicial());
+    setAvisoPaso1(null);
     setFase('fecha');
   }
 
@@ -100,7 +125,8 @@ export default function Reservar() {
           <div className="reservas-tarjeta-principal">
             {fase === 'fecha' && (
               <PasoFecha
-                valor={{ fecha: valor.fecha, personas: valor.personas, franja: valor.franja }}
+                valor={{ fecha: valor.fecha, personas: valor.personas, franja: valor.franja, zonaId: valor.zonaId }}
+                aviso={avisoPaso1}
                 onCambiar={actualizar}
                 onContinuar={() => setFase('datos')}
               />
@@ -119,6 +145,7 @@ export default function Reservar() {
             fecha={valor.fecha}
             franja={valor.franja}
             personas={valor.personas}
+            zonaNombre={nombreZonaElegida(valor.franja, valor.zonaId)}
             onCambiar={fase === 'datos' ? () => setFase('fecha') : undefined}
           />
         </div>
