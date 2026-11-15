@@ -279,7 +279,12 @@ export function textoResumenMapa({ franja, horas, fechaLarga, resumen }) {
 // Visitas sin reserva
 export const TITULO_VISITA = 'Registrar visita';
 export const TEXTO_FRANJA_EN_CURSO = 'En curso';
-export const TEXTO_FRANJA_TERMINADA = 'Ya terminó (el servidor lo permite)';
+export const TEXTO_FRANJA_TERMINADA = 'Ya terminó';
+export const TEXTO_FRANJA_NO_EMPEZO = 'Todavía no empieza';
+// Restaurante cerrado (solo informativo; el servidor decide): la visita sin reserva no se registra fuera de horario.
+export const TEXTO_RESTAURANTE_CERRADO_HOY = 'El restaurante está cerrado hoy. No se pueden registrar visitas sin reserva.';
+export const textoRestauranteCerradoAhora = (apertura, cierre) =>
+  `El restaurante está cerrado ahora (horario de hoy: ${apertura}–${cierre}). No se pueden registrar visitas sin reserva fuera de horario.`;
 export const TEXTO_SIN_FRANJAS_VISITA = 'No hay franjas activas configuradas.';
 export const TEXTO_CARGANDO_FRANJAS = 'Cargando las franjas…';
 export const TEXTO_ERROR_FRANJAS = 'No pudimos cargar las franjas.';

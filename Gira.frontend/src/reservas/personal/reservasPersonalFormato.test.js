@@ -470,9 +470,13 @@ test('hoy y franja se calculan en Santo Domingo y no con la zona del navegador',
   assert.equal(franjaPorDefecto(DIA, { fecha: tarde.hoy, hoy: tarde.hoy, hora: tarde.hora }).id, 'cena');
 });
 
-test('franjasParaVisita: solo activas, ordenadas, con estado; las que no empezaron no son elegibles', () => {
+test('franjasParaVisita: solo activas, ordenadas, con estado; solo la más reciente que ya empezó es elegible', () => {
+  // Entre franjas (16:00): la última que empezó es el almuerzo (aunque ya terminó); la cena todavía no empieza.
   const r = franjasParaVisita(DIA, '16:00');
   assert.deepEqual(r.map((f) => [f.id, f.estado, f.elegible]), [['almuerzo', 'terminada', true], ['cena', 'noEmpezo', false]]);
+  // Con la cena en curso (19:00) el almuerzo ya no es elegible: antes se permitía ("el servidor lo permite").
+  const enCena = franjasParaVisita(DIA, '19:00');
+  assert.deepEqual(enCena.map((f) => [f.id, f.estado, f.elegible]), [['almuerzo', 'terminada', false], ['cena', 'enCurso', true]]);
 });
 
 test('franjaDefectoVisita: la actual; si no hay, la última ya empezada; si ninguna empezó, null', () => {

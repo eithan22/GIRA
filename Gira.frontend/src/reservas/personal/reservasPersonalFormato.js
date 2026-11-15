@@ -427,14 +427,34 @@ export function inicioPrimeraFranja(franjas) {
 }
 
 /**
- * Franjas activas con su estado hoy para registrar una visita. Solo las que no empezaron son
- * `elegible: false` (el servidor exige que la franja haya empezado, pero no que siga vigente).
+ * Franjas activas con su estado hoy para registrar una visita. El servidor solo acepta la MÁS RECIENTE de las
+ * activas que ya empezaron (la actual o, entre franjas, la última que empezó): es la única `elegible`. Las demás
+ * salen deshabilitadas, con su estado ('terminada' o 'noEmpezo') como motivo.
  */
 export function franjasParaVisita(franjas, hora) {
-  return activasPorInicio(franjas).map((franja) => {
-    const estado = estadoFranja(franja, hora);
-    return { ...franja, estado, elegible: estado !== 'noEmpezo' };
-  });
+  const conEstado = activasPorInicio(franjas).map((franja) => ({ ...franja, estado: estadoFranja(franja, hora) }));
+  const masReciente = [...conEstado].reverse().find((franja) => franja.estado !== 'noEmpezo');
+  return conEstado.map((franja) => ({ ...franja, elegible: franja === masReciente }));
+}
+
+/**
+ * ¿Está abierto el restaurante AHORA? Solo informativa (el servidor decide y su 409 se muestra tal cual). Espejo de
+ * la regla del servidor para registrar visitas: el día de la semana debe estar abierto, la fecha de hoy no debe ser
+ * un día cerrado y la hora debe estar entre la apertura (inclusive) y el cierre (exclusivo).
+ * `horarios` es GET /api/configuracion/reservas/horario ([{ diaSemana, abierto, horaApertura, horaCierre }]),
+ * `diasCerrados` es GET .../dias-cerrados ([{ fecha }]), `hoy` es "aaaa-mm-dd" y `hora` "HH:mm" (Santo Domingo).
+ * Devuelve { estado: 'abierto' | 'cerradoHoy' | 'cerradoAhora', apertura, cierre } con las horas como "HH:mm".
+ */
+export function estadoRestauranteAhora({ horarios, diasCerrados, hoy, hora }) {
+  const diaSemana = new Date(`${hoy}T12:00:00Z`).getUTCDay();
+  const horario = (horarios ?? []).find((fila) => fila.diaSemana === diaSemana);
+  const cerradaLaFecha = (diasCerrados ?? []).some((dia) => String(dia.fecha).slice(0, 10) === hoy);
+  if (!horario || !horario.abierto || cerradaLaFecha) return { estado: 'cerradoHoy', apertura: null, cierre: null };
+  const apertura = String(horario.horaApertura).slice(0, 5);
+  const cierre = String(horario.horaCierre).slice(0, 5);
+  const ahora = minutosDeHora(hora);
+  const abierto = ahora >= minutosDeHora(apertura) && ahora < minutosDeHora(cierre);
+  return { estado: abierto ? 'abierto' : 'cerradoAhora', apertura, cierre };
 }
 
 /**

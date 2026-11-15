@@ -27,6 +27,17 @@ existentes conservan las suyas hasta que el Gerente las edite.
   ocupa esa mesa en esa franja para las reservas y la disponibilidad (ver «Reglas comunes»).
   Las visitas del día se consultan en la sección «Visitas sin reserva de hoy» de la Agenda (total de visitas y
   de personas, y la lista con las más recientes primero; `GET /api/visitas`, hasta 200 por día en la lista).
+  **Cuándo se puede registrar (`POST /api/visitas`, hora de Santo Domingo):**
+  1. **Solo con el restaurante abierto ahora.** No se registran visitas si el día de la semana o la fecha de hoy están
+     cerrados, ni antes de la apertura ni a partir del cierre del horario de hoy (la apertura es inclusiva y el
+     cierre exclusivo, como el fin de una franja). Responde 409 con el horario del día.
+  2. **Solo en la franja más reciente de las activas que ya empezaron:** la actual o, si el grupo llega entre
+     franjas (por ejemplo a las 16:30), la última que empezó. Una franja anterior responde 409 y el mensaje nombra la
+     franja correcta; una que todavía no empieza también responde 409. En la pantalla solo esa franja es elegible y
+     las demás salen deshabilitadas («Ya terminó», «Todavía no empieza»); con el restaurante cerrado se avisa y el
+     botón «Registrar visita» queda deshabilitado.
+  El aviso de próxima reserva (`GET /api/visitas/advertencia-mesa`) no cambia: no consulta el horario, porque con el
+  restaurante cerrado la visita no llega a registrarse.
 
 ## Reglas comunes a las reservas
 

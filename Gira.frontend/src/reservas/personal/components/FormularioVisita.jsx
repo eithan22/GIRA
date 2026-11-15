@@ -3,6 +3,7 @@ import Aviso from '../../components/Aviso.jsx';
 import { formatearHora } from '../../reservasFormato.js';
 import { useAdvertenciaMesa } from '../hooks/useAdvertenciaMesa.js';
 import { useAhora } from '../hooks/useAhora.js';
+import { useRestauranteAbierto } from '../hooks/useRestauranteAbierto.js';
 import { useMesasLibres } from '../hooks/useMesasLibres.js';
 import {
   estadoFranjasVisita,
@@ -27,6 +28,9 @@ import {
   TEXTO_ERROR_FRANJAS,
   TEXTO_FRANJA_EN_CURSO,
   TEXTO_FRANJA_TERMINADA,
+  TEXTO_FRANJA_NO_EMPEZO,
+  TEXTO_RESTAURANTE_CERRADO_HOY,
+  textoRestauranteCerradoAhora,
   TEXTO_REGISTRANDO_VISITA,
   TEXTO_REGISTRAR_OTRA,
   TEXTO_REGISTRAR_VISITA,
@@ -59,6 +63,10 @@ export default function FormularioVisita({
   mesaInicialId = '', onRegistrada, onCerrar, onEnviando,
 }) {
   const { hoy, hora } = useAhora();
+  // Cerrado ahora (día o fecha cerrados, o fuera del horario): solo informativo; el servidor decide y su 409 se muestra
+  // tal cual. Si el horario no llega, no se bloquea nada.
+  const { restaurante } = useRestauranteAbierto({ hoy, hora });
+  const restauranteCerrado = Boolean(restaurante) && restaurante.estado !== 'abierto';
   const franjasVisita = franjasParaVisita(franjas, hora);
   const defecto = franjaDefectoVisita(franjasVisita);
 
@@ -107,7 +115,7 @@ export default function FormularioVisita({
   }, [fase]);
 
   const esperandoMesa = Boolean(mesaId) && mesas.estado !== 'listo';
-  const puedeRevisar = Boolean(franjaId) && validacionPersonas.valido && !esperandoMesa && !enviando;
+  const puedeRevisar = Boolean(franjaId) && validacionPersonas.valido && !esperandoMesa && !enviando && !restauranteCerrado;
 
   async function registrar() {
     if (envioEnCursoRef.current) return;
@@ -244,6 +252,14 @@ export default function FormularioVisita({
       onSubmit={(evento) => { evento.preventDefault(); if (puedeRevisar) setFase('confirmar'); }}
       noValidate
     >
+      {restauranteCerrado && (
+        <Aviso tipo="advertencia" rol="alert">
+          {restaurante.estado === 'cerradoHoy'
+            ? TEXTO_RESTAURANTE_CERRADO_HOY
+            : textoRestauranteCerradoAhora(restaurante.apertura, restaurante.cierre)}
+        </Aviso>
+      )}
+
       <fieldset className="reservas-personal-grupo">
         <legend className="reservas-campo-etiqueta">Franja *</legend>
         <div className="reservas-personal-opciones">
@@ -265,7 +281,7 @@ export default function FormularioVisita({
                 <small>
                   {franja.estado === 'enCurso' && TEXTO_FRANJA_EN_CURSO}
                   {franja.estado === 'terminada' && TEXTO_FRANJA_TERMINADA}
-                  {franja.estado === 'noEmpezo' && `Empieza a las ${formatearHora(franja.horaInicio)}`}
+                  {franja.estado === 'noEmpezo' && TEXTO_FRANJA_NO_EMPEZO}
                 </small>
               </span>
             </label>
