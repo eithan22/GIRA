@@ -33,7 +33,7 @@
   letter-spacing: -0.6px;
 }
 
-.reservas-ticket-lista { position: relative; margin: 0; display: flex; flex-direction: column; }
+.reservas-ticket-lista { position: relative; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
 
 .reservas-ticket-item {
   display: flex;

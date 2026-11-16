@@ -9,6 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   MAXIMO_CHIPS_PERSONAS,
+  normalizarCodigoReserva,
   MOTIVO_RESTAURANTE_CERRADO,
   POLITICAS_POR_DEFECTO,
   cantidadChipsPersonas,
@@ -229,4 +230,20 @@ test('franjaSigueDisponible: la elegida debe existir en la lista nueva y poder e
   assert.equal(franjaSigueDisponible({ id: 'b' }, lista), false);
   assert.equal(franjaSigueDisponible({ id: 'z' }, lista), false);
   assert.equal(franjaSigueDisponible(null, lista), false);
+});
+
+test("normalizarCodigoReserva: acepta el código como se muestra (espacio) o con guion y deja 8 dígitos", () => {
+  assert.equal(normalizarCodigoReserva("7272 6016"), "72726016");
+  assert.equal(normalizarCodigoReserva("7272-6016"), "72726016");
+  assert.equal(normalizarCodigoReserva("  7272 - 6016 "), "72726016");
+  assert.equal(normalizarCodigoReserva("72726016"), "72726016");
+});
+
+test("normalizarCodigoReserva: quita lo que no es dígito, recorta a 8 y tolera vacío o nulo", () => {
+  assert.equal(normalizarCodigoReserva("abc7272x6016zz"), "72726016");
+  assert.equal(normalizarCodigoReserva("7272 6016 99"), "72726016");
+  assert.equal(normalizarCodigoReserva("7272"), "7272");
+  assert.equal(normalizarCodigoReserva(""), "");
+  assert.equal(normalizarCodigoReserva(null), "");
+  assert.equal(normalizarCodigoReserva(undefined), "");
 });

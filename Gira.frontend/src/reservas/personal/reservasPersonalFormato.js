@@ -476,9 +476,17 @@ export function franjaDefectoVisita(franjasConEstado) {
   return elegibles.find((franja) => franja.estado === 'enCurso') ?? elegibles[elegibles.length - 1] ?? null;
 }
 
-/** El botón «Registrar visita» solo aplica a hoy y a una franja activa que ya empezó. */
-export function puedeRegistrarVisita({ fecha, hoy, franja, hora }) {
-  return Boolean(franja) && fecha === hoy && franja.activa === true && estadoFranja(franja, hora) !== 'noEmpezo';
+/**
+ * ¿Se ofrecen los botones «Registrar visita» del mapa? Es hoy, el restaurante no está cerrado y existe alguna franja
+ * activa que ya empezó (la actual o, entre franjas, la última que empezó: es la que el servidor acepta y la que usa
+ * el formulario). NO depende de la franja que el mapa tenga seleccionada: entre franjas el mapa suele mostrar la
+ * próxima (que no ha empezado) y aun así se puede registrar la visita en la anterior. `restaurante` es
+ * useRestauranteAbierto().restaurante (null si el horario no llegó: no se bloquea, decide el servidor).
+ */
+export function puedeRegistrarVisita({ fecha, hoy, franjas, hora, restaurante = null }) {
+  if (fecha !== hoy) return false;
+  if (restaurante && restaurante.estado !== 'abierto') return false;
+  return franjasParaVisita(franjas, hora).some((franja) => franja.elegible);
 }
 
 /**

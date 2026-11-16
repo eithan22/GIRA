@@ -26,8 +26,9 @@ export default function TicketResumen({ fecha, franja, personas, zonaNombre, onC
 
       <h2 className="reservas-ticket-titulo">{fecha ? formatearFechaLarga(fecha) : '—'}</h2>
 
-      <dl className="reservas-ticket-lista">
-        <div className="reservas-ticket-item">
+      {/* Lista (no dl): un dl solo admite grupos dt/dd, y aquí cada ítem lleva además un icono decorativo. */}
+      <ul className="reservas-ticket-lista">
+        <li className="reservas-ticket-item">
           <span className="reservas-ticket-item-icono" aria-hidden="true">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d7d0ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="9" cy="8" r="3.5" />
@@ -35,12 +36,12 @@ export default function TicketResumen({ fecha, franja, personas, zonaNombre, onC
             </svg>
           </span>
           <div>
-            <dt className="reservas-ticket-item-etiqueta">Personas</dt>
-            <dd className="reservas-ticket-item-valor">{personas === 1 ? '1 persona' : `${personas} personas`}</dd>
+            <div className="reservas-ticket-item-etiqueta">Personas</div>
+            <div className="reservas-ticket-item-valor">{personas === 1 ? '1 persona' : `${personas} personas`}</div>
           </div>
-        </div>
+        </li>
 
-        <div className="reservas-ticket-item">
+        <li className="reservas-ticket-item">
           <span className="reservas-ticket-item-icono" aria-hidden="true">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d7d0ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="9" />
@@ -48,13 +49,13 @@ export default function TicketResumen({ fecha, franja, personas, zonaNombre, onC
             </svg>
           </span>
           <div>
-            <dt className="reservas-ticket-item-etiqueta">Franja</dt>
-            <dd className={`reservas-ticket-item-valor${hayFranja ? '' : ' reservas-ticket-item-valor--pendiente'}`}>
+            <div className="reservas-ticket-item-etiqueta">Franja</div>
+            <div className={`reservas-ticket-item-valor${hayFranja ? '' : ' reservas-ticket-item-valor--pendiente'}`}>
               {hayFranja ? `${franja.nombre} · ${formatearHora(franja.horaInicio)} – ${formatearHora(franja.horaFin)}` : '—'}
-            </dd>
+            </div>
           </div>
-        </div>
-      </dl>
+        </li>
+      </ul>
 
       <div className="reservas-ticket-perforado" aria-hidden="true">
         <span className="reservas-ticket-perforado-linea" />

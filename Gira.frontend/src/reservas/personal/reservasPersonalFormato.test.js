@@ -491,14 +491,32 @@ test('inicioPrimeraFranja: el inicio de la primera activa o null', () => {
   assert.equal(inicioPrimeraFranja([DIA[0]]), null);
 });
 
-test('puedeRegistrarVisita: solo hoy y con franja activa que ya empezó', () => {
-  const almuerzo = DIA[2];
-  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franja: almuerzo, hora: '13:00' }), true);
-  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franja: almuerzo, hora: '16:00' }), true);
-  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franja: almuerzo, hora: '11:00' }), false);
-  assert.equal(puedeRegistrarVisita({ fecha: '2026-11-12', hoy: HOY, franja: almuerzo, hora: '13:00' }), false);
-  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franja: DIA[0], hora: '10:00' }), false);
-  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franja: null, hora: '13:00' }), false);
+test('puedeRegistrarVisita: hoy, abierto y con alguna franja activa ya empezada, sin depender de la franja del mapa', () => {
+  const abierto = { estado: 'abierto' };
+  // DIA: almuerzo 12:00–15:00 y cena 18:00–22:30 (la de 09:00 está inactiva).
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '13:00', restaurante: abierto }), true);  // en curso
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '19:00', restaurante: abierto }), true);  // en curso (cena)
+  // Hueco entre franjas (15:00–18:00): el mapa mostraría la cena (no empezó), pero la visita va a la última que empezó.
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '15:00', restaurante: abierto }), true);
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '17:59', restaurante: abierto }), true);
+  // Después de la última franja pero todavía dentro del horario: sigue valiendo la última que empezó.
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '22:45', restaurante: abierto }), true);
+});
+
+test('puedeRegistrarVisita: antes de abrir (ninguna franja ha empezado) o sin franjas activas no se ofrece', () => {
+  const abierto = { estado: 'abierto' };
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '11:59', restaurante: abierto }), false);
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '10:00', restaurante: null }), false);
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: [DIA[0]], hora: '13:00', restaurante: abierto }), false);
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: [], hora: '13:00', restaurante: abierto }), false);
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: null, hora: '13:00' }), false);
+});
+
+test('puedeRegistrarVisita: restaurante cerrado (hoy o ahora) u otra fecha no se ofrece; sin horario cargado no se bloquea', () => {
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '13:00', restaurante: { estado: 'cerradoHoy' } }), false);
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '23:00', restaurante: { estado: 'cerradoAhora' } }), false);
+  assert.equal(puedeRegistrarVisita({ fecha: '2026-11-12', hoy: HOY, franjas: DIA, hora: '13:00', restaurante: { estado: 'abierto' } }), false);
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '13:00', restaurante: null }), true);
 });
 
 test('validarPersonasVisita: sin mesa hasta 50; con mesa hasta su capacidad', () => {

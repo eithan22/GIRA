@@ -9,6 +9,7 @@ import ZonaMapa from '../components/ZonaMapa.jsx';
 import { useAhora } from '../hooks/useAhora.js';
 import { useFranjas } from '../hooks/useFranjas.js';
 import { useMesasLibres } from '../hooks/useMesasLibres.js';
+import { useRestauranteAbierto } from '../hooks/useRestauranteAbierto.js';
 import {
   agruparMesasPorZona,
   esFechaIso,
@@ -64,12 +65,13 @@ export default function MapaPersonal() {
   }, [franjasApi.estado, franjas, fecha, hoy, hora]);
 
   const mesas = useMesasLibres({ fecha, franjaId, autoRefresco: auto, pausado: Boolean(panel) });
-  const franjaSeleccionada = franjas.find((franja) => franja.id === franjaId) ?? null;
 
   // Un mapa de otra fecha o franja (mientras llega el nuevo) no se ofrece como actual.
   const mapa = mesas.mapa && mesas.mapa.franjaId === franjaId && mesas.mapa.fecha === fecha ? mesas.mapa : null;
   const zonas = agruparMesasPorZona(mapa);
-  const puedeVisita = puedeRegistrarVisita({ fecha, hoy, franja: franjaSeleccionada, hora });
+  // No depende de la franja seleccionada en el mapa (ver puedeRegistrarVisita): entre franjas se puede registrar en la anterior.
+  const { restaurante } = useRestauranteAbierto({ hoy, hora });
+  const puedeVisita = puedeRegistrarVisita({ fecha, hoy, franjas, hora, restaurante });
 
   const alActualizarReserva = useCallback(() => mesas.reintentar(), [mesas]);
 

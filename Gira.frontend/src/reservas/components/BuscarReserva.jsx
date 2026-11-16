@@ -9,6 +9,7 @@ import {
   MENSAJE_ERROR_GENERICO,
   TEXTO_CONTACTAR_RESTAURANTE,
 } from '../reservasTextos.js';
+import { normalizarCodigoReserva } from '../reservasFormato.js';
 import Aviso from './Aviso.jsx';
 
 const DURACION_BLOQUEO_429_MS = 10_000;
@@ -119,12 +120,11 @@ export default function BuscarReserva({ inicial, errorInicial, bloqueadoInicial,
               type="text"
               inputMode="numeric"
               autoComplete="off"
-              maxLength={8}
               placeholder="12345678"
               className="reservas-input reservas-input--codigo"
               value={codigo}
               aria-describedby="reservas-buscar-ayuda-codigo"
-              onChange={(evento) => setCodigo(evento.target.value.replace(/\D/g, '').slice(0, 8))}
+              onChange={(evento) => setCodigo(normalizarCodigoReserva(evento.target.value))}
             />
             <span id="reservas-buscar-ayuda-codigo" className="reservas-campo-ayuda">{AYUDA_CODIGO}</span>
           </div>

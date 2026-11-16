@@ -103,7 +103,7 @@ export const AYUDA_TELEFONO_CODIGO_PAIS =
 
 // No hay un texto de ayuda para el código en ningún .dc.html (solo el placeholder
 // "12345678" y el maxLength); este texto es propio del frontend, no del diseño.
-export const AYUDA_CODIGO = 'Los 8 dígitos que recibiste al reservar, sin espacios ni guiones.';
+export const AYUDA_CODIGO = 'Los 8 dígitos que recibiste al reservar; puedes pegarlos con espacio o guion.';
 
 // --- Validación de campos (antes vivían sueltos en los componentes) ---
 

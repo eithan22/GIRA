@@ -40,6 +40,15 @@ export function formatearHora(horaIso) {
   return horaIso.slice(0, 5);
 }
 
+/**
+ * Código de reserva tal como lo escribe o pega el cliente -> solo los dígitos, máximo 8. Acepta "4827 1936" y
+ * "4827-1936" (el formato con el que se muestra), así que el input no puede usar maxLength: contaría espacios y
+ * guiones y cortaría el texto pegado antes de limpiarlo.
+ */
+export function normalizarCodigoReserva(texto) {
+  return String(texto ?? '').replace(/\D/g, '').slice(0, 8);
+}
+
 /** "48271936" -> "4827 1936". Solo para mostrar: copiar y enviar siempre los 8 dígitos tal cual. */
 export function formatearCodigoVisual(codigo) {
   return `${codigo.slice(0, 4)} ${codigo.slice(4, 8)}`;
