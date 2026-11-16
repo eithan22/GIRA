@@ -34,6 +34,10 @@ public static class EstadoMesaOcupacion
 /// que muestra el mapa y que todavía no ha terminado; null si no hay. Sin datos personales del cliente.
 /// </param>
 /// <param name="ProximaReservaPersonas">Personas de esa próxima reserva; null si no hay.</param>
+/// <param name="TieneVisita">
+/// True si hay una visita sin reserva registrada para esta mesa en esta fecha y franja. No cambia
+/// <see cref="Estado"/> ni el resumen: es solo informativo para el personal.
+/// </param>
 public record MesaOcupacionDto(
     Guid MesaId,
     int Numero,
@@ -44,7 +48,8 @@ public record MesaOcupacionDto(
     int? Personas,
     int? PersonasReales,
     TimeOnly? ProximaReservaHoraInicio,
-    int? ProximaReservaPersonas);
+    int? ProximaReservaPersonas,
+    bool TieneVisita = false);
 
 /// <summary>Una zona con sus mesas (incluidas las inactivas), ordenadas por número.</summary>
 public record ZonaOcupacionDto(Guid ZonaId, string Nombre, bool Activa, IReadOnlyList<MesaOcupacionDto> Mesas);

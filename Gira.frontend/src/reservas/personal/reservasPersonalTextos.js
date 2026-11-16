@@ -233,7 +233,7 @@ export const TITULO_VISITAS_HOY = 'Visitas sin reserva de hoy';
 export const TEXTO_VISITAS_VACIO = 'Todavía no hay visitas sin reserva hoy.';
 export const TEXTO_VISITAS_CARGANDO = 'Cargando las visitas…';
 export const TEXTO_VISITAS_ERROR = 'No pudimos cargar las visitas de hoy.';
-export const AYUDA_VISITAS_SIN_MARCA = 'Estas visitas no marcan la mesa como ocupada en el mapa: no tienen hora de salida.';
+export const AYUDA_VISITAS_SIN_MARCA = 'Estas visitas no marcan la mesa como ocupada en el mapa (sigue viéndose Libre), aunque sí se le agrega la etiqueta «Con visita».';
 // Una visita sin registro de hora (no debería pasar en producción): texto neutro en vez de una hora inventada.
 export const TEXTO_VISITA_SIN_HORA = 'sin hora';
 
@@ -250,6 +250,7 @@ export const TEXTO_ELIGE_FRANJA_MAPA = 'Elige una franja para ver el mapa.';
 export const TEXTO_CARGANDO_MAPA = 'Cargando el mapa…';
 export const TEXTO_ACCION_REGISTRAR_VISITA = 'Registrar visita';
 export const TEXTO_ACCION_ABRIR_RESERVA = 'Abrir reserva';
+export const TEXTO_MESA_CON_VISITA = 'Con visita';
 
 export const ESTADOS_MESA = {
   Libre: { etiqueta: 'Libre', simbolo: '○', clase: 'libre' },
@@ -274,6 +275,12 @@ export function textoProximaReservaMapaAccesible(hora, personas) {
   return personas != null
     ? `próxima reserva a las ${hora}, ${personas} ${personas === 1 ? 'persona' : 'personas'}`
     : `próxima reserva a las ${hora}`;
+}
+
+// Fragmento listo para concatenar en un aria-label (con la coma incluida), igual que el resto de datos
+// opcionales de la mesa en MesaMapa.jsx. No es un estado ni cambia el color de la mesa.
+export function textoMesaConVisitaAccesible(tieneVisita) {
+  return tieneVisita ? `, ${TEXTO_MESA_CON_VISITA}` : '';
 }
 
 export function textoZonaResumen(libres, total) {
@@ -310,7 +317,7 @@ export const TEXTO_REGISTRANDO_VISITA = 'Registrando…';
 export const TEXTO_CONFIRMAR_VISITA = 'Sí, registrar visita';
 export const TITULO_VISITA_REGISTRADA = 'Visita registrada';
 export const TEXTO_REGISTRAR_OTRA = 'Registrar otra';
-export const AVISO_MESA_VISITA_SIN_MARCA = 'El mapa no marca como ocupadas las mesas con visitas sin reserva: la mesa seguirá viéndose Libre.';
+export const AVISO_MESA_VISITA_SIN_MARCA = 'El mapa no marca como ocupadas las mesas con visitas sin reserva: la mesa seguirá viéndose Libre, con la etiqueta «Con visita».';
 
 export function textoSinFranjaEmpezada(horaInicio) {
   return `Todavía no empezó ninguna franja de hoy. La primera empieza a las ${horaInicio}.`;

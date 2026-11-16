@@ -141,9 +141,10 @@ En `/reservar` el cliente puede elegir **una zona** (por ejemplo Salón o Terraz
   menor capacidad primero, sin reservas ni visitas en esa fecha y franja). Sin zona, el comportamiento es el de siempre
   (menor capacidad de todo el salón). `POST /api/reservas` acepta `zonaId` opcional (solo canal web); una zona
   inexistente o inactiva se rechaza con 400. **El canal del personal (`Telefono`/`Presencial`) rechaza `zonaId` con 400
-  y el código `ZONA_NO_APLICA_PERSONAL`** («El canal del personal no usa zona; la mesa se asigna manualmente.»): ese
-  canal asigna la mesa a mano, así que una zona no tendría efecto y antes se ignoraba en silencio. La UI del personal
-  nunca envía `zonaId`, así que esto no cambia nada visible ahí.
+  y el código `ZONA_NO_APLICA_PERSONAL`** («El canal del personal no usa zona; la mesa la asigna el sistema.»): ese
+  canal usa la asignación automática de siempre (sin zona) — el personal solo cambia la mesa después, al modificar la
+  reserva —, así que una zona no tendría efecto y antes se ignoraba en silencio. La UI del personal nunca envía
+  `zonaId`, así que esto no cambia nada visible ahí.
 - **Zona llena al confirmar.** Si la zona elegida se llenó mientras el cliente completaba sus datos, la respuesta es
   409 con código `ZONA_SIN_MESAS` («La zona X ya no tiene mesas disponibles en esa franja. Elige otra zona o "sin
   preferencia".»). Nunca se asigna en silencio una mesa de otra zona. El frontend decide por el código: vuelve al
@@ -178,6 +179,8 @@ lo que resultaba poco útil en la práctica.
 - **Mapa de ocupación.** La mesa con una reserva posterior ese día muestra **«Próx. HH:mm»** (la más cercana que aún no
   ha terminado; solo en esa mesa). `MesaOcupacionDto` trae `proximaReservaHoraInicio` y `proximaReservaPersonas`. La
   visita sin reserva no cuenta como «próxima»: no tiene hora de salida.
+  Una mesa con una visita sin reserva en esa fecha y franja muestra la etiqueta **«Con visita»**, sin cambiar su
+  estado (Libre/Reservada/Ocupada/Inactiva) ni el resumen de conteos: es solo informativa para el personal.
 
 ## Texto de cancelación
 

@@ -74,7 +74,8 @@ dentro de 12:00–22:30). Se crean **solo si no existen** y nunca pisan lo que e
    alcance, y la mesa elegida a mano se rechaza con 409 («tiene una visita sin reserva en esta franja»). Como la
    visita no tiene hora de salida, se considera ocupada **toda la franja** y se libera al cambiar de franja. Se
    evaluó darle estado u hora de fin y se decidió no hacerlo: es un registro ya consumado, no una sesión con ciclo de
-   vida. El **mapa de ocupación** sigue sin contarla (GI-402), que es una vista distinta.
+   vida. El **mapa de ocupación** no la pinta Ocupada ni la cuenta en el resumen (GI-402), pero sí muestra la mesa
+   con la etiqueta «Con visita», sin cambiar su estado.
 4. **Reducir el horario o cerrar un día no cancela reservas ya hechas.** Solo impide las reservas nuevas; las
    existentes se atienden normalmente.
 5. **Las reglas de creación no invalidan las reservas existentes.** Una reserva creada con una antelación o un tamaño de

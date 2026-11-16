@@ -35,7 +35,7 @@ public class ConsultarDisponibilidadRequestValidator : AbstractValidator<Consult
                 .WithMessage("La fecha no puede ser en el pasado.")
                 // Regla asíncrona: la antelación máxima se lee de la configuración (los servicios validan con ValidateAsync).
                 .MustAsync(async (fecha, cancellationToken) =>
-                    fecha <= timeProvider.HoyLocal().AddDays((await parametros.ObtenerAsync(cancellationToken)).AntelacionMaxima.Days))
+                    fecha <= (await parametros.ObtenerAsync(cancellationToken)).FechaMaximaReservable(timeProvider.HoyLocal()))
                 .WithMessage("La fecha supera la ventana máxima de anticipación.")
                 // Sin fecha ya responde la regla de arriba: no se repite como «en el pasado».
                 .When(r => r.Fecha != default);

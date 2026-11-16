@@ -122,6 +122,6 @@ internal static class MensajesReservas
     public static string ZonaSinMesas(string nombreZona) =>
         $"La zona {nombreZona} ya no tiene mesas disponibles en esa franja. Elige otra zona o \"sin preferencia\".";
 
-    /// <summary>El canal del personal envió ZonaId (C3): ese canal no usa zona, la mesa se asigna a mano.</summary>
-    public const string ZonaNoAplicaPersonal = "El canal del personal no usa zona; la mesa se asigna manualmente.";
+    /// <summary>El canal del personal envió ZonaId (C3): ese canal no usa zona, la mesa la asigna el sistema.</summary>
+    public const string ZonaNoAplicaPersonal = "El canal del personal no usa zona; la mesa la asigna el sistema.";
 }

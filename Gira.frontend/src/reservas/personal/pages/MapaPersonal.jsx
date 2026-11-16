@@ -85,7 +85,8 @@ export default function MapaPersonal() {
 
   // GI-402: botón general «Visita sin reserva» (el mismo PanelVisita que la Agenda), sin mesa elegida: el formulario
   // pide franja y personas, y la mesa es opcional. No depende de la fecha ni de la franja del mapa; el formulario
-  // explica si todavía no hay una franja que haya empezado. La visita no marca la mesa, así que no hay que recargar el mapa.
+  // explica si todavía no hay una franja que haya empezado. Si el personal elige una mesa en el formulario, esa
+  // mesa pasa a mostrar «Con visita»; por eso ambas entradas a PanelVisita recargan el mapa al registrar.
   function abrirVisitaSinMesa(evento) {
     origenRef.current = evento.currentTarget;
     setPanel({ tipo: 'visita', mesaId: '' });
@@ -232,6 +233,7 @@ export default function MapaPersonal() {
           origenRef={origenRef}
           fallbackFocoRef={tituloRef}
           onCerrar={() => setPanel(null)}
+          onRegistrada={alActualizarReserva}
         />
       )}
     </PaginaPersonal>

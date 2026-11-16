@@ -64,7 +64,6 @@ public class ZonaOpcionalServicioTests
             new CancelarPorPersonalRequestValidator(),
             new ModificarReservaRequestValidator(),
             new GeneradorCodigoReserva(),
-            publisher,
             new PublicadorEventosSeguro(publisher, NullLogger<PublicadorEventosSeguro>.Instance),
             reloj);
     }
@@ -238,7 +237,7 @@ public class ZonaOpcionalServicioTests
         Assert.True(resultado.IsFailure);
         Assert.Equal(ErrorType.Validation, resultado.Type);
         Assert.Equal(CodigosErrorReservas.ZonaNoAplicaPersonal, resultado.Codigo);
-        Assert.Equal("El canal del personal no usa zona; la mesa se asigna manualmente.", resultado.Error);
+        Assert.Equal("El canal del personal no usa zona; la mesa la asigna el sistema.", resultado.Error);
     }
 
     [Fact]

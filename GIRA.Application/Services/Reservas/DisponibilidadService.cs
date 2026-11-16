@@ -150,9 +150,9 @@ public class DisponibilidadService : IDisponibilidadService
             return MensajesReservas.RestauranteCerrado;
         }
 
-        if (request.Fecha > hoy.AddDays(parametros.AntelacionMaxima.Days))
+        if (request.Fecha > parametros.FechaMaximaReservable(hoy))
         {
-            return MensajesReservas.FueraDelRango(parametros.AntelacionMaxima.Days);
+            return MensajesReservas.FueraDelRango(parametros.DiasAntelacionMaxima);
         }
 
         // Fecha pasada, o franja de hoy que ya terminó (el fin exacto cuenta como terminada).

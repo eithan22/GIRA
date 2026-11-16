@@ -52,13 +52,14 @@ public class ReservasController : ControllerBase
 
     /// <summary>
     /// GI-226: políticas que ve el cliente en /reservar (antelación mínima y máxima, límite de cancelación, tamaño
-    /// máximo de grupo y días cerrados dentro de la ventana de reserva). Público y de solo lectura, con el mismo límite
-    /// por IP que la disponibilidad. Solo lo mínimo para mostrar textos: sin ventana de check-in, máximo por teléfono,
-    /// horarios ni datos internos.
+    /// máximo de grupo y días cerrados dentro de la ventana de reserva). Público y de solo lectura, con su propio
+    /// límite por IP (20/min), separado del de disponibilidad para que /reservar no agote ambos cupos con el mismo
+    /// presupuesto. Solo lo mínimo para mostrar textos: sin ventana de check-in, máximo por teléfono, horarios ni
+    /// datos internos.
     /// </summary>
     [HttpGet("politicas")]
     [AllowAnonymous]
-    [EnableRateLimiting(LimiteReservasExtensions.PoliticaConsulta)]
+    [EnableRateLimiting(LimiteReservasExtensions.PoliticaConsultaPoliticas)]
     [ProducesResponseType<PoliticasPublicasDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> ObtenerPoliticas(CancellationToken cancellationToken) =>

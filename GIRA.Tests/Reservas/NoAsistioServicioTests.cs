@@ -68,7 +68,6 @@ public class NoAsistioServicioTests
                 new CancelarPorPersonalRequestValidator(),
                 new ModificarReservaRequestValidator(),
                 new GeneradorCodigoReserva(),
-                publisher,
                 new PublicadorEventosSeguro(publisher, NullLogger<PublicadorEventosSeguro>.Instance),
                 reloj);
 

@@ -81,7 +81,6 @@ public class ModificarReservaServicioTests
                 new CancelarPorPersonalRequestValidator(),
                 new ModificarReservaRequestValidator(),
                 new GeneradorCodigoReserva(),
-                publisher,
                 new PublicadorEventosSeguro(publisher, logger ?? NullLogger<PublicadorEventosSeguro>.Instance),
                 reloj);
         }

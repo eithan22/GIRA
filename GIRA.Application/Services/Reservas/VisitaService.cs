@@ -137,9 +137,9 @@ public class VisitaService : IVisitaService
         }
 
         // Regla 2: la visita se registra en la franja MÁS RECIENTE de las activas que ya empezaron: la actual o,
-        // si el cliente llega entre franjas (por ejemplo, a las 16:30), la última que empezó. Una franja anterior
-        // ya no corresponde al momento en que el grupo se sienta, y así la visita no bloquea una mesa en una
-        // franja que ya pasó.
+        // si el cliente llega entre franjas (por ejemplo, a las 16:30), la que ya terminó pero fue la última en
+        // empezar. Se registra contra esa franja anterior, no contra la próxima: el grupo ya está sentado ahora,
+        // no cuando empiece la siguiente franja.
         var activas = (await _franjas.ListarTodasAsync(cancellationToken)).Where(f => f.Activa);
         var masReciente = activas
             .Where(f => f.HoraInicio <= horaActual)

@@ -10,7 +10,6 @@ using GIRA.Application.Validations.Reservas;
 using GIRA.Domain.Entities.Reservas;
 using GIRA.Domain.Enums.Reservas;
 using GIRA.Domain.Exceptions.Reservas;
-using MediatR;
 
 namespace GIRA.Application.Services.Reservas;
 
@@ -31,7 +30,6 @@ public class ReservaService : IReservaService
     private readonly IValidator<CancelarPorPersonalRequest> _validadorCancelarPersonal;
     private readonly IValidator<ModificarReservaRequest> _validadorModificar;
     private readonly GeneradorCodigoReserva _generadorCodigo;
-    private readonly IPublisher _publisher;
     private readonly IPublicadorEventosSeguro _publicadorSeguro;
     private readonly TimeProvider _timeProvider;
 
@@ -65,7 +63,6 @@ public class ReservaService : IReservaService
         IValidator<CancelarPorPersonalRequest> validadorCancelarPersonal,
         IValidator<ModificarReservaRequest> validadorModificar,
         GeneradorCodigoReserva generadorCodigo,
-        IPublisher publisher,
         IPublicadorEventosSeguro publicadorSeguro,
         TimeProvider timeProvider)
     {
@@ -83,7 +80,6 @@ public class ReservaService : IReservaService
         _validadorCancelarPersonal = validadorCancelarPersonal;
         _validadorModificar = validadorModificar;
         _generadorCodigo = generadorCodigo;
-        _publisher = publisher;
         _publicadorSeguro = publicadorSeguro;
         _timeProvider = timeProvider;
     }
@@ -236,10 +232,12 @@ public class ReservaService : IReservaService
             return OperationResult.Failure<ReservaCreadaDto>(ErrorType.Conflict, ex.Message);
         }
 
-        await _publisher.Publish(
+        // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
+        await _publicadorSeguro.PublicarAsync(
             new ReservaConfirmadaEvent(
                 reserva.Id, reserva.Codigo, cliente.Id, mesaElegida.Id, franja.Id,
                 reserva.Fecha, reserva.Personas, reserva.Origen),
+            $"ReservaId={reserva.Id}",
             cancellationToken);
 
         return OperationResult.Success(new ReservaCreadaDto(
@@ -570,7 +568,7 @@ public class ReservaService : IReservaService
             }
 
             var parametrosModificar = await _parametros.ObtenerAsync(cancellationToken);
-            if (request.Fecha > hoy.AddDays(parametrosModificar.AntelacionMaxima.Days))
+            if (request.Fecha > parametrosModificar.FechaMaximaReservable(hoy))
             {
                 return OperationResult.Failure<ReservaDetalleDto>(
                     ErrorType.Validation, "La fecha supera la ventana máxima de anticipación.");
@@ -922,8 +920,10 @@ public class ReservaService : IReservaService
             return OperationResult.Failure(ErrorType.Conflict, ex.Message, CodigosErrorReservas.CambioConcurrente);
         }
 
-        await _publisher.Publish(
+        // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
+        await _publicadorSeguro.PublicarAsync(
             new ReservaCanceladaEvent(reserva.Id, reserva.Fecha, reserva.FranjaHorariaId, reserva.Personas),
+            $"ReservaId={reserva.Id}",
             cancellationToken);
 
         return OperationResult.Success();

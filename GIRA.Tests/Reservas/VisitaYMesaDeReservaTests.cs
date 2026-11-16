@@ -17,7 +17,8 @@ namespace GIRA.Tests.Reservas;
 /// Una visita sin reserva ocupa su mesa en su fecha y franja para las reservas del personal: la asignación
 /// automática la salta y la mesa elegida a mano se rechaza con su propio motivo. No se mira la hora actual
 /// (la visita no tiene hora de salida), así que la mesa queda tomada durante toda esa franja. El mapa de
-/// ocupación sigue sin contarla (GI-402), que es una vista distinta.
+/// ocupación no la pinta Ocupada ni la cuenta en el resumen (GI-402), pero sí la marca con TieneVisita
+/// (ver OcupacionServicioTests); es una vista distinta.
 /// </summary>
 public class VisitaYMesaDeReservaTests : IDisposable
 {
@@ -53,7 +54,7 @@ public class VisitaYMesaDeReservaTests : IDisposable
             new MesaGestionRepository(_db), new VisitaRepository(_db), new ZonaRepository(_db), _parametros,
             new CrearReservaRequestValidator(_parametros, reloj), new ListarReservasRequestValidator(),
             new CheckInRequestValidator(), new CancelarPorPersonalRequestValidator(),
-            new ModificarReservaRequestValidator(), new GeneradorCodigoReserva(), _publisher,
+            new ModificarReservaRequestValidator(), new GeneradorCodigoReserva(),
             new PublicadorEventosSeguro(_publisher, NullLogger<PublicadorEventosSeguro>.Instance), reloj);
     }
 

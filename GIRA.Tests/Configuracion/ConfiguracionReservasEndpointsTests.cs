@@ -413,7 +413,18 @@ public class ConfiguracionReservasEndpointsTests : IAsyncLifetime
 
         Assert.NotNull(metodo.GetCustomAttribute<Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute>());
         Assert.Equal(
-            LimiteReservasExtensions.PoliticaConsulta,
+            LimiteReservasExtensions.PoliticaConsultaPoliticas,
             metodo.GetCustomAttribute<EnableRateLimitingAttribute>()!.PolicyName);
+    }
+
+    [Fact]
+    public void Politicas_TieneUnaPoliticaDeLimiteDistintaDeLaDeDisponibilidad()
+    {
+        var politicas = typeof(ReservasController).GetMethod(nameof(ReservasController.ObtenerPoliticas))!
+            .GetCustomAttribute<EnableRateLimitingAttribute>()!.PolicyName;
+        var disponibilidad = typeof(ReservasController).GetMethod(nameof(ReservasController.ConsultarDisponibilidad))!
+            .GetCustomAttribute<EnableRateLimitingAttribute>()!.PolicyName;
+
+        Assert.NotEqual(disponibilidad, politicas);
     }
 }

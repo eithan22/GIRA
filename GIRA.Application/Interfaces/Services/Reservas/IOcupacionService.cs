@@ -10,7 +10,8 @@ public interface IOcupacionService
     /// Mapa de todas las mesas por zona con su estado (Libre, Reservada, Ocupada o Inactiva) para una fecha y una
     /// franja (RF-RES-14). Una reserva EnCurso es Ocupada y una Confirmada es Reservada; una mesa inactiva (o de
     /// zona inactiva) es Inactiva aunque tenga reserva (el mapa igual muestra esa reserva). Las visitas sin reserva
-    /// no cuentan: no tienen hora de salida. ErrorType.Validation si la franja falta o la fecha no es válida y
+    /// no cuentan para el estado ni el resumen (no tienen hora de salida), pero si hay una en esta fecha y franja la
+    /// mesa sale con TieneVisita en true. ErrorType.Validation si la franja falta o la fecha no es válida y
     /// ErrorType.NotFound si la franja no existe.
     /// </summary>
     Task<OperationResult<MapaOcupacionDto>> ObtenerMapaAsync(ConsultarOcupacionRequest request, CancellationToken cancellationToken);

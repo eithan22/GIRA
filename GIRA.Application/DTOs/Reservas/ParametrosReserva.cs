@@ -46,4 +46,15 @@ public sealed record ParametrosReserva(
     /// <summary>Horario de esa fecha, o null si el restaurante está cerrado ese día.</summary>
     public HorarioDia? HorarioDelDia(DateOnly fecha) =>
         EstaAbierto(fecha) ? Horarios[fecha.DayOfWeek] : null;
+
+    /// <summary>
+    /// <see cref="AntelacionMaxima"/> en días completos, redondeada hacia arriba. Hoy la configuración
+    /// siempre guarda un número entero de días, así que este valor no cambia nada; existe para no truncar
+    /// si algún día la antelación máxima dejara de ser un entero de días. Solo para mostrar el número en
+    /// un mensaje; para comparar fechas usa <see cref="FechaMaximaReservable"/>.
+    /// </summary>
+    public int DiasAntelacionMaxima => (int)Math.Ceiling(AntelacionMaxima.TotalDays);
+
+    /// <summary>Última fecha en la que todavía se puede crear o mover una reserva, a partir de <paramref name="hoy"/>.</summary>
+    public DateOnly FechaMaximaReservable(DateOnly hoy) => hoy.AddDays(DiasAntelacionMaxima);
 }

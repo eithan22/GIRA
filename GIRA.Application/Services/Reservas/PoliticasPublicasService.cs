@@ -32,7 +32,7 @@ public class PoliticasPublicasService : IPoliticasPublicasService
 
         // Solo las fechas cerradas que el cliente puede llegar a elegir: dentro de la ventana de reserva.
         var hoy = _reloj.HoyLocal();
-        var hasta = hoy.AddDays(parametros.AntelacionMaxima.Days);
+        var hasta = parametros.FechaMaximaReservable(hoy);
         var diasCerrados = parametros.DiasCerrados
             .Where(fecha => fecha >= hoy && fecha <= hasta)
             .OrderBy(fecha => fecha)
@@ -40,7 +40,7 @@ public class PoliticasPublicasService : IPoliticasPublicasService
 
         return new PoliticasPublicasDto(
             (int)parametros.AntelacionMinima.TotalMinutes,
-            parametros.AntelacionMaxima.Days,
+            parametros.DiasAntelacionMaxima,
             (int)parametros.LimiteCancelacion.TotalMinutes,
             maxPersonas,
             parametros.MaxReservasVigentesPorTelefono,

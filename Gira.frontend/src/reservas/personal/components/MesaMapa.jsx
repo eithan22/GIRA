@@ -4,7 +4,9 @@ import {
   ESTADOS_MESA,
   TEXTO_ACCION_ABRIR_RESERVA,
   TEXTO_ACCION_REGISTRAR_VISITA,
+  TEXTO_MESA_CON_VISITA,
   textoConflictoMesaInactiva,
+  textoMesaConVisitaAccesible,
   textoProximaReservaMapa,
   textoProximaReservaMapaAccesible,
 } from '../reservasPersonalTextos.js';
@@ -27,6 +29,7 @@ export default function MesaMapa({ mesa, zonaNombre, accion, onAbrirReserva, onR
   const proximaHora = mesa.proximaReservaHoraInicio ? formatearHora(mesa.proximaReservaHoraInicio) : null;
   const proximaTexto = proximaHora ? textoProximaReservaMapa(proximaHora) : '';
   const proximaAccesible = proximaHora ? textoProximaReservaMapaAccesible(proximaHora, mesa.proximaReservaPersonas) : '';
+  const visitaAccesible = textoMesaConVisitaAccesible(mesa.tieneVisita);
 
   const contenido = (
     <>
@@ -38,6 +41,7 @@ export default function MesaMapa({ mesa, zonaNombre, accion, onAbrirReserva, onR
       {conflicto && <span className="reservas-personal-mesa-conflicto">{textoConflictoMesaInactiva(mesa.clienteNombre)}</span>}
       {!conflicto && mesa.clienteNombre && <span className="reservas-personal-ajustable"><strong>{mesa.clienteNombre}</strong></span>}
       {personas && <span className="reservas-personal-secundario">{personas}</span>}
+      {mesa.tieneVisita && <span className="reservas-personal-mesa-visita">{TEXTO_MESA_CON_VISITA}</span>}
       {proximaTexto && (
         // Reutiliza el estilo discreto ya existente de "Capacidad N"; no es un estado, no cambia color.
         // Sin aria-hidden: en la tarjeta sin botón (sin accion) es la única fuente de este dato para
@@ -58,7 +62,7 @@ export default function MesaMapa({ mesa, zonaNombre, accion, onAbrirReserva, onR
           type="button"
           className={clases}
           onClick={(evento) => onAbrirReserva(mesa, evento.currentTarget)}
-          aria-label={`Mesa ${mesa.numero}, ${zonaNombre}, capacidad ${mesa.capacidad}, ${info.etiqueta}${conflicto ? `, ${textoConflictoMesaInactiva(mesa.clienteNombre)}` : mesa.clienteNombre ? `, ${mesa.clienteNombre}` : ''}${personas ? `, ${personas}` : ''}${proximaAccesible ? `, ${proximaAccesible}` : ''}. ${TEXTO_ACCION_ABRIR_RESERVA}`}
+          aria-label={`Mesa ${mesa.numero}, ${zonaNombre}, capacidad ${mesa.capacidad}, ${info.etiqueta}${conflicto ? `, ${textoConflictoMesaInactiva(mesa.clienteNombre)}` : mesa.clienteNombre ? `, ${mesa.clienteNombre}` : ''}${personas ? `, ${personas}` : ''}${visitaAccesible}${proximaAccesible ? `, ${proximaAccesible}` : ''}. ${TEXTO_ACCION_ABRIR_RESERVA}`}
         >
           {contenido}
         </button>
@@ -73,7 +77,7 @@ export default function MesaMapa({ mesa, zonaNombre, accion, onAbrirReserva, onR
           type="button"
           className={clases}
           onClick={(evento) => onRegistrarVisita(mesa, evento.currentTarget)}
-          aria-label={`Mesa ${mesa.numero}, ${zonaNombre}, capacidad ${mesa.capacidad}, ${info.etiqueta}${proximaAccesible ? `, ${proximaAccesible}` : ''}. ${TEXTO_ACCION_REGISTRAR_VISITA}`}
+          aria-label={`Mesa ${mesa.numero}, ${zonaNombre}, capacidad ${mesa.capacidad}, ${info.etiqueta}${visitaAccesible}${proximaAccesible ? `, ${proximaAccesible}` : ''}. ${TEXTO_ACCION_REGISTRAR_VISITA}`}
         >
           {contenido}
         </button>

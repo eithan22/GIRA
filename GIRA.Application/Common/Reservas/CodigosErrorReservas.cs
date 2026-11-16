@@ -24,7 +24,7 @@ public static class CodigosErrorReservas
     /// <summary>La reserva ya no está Confirmada (está Cancelada, NoAsistio, EnCurso o Completada): no se puede cancelar.</summary>
     public const string ReservaNoCancelable = "RESERVA_NO_CANCELABLE";
 
-    /// <summary>El canal del personal envió ZonaId: ese canal no usa zona, la mesa se asigna a mano.</summary>
+    /// <summary>El canal del personal envió ZonaId: ese canal no usa zona, la mesa la asigna el sistema.</summary>
     public const string ZonaNoAplicaPersonal = "ZONA_NO_APLICA_PERSONAL";
 
     // --- Reservados para las Fases 3 y 4: declarados ya para fijar el nombre final, sin usar todavía. ---

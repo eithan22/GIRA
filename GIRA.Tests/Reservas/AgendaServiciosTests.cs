@@ -62,7 +62,6 @@ public class AgendaServiciosTests
                 new CancelarPorPersonalRequestValidator(),
                 new ModificarReservaRequestValidator(),
                 new GeneradorCodigoReserva(),
-                new PublisherFalso(),
                 new PublicadorEventosSeguro(new PublisherFalso(), NullLogger<PublicadorEventosSeguro>.Instance),
                 reloj);
             Clientes = new ClienteService(clientes, new BuscarClientesRequestValidator());

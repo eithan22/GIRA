@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using GIRA.Infrastructure.Services.Reservas;
 using GIRA.Application.Common;
@@ -32,15 +33,17 @@ public class ReservaServiceTests
         ReservaRepositoryFake? reservaRepo = null,
         ClienteRepositoryFake? clienteRepo = null,
         IReadOnlyList<Mesa>? mesas = null,
-        PublisherFalso? publisher = null,
+        IPublisher? publisher = null,
         DateTimeOffset? ahoraUtc = null,
         VisitaRepositoryFalso? visitas = null,
-        ParametrosReservaFalso? parametros = null)
+        ParametrosReservaFalso? parametros = null,
+        ILogger<PublicadorEventosSeguro>? logger = null)
     {
         mesas ??= [MesaPequena];
         reservaRepo ??= new ReservaRepositoryFake();
         clienteRepo ??= new ClienteRepositoryFake();
         publisher ??= new PublisherFalso();
+        logger ??= NullLogger<PublicadorEventosSeguro>.Instance;
         parametros ??= new ParametrosReservaFalso();
 
         // "Ahora" por defecto: la mañana del día anterior a Fecha (antelación de sobra).
@@ -64,8 +67,7 @@ public class ReservaServiceTests
             new CancelarPorPersonalRequestValidator(),
             new ModificarReservaRequestValidator(),
             new GeneradorCodigoReserva(),
-            publisher,
-            new PublicadorEventosSeguro(publisher, NullLogger<PublicadorEventosSeguro>.Instance),
+            new PublicadorEventosSeguro(publisher, logger),
             reloj);
     }
 
@@ -87,6 +89,24 @@ public class ReservaServiceTests
         Assert.Equal("Almuerzo", resultado.Value.FranjaNombre);
         Assert.NotNull(clienteRepo.Agregado);
         Assert.Single(publisher.Publicados);
+    }
+
+    [Fact]
+    public async Task CrearAsync_HandlerQueFalla_NoRevierteYDevuelveElCodigo()
+    {
+        var clienteRepo = new ClienteRepositoryFake();
+        var publisher = new PublisherQueFalla();
+        var logger = new LoggerCapturador<PublicadorEventosSeguro>();
+        var servicio = CrearServicio(clienteRepo: clienteRepo, publisher: publisher, logger: logger);
+
+        var resultado = await servicio.CrearAsync(Request(), default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal(8, resultado.Value!.Codigo.Length);
+        Assert.Equal(1, publisher.Intentos);
+        var entrada = Assert.Single(logger.Entradas);
+        Assert.Equal(LogLevel.Error, entrada.Nivel);
+        Assert.Contains("ReservaConfirmadaEvent", entrada.Mensaje);
     }
 
     [Fact]
@@ -148,7 +168,6 @@ public class ReservaServiceTests
             new CancelarPorPersonalRequestValidator(),
             new ModificarReservaRequestValidator(),
             new GeneradorCodigoReserva(),
-            new PublisherFalso(),
             new PublicadorEventosSeguro(new PublisherFalso(), NullLogger<PublicadorEventosSeguro>.Instance),
             reloj);
 
@@ -532,6 +551,34 @@ public class ReservaServiceTests
         var evento = Assert.Single(publisher.Publicados);
         var canceladoEvento = Assert.IsType<ReservaCanceladaEvent>(evento);
         Assert.Equal(new ReservaCanceladaEvent(reserva.Id, Fecha, Almuerzo.Id, 2), canceladoEvento);
+    }
+
+    [Fact]
+    public async Task CancelarPorCodigoAsync_HandlerQueFalla_NoRevierteYCancelaIgual()
+    {
+        var cliente = new Cliente { Id = Guid.NewGuid(), Nombre = "Ana Pérez", Telefono = "8095551234" };
+        var reserva = new Reserva
+        {
+            Id = Guid.NewGuid(), Codigo = "12345678", ClienteId = cliente.Id,
+            FranjaHorariaId = Almuerzo.Id, Fecha = Fecha, Personas = 2
+        };
+        var reservaRepo = new ReservaRepositoryFake
+        {
+            ReservaPorCodigoYTelefono = reserva,
+            ClienteDeLaReservaPorCodigoYTelefono = cliente
+        };
+        var publisher = new PublisherQueFalla();
+        var logger = new LoggerCapturador<PublicadorEventosSeguro>();
+        var servicio = CrearServicio(reservaRepo: reservaRepo, publisher: publisher, logger: logger);
+
+        var resultado = await servicio.CancelarPorCodigoAsync("12345678", new CancelarReservaRequest("8095551234"), default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal(EstadoReserva.Cancelada, reserva.Estado);
+        Assert.Equal(1, publisher.Intentos);
+        var entrada = Assert.Single(logger.Entradas);
+        Assert.Equal(LogLevel.Error, entrada.Nivel);
+        Assert.Contains("ReservaCanceladaEvent", entrada.Mensaje);
     }
 
     [Fact]
