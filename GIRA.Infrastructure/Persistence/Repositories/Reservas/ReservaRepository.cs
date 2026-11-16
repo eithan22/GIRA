@@ -5,13 +5,19 @@ using GIRA.Domain.Entities.Reservas;
 using GIRA.Domain.Enums.Reservas;
 using GIRA.Domain.Exceptions.Reservas;
 using GIRA.Infrastructure.Persistence.Context;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using System.Data;
 
 namespace GIRA.Infrastructure.Persistence.Repositories.Reservas;
 
 /// <summary>Implementación de <see cref="IReservaRepository"/> contra <see cref="GiraDbContext"/>.</summary>
 public class ReservaRepository : IReservaRepository
 {
+    // Cuánto espera una creación a que termine otra del MISMO teléfono (la sección protegida dura milisegundos).
+    private const int EsperaBloqueoCreacionMs = 10_000;
+
     private readonly GiraDbContext _contexto;
 
     /// <summary>Crea el repositorio con el contexto de EF Core.</summary>
@@ -47,6 +53,90 @@ public class ReservaRepository : IReservaRepository
             .Where(x => x.c.Telefono == telefono
                 && (x.r.Estado == EstadoReserva.Confirmada || x.r.Estado == EstadoReserva.EnCurso))
             .CountAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<IBloqueoCreacionReserva?> BloquearCreacionPorTelefonoAsync(string telefono, CancellationToken cancellationToken)
+    {
+        // Las pruebas con bases en memoria no soportan transacciones ni sp_getapplock: sin bloqueo.
+        if (!_contexto.Database.IsSqlServer())
+        {
+            return BloqueoCreacionReservaNulo.Instancia;
+        }
+
+        // Si ya hay una transacción abierta se usa esa (el bloqueo se libera al terminarla); si no, se abre una aquí y
+        // los SaveChanges del servicio (cliente y reserva) participan en ella: se confirman juntos en ConfirmarAsync.
+        var propia = _contexto.Database.CurrentTransaction is null;
+        var transaccion = propia
+            ? await _contexto.Database.BeginTransactionAsync(cancellationToken)
+            : _contexto.Database.CurrentTransaction!;
+
+        try
+        {
+            var resultado = new SqlParameter("@resultado", SqlDbType.Int) { Direction = ParameterDirection.Output };
+            await _contexto.Database.ExecuteSqlRawAsync(
+                "EXEC @resultado = sp_getapplock @Resource = @recurso, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = @espera;",
+                [resultado, new SqlParameter("@recurso", $"reservas:telefono:{telefono}"), new SqlParameter("@espera", EsperaBloqueoCreacionMs)],
+                cancellationToken);
+
+            // 0 y 1 = obtenido (inmediato o tras esperar); negativo = tiempo agotado, interbloqueo o error.
+            if ((int)resultado.Value < 0)
+            {
+                if (propia)
+                {
+                    await transaccion.RollbackAsync(CancellationToken.None);
+                    await transaccion.DisposeAsync();
+                }
+
+                return null;
+            }
+        }
+        catch
+        {
+            if (propia)
+            {
+                await transaccion.RollbackAsync(CancellationToken.None);
+                await transaccion.DisposeAsync();
+            }
+
+            throw;
+        }
+
+        return propia ? new BloqueoTransaccional(transaccion) : BloqueoCreacionReservaNulo.Instancia;
+    }
+
+    /// <summary>Bloqueo respaldado por la transacción abierta en <see cref="BloquearCreacionPorTelefonoAsync"/>.</summary>
+    private sealed class BloqueoTransaccional : IBloqueoCreacionReserva
+    {
+        private readonly IDbContextTransaction _transaccion;
+        private bool _terminada;
+
+        public BloqueoTransaccional(IDbContextTransaction transaccion)
+        {
+            _transaccion = transaccion;
+        }
+
+        public async Task ConfirmarAsync(CancellationToken cancellationToken)
+        {
+            if (_terminada)
+            {
+                return;
+            }
+
+            _terminada = true;
+            await _transaccion.CommitAsync(cancellationToken);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (!_terminada)
+            {
+                _terminada = true;
+                await _transaccion.RollbackAsync(CancellationToken.None);
+            }
+
+            await _transaccion.DisposeAsync();
+        }
     }
 
     /// <inheritdoc />

@@ -144,9 +144,16 @@ public class ReservaService : IReservaService
         var zonaNombreMesa = (await _zonas.BuscarPorIdAsync(mesaElegida.ZonaId, cancellationToken))?.Nombre
             ?? throw new InvalidOperationException($"La mesa {mesaElegida.Id} referencia una zona que no existe.");
 
-        // Limitación conocida y aceptada: esta cuenta y el guardado final no están en la misma
-        // transacción, así que dos solicitudes del mismo teléfono a la vez podrían dejar pasar
-        // una tercera reserva vigente. No hay índice ni restricción de base que lo evite hoy.
+        // El límite de vigentes por teléfono se cuenta y se guarda dentro de un bloqueo por teléfono: sin él, varias
+        // solicitudes simultáneas del mismo teléfono contarían todas «menos del máximo» y lo rebasarían. El bloqueo
+        // termina (ConfirmarAsync) justo tras el último guardado, antes de publicar el evento; en cualquier retorno
+        // temprano o excepción, DisposeAsync descarta lo pendiente y lo libera.
+        await using var bloqueo = await _reservaRepository.BloquearCreacionPorTelefonoAsync(telefono, cancellationToken);
+        if (bloqueo is null)
+        {
+            return OperationResult.Failure<ReservaCreadaDto>(ErrorType.Conflict, MensajesReservas.CreacionEnCursoParaElTelefono);
+        }
+
         var parametros = await _parametros.ObtenerAsync(cancellationToken);
         var vigentesDelTelefono = await _reservaRepository.ContarVigentesPorTelefonoAsync(telefono, cancellationToken);
         if (vigentesDelTelefono >= parametros.MaxReservasVigentesPorTelefono)
@@ -231,6 +238,8 @@ public class ReservaService : IReservaService
         {
             return OperationResult.Failure<ReservaCreadaDto>(ErrorType.Conflict, ex.Message);
         }
+
+        await bloqueo.ConfirmarAsync(cancellationToken);
 
         // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
         await _publicadorSeguro.PublicarAsync(
@@ -453,6 +462,7 @@ public class ReservaService : IReservaService
         // Una visita sin reserva en esa fecha y franja también ocupa la mesa: no tiene hora de salida, así que
         // se considera ocupada toda la franja. Con esto la asignación automática ya las salta sola.
         var mesasConVisita = await _visitas.ListarMesasConVisitaAsync(fecha, franja.Id, cancellationToken);
+        var mesasReservadasIds = mesasOcupadasIds.ToHashSet();
         mesasOcupadasIds.UnionWith(mesasConVisita);
 
         if (mesaPreferidaId is { } preferidaId)
@@ -516,8 +526,13 @@ public class ReservaService : IReservaService
 
         if (mesaElegida is null)
         {
+            // Si alguna mesa con capacidad quedó sin servir SOLO por una visita sin reserva, el personal debe saberlo:
+            // «ya fue tomada» sugiere otra reserva. El cliente web no ve las visitas, así que conserva el texto general.
+            var bloqueadaSoloPorVisita = audiencia == AudienciaReserva.Personal && mesas.Any(m =>
+                m.Capacidad >= personas && mesasConVisita.Contains(m.Id) && !mesasReservadasIds.Contains(m.Id));
             return OperationResult.Failure<AsignacionMesa>(
-                ErrorType.Conflict, "Esa mesa ya fue tomada, intenta otra franja.");
+                ErrorType.Conflict,
+                bloqueadaSoloPorVisita ? MensajesReservas.SinMesaPorVisitas : "Esa mesa ya fue tomada, intenta otra franja.");
         }
 
         return OperationResult.Success(new AsignacionMesa(mesaElegida, franja));

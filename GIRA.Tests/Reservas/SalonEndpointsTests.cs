@@ -2,6 +2,9 @@ using GIRA.Application.Common;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Interfaces.Services.Seguridad.Auth;
 using GIRA.Domain.Constants;
+using GIRA.Domain.Entities.Reservas;
+using GIRA.Domain.Enums.Reservas;
+using GIRA.Infrastructure.Persistence.Context;
 using GIRA.Tests.Api;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -96,6 +99,54 @@ public class SalonEndpointsTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, desactivar.StatusCode);
         var inactivas = await _cliente.GetFromJsonAsync<PagedResult<MesaDto>>("/api/mesas?activa=false");
         Assert.Equal(1, inactivas!.Total);
+    }
+
+    [Fact]
+    public async Task Mesa_Mover_De_Zona_Con_Reserva_Vigente_Responde_409_Y_Sin_Ella_200()
+    {
+        _cliente.UsarToken(GenerarToken(Roles.Administrador));
+        var salon = await (await _cliente.PostAsJsonAsync("/api/zonas", new { nombre = "Salón" })).Content.ReadFromJsonAsync<ZonaDto>();
+        var terraza = await (await _cliente.PostAsJsonAsync("/api/zonas", new { nombre = "Terraza" })).Content.ReadFromJsonAsync<ZonaDto>();
+        var mesa = await (await _cliente.PostAsJsonAsync("/api/mesas", new { numero = 1, capacidad = 4, zonaId = salon!.Id })).Content.ReadFromJsonAsync<MesaDto>();
+
+        Guid reservaId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var contexto = scope.ServiceProvider.GetRequiredService<GiraDbContext>();
+            var franja = new FranjaHoraria { Nombre = "Cena", HoraInicio = new TimeOnly(18, 0), HoraFin = new TimeOnly(20, 0), Activa = true };
+            contexto.FranjasHorarias.Add(franja);
+            var reserva = new Reserva
+            {
+                Codigo = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant(),
+                ClienteId = Guid.NewGuid(),
+                MesaId = mesa!.Id,
+                FranjaHorariaId = franja.Id,
+                Fecha = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(5),
+                Personas = 2,
+                Origen = OrigenReserva.Web
+            };
+            contexto.Reservas.Add(reserva);
+            await contexto.SaveChangesAsync();
+            reservaId = reserva.Id;
+        }
+
+        var bloqueada = await _cliente.PutAsJsonAsync($"/api/mesas/{mesa!.Id}", new { numero = 1, capacidad = 4, zonaId = terraza!.Id });
+        Assert.Equal(HttpStatusCode.Conflict, bloqueada.StatusCode);
+        Assert.Contains("1 reserva(s) vigente(s)", await bloqueada.Content.ReadAsStringAsync());
+
+        var mismaZona = await _cliente.PutAsJsonAsync($"/api/mesas/{mesa.Id}", new { numero = 9, capacidad = 4, zonaId = salon.Id });
+        Assert.Equal(HttpStatusCode.OK, mismaZona.StatusCode);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var contexto = scope.ServiceProvider.GetRequiredService<GiraDbContext>();
+            var reserva = await contexto.Reservas.FindAsync(reservaId);
+            reserva!.Cancelar("Prueba");
+            await contexto.SaveChangesAsync();
+        }
+
+        var permitida = await _cliente.PutAsJsonAsync($"/api/mesas/{mesa.Id}", new { numero = 9, capacidad = 4, zonaId = terraza.Id });
+        Assert.Equal(HttpStatusCode.OK, permitida.StatusCode);
     }
 
     [Fact]

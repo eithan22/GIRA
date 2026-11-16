@@ -2,6 +2,7 @@ using FluentValidation;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Interfaces.Services.Reservas;
+using GIRA.Application.Services.Reservas;
 
 namespace GIRA.Application.Validations.Reservas;
 
@@ -18,7 +19,8 @@ public class CrearReservaRequestValidator : AbstractValidator<CrearReservaReques
     {
         RuleFor(r => r.Nombre)
             .NotEmpty().WithMessage("El nombre es obligatorio.")
-            .MaximumLength(150);
+            .MaximumLength(MensajesReservas.MaximoNombreCliente)
+            .WithMessage(MensajesReservas.NombreClienteMuyLargo);
 
         RuleFor(r => r.Telefono)
             .Cascade(CascadeMode.Stop)

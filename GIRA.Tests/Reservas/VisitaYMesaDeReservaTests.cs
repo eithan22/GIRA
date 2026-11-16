@@ -123,8 +123,36 @@ public class VisitaYMesaDeReservaTests : IDisposable
         var resultado = await CrearAsync(_almuerzo.Id);
 
         Assert.Equal(ErrorType.Conflict, resultado.Type);
-        Assert.Equal("Esa mesa ya fue tomada, intenta otra franja.", resultado.Error);
+        Assert.Equal(
+            "Las mesas disponibles para este grupo tienen una visita sin reserva en esta franja. Elige otra franja.",
+            resultado.Error);
         Assert.Empty(await _db.Reservas.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Si_Solo_Hay_Otra_Reserva_Ocupando_La_Mesa_El_Mensaje_Es_El_General()
+    {
+        await SembrarSalonAsync();
+        await SembrarReservaAsync(_mesa1.Id, _almuerzo.Id);
+
+        var resultado = await CrearAsync(_almuerzo.Id);
+
+        Assert.Equal(ErrorType.Conflict, resultado.Type);
+        Assert.Equal("Esa mesa ya fue tomada, intenta otra franja.", resultado.Error);
+    }
+
+    [Fact]
+    public async Task El_Cliente_Web_No_Ve_Las_Visitas_Y_Recibe_El_Mensaje_General()
+    {
+        await SembrarSalonAsync();
+        var manana = Dia.AddDays(1);   // el cliente web exige antelación mínima: no vale el mismo día del reloj de prueba
+        await SembrarVisitaAsync(_almuerzo.Id, _mesa1.Id, manana);
+
+        var resultado = await _servicio.CrearAsync(
+            new CrearReservaRequest("Ana Pérez", "8095551234", manana, _almuerzo.Id, 2), default);
+
+        Assert.Equal(ErrorType.Conflict, resultado.Type);
+        Assert.Equal("Esa mesa ya fue tomada, intenta otra franja.", resultado.Error);
     }
 
     [Theory]

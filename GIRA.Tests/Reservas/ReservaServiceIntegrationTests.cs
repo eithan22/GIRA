@@ -84,6 +84,7 @@ public class ReservaServiceIntegrationTests : IClassFixture<ReservaServiceIntegr
     private const int NumeroMesaAlmuerzo = 9002;
     private const int NumeroMesaCena = 9003;
     private const int NumeroMesaLimiteDosReservas = 9004;
+    private const int NumeroMesaVariasSimultaneasMismoTelefono = 9006;
 
     private readonly string _conexion;
 
@@ -222,6 +223,57 @@ public class ReservaServiceIntegrationTests : IClassFixture<ReservaServiceIntegr
         {
             // Pase lo que pase, la base de pruebas queda con todas las migraciones aplicadas.
             await migrador.MigrateAsync();
+        }
+    }
+
+    [Fact]
+    public async Task CrearAsync_VariasSolicitudesSimultaneasDelMismoTelefono_NuncaSuperanElLimiteDeVigentes()
+    {
+        using var proveedor = CrearProveedor(_conexion);
+
+        // Capacidad 14, única de esta prueba. Cada solicitud va a una fecha distinta (la misma mesa y franja sirve para
+        // todas): lo único que las enfrenta es el límite de reservas vigentes del teléfono (2 por defecto).
+        const int capacidad = 14;
+        const int solicitudes = 8;
+
+        using (var scopeDatos = proveedor.CreateScope())
+        {
+            var db = scopeDatos.ServiceProvider.GetRequiredService<GiraDbContext>();
+            var zona = new Zona { Id = Guid.NewGuid(), Nombre = $"Zona-GI228-telefono-{Guid.NewGuid():N}" };
+            db.Zonas.Add(zona);
+            db.Mesas.Add(new Mesa { Id = Guid.NewGuid(), Numero = NumeroMesaVariasSimultaneasMismoTelefono, Capacidad = capacidad, ZonaId = zona.Id });
+            await db.SaveChangesAsync();
+        }
+
+        var telefono = GenerarTelefonoUnico();
+        var scopes = Enumerable.Range(0, solicitudes).Select(_ => proveedor.CreateScope()).ToList();
+        try
+        {
+            var inicio = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10));
+            var tareas = scopes.Select((scope, i) => Task.Run(() =>
+                scope.ServiceProvider.GetRequiredService<IReservaService>().CrearAsync(
+                    new CrearReservaRequest($"Prueba Carrera {i}", telefono, inicio.AddDays(i), FranjaAlmuerzoId, capacidad), default)));
+
+            var resultados = await Task.WhenAll(tareas);
+
+            Assert.Equal(2, resultados.Count(r => r.IsSuccess));
+            Assert.All(
+                resultados.Where(r => !r.IsSuccess),
+                r =>
+                {
+                    Assert.Equal(GIRA.Application.Common.Reservas.CodigosErrorReservas.LimiteVigentes, r.Codigo);
+                });
+
+            using var scopeVerificacion = proveedor.CreateScope();
+            var verificacion = scopeVerificacion.ServiceProvider.GetRequiredService<GiraDbContext>();
+            var vigentes = await verificacion.Reservas
+                .Join(verificacion.Clientes, r => r.ClienteId, cl => cl.Id, (r, cl) => new { r, cl })
+                .CountAsync(x => x.cl.Telefono == telefono);
+            Assert.Equal(2, vigentes);
+        }
+        finally
+        {
+            scopes.ForEach(scope => scope.Dispose());
         }
     }
 

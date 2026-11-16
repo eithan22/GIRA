@@ -26,6 +26,26 @@ internal static class MensajesReservas
             : $"Ya tienes {vigentes} con este teléfono; cancela una para reservar otra.";
     }
 
+    /// <summary>
+    /// Mover una mesa a otra zona con reservas vigentes (Confirmada o EnCurso, de hoy en adelante): esas reservas
+    /// quedarían en una zona distinta de la que eligió el cliente. Mismo criterio que desactivar la mesa.
+    /// </summary>
+    public static string MesaConReservasNoSeMueve(int reservas) =>
+        $"No se puede mover la mesa a otra zona: tiene {reservas} reserva(s) vigente(s) de hoy en adelante. Reasígnalas antes.";
+
+    /// <summary>
+    /// Otra reserva del mismo teléfono se está registrando en este momento y no terminó a tiempo (el bloqueo por
+    /// teléfono expiró). Raro: la sección protegida dura milisegundos. Se puede reintentar.
+    /// </summary>
+    public const string CreacionEnCursoParaElTelefono =
+        "Hay otra reserva de este teléfono registrándose en este momento. Inténtalo de nuevo en unos segundos.";
+
+    /// <summary>Largo máximo del nombre del cliente en una reserva.</summary>
+    public const int MaximoNombreCliente = 150;
+
+    /// <summary>El nombre del cliente supera <see cref="MaximoNombreCliente"/> caracteres (validación de crear reserva).</summary>
+    public static readonly string NombreClienteMuyLargo = $"El nombre no puede superar los {MaximoNombreCliente} caracteres.";
+
     /// <summary>La franja de hoy ya terminó o la fecha ya pasó (motivo de disponibilidad para el cliente).</summary>
     public const string FranjaYaPaso = "Esta franja ya pasó.";
 
@@ -68,6 +88,13 @@ internal static class MensajesReservas
     /// </summary>
     public static string MesaConVisita(int numeroMesa) =>
         $"La mesa {numeroMesa} tiene una visita sin reserva en esta franja. Elige otra mesa o franja.";
+
+    /// <summary>
+    /// La asignación automática no encontró mesa y las que alcanzaban para el grupo están ocupadas por una visita sin
+    /// reserva (no por otra reserva). Solo lo ve el personal.
+    /// </summary>
+    public const string SinMesaPorVisitas =
+        "Las mesas disponibles para este grupo tienen una visita sin reserva en esta franja. Elige otra franja.";
 
     /// <summary>
     /// Aviso (no bloqueante) al registrar una visita: la mesa tiene una reserva vigente en una franja
