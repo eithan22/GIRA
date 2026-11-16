@@ -112,7 +112,7 @@ Todos con `GestionarSalon` (Administrador, Gerente). `{recurso}` es `zonas`, `me
 | `/api/{recurso}` | GET | `GestionarSalon`. Paginado (`page`, `pageSize` máximo 100); filtro opcional `activa` (mesas también `zonaId`) |
 | `/api/{recurso}/{id}` | GET | `GestionarSalon` |
 | `/api/{recurso}` | POST | `GestionarSalon`. 409 si el nombre o número ya existe; en franjas, también 409 si la franja se solapa con otra activa o **no cabe en el horario de operación** de algún día abierto (GI-226; el mensaje indica el día y su horario). Lo mismo al cambiar el horario de una franja activa o reactivarla |
-| `/api/{recurso}/{id}` | PUT | `GestionarSalon` |
+| `/api/{recurso}/{id}` | PUT | `GestionarSalon`. En mesas: 409 si se cambia la zona y la mesa tiene reservas vigentes de hoy en adelante (reasignarlas primero), si se reduce la capacidad por debajo de una reserva futura o si el número ya existe |
 | `/api/{recurso}/{id}/estado` | PATCH | `GestionarSalon`. Body `{ "activa": bool }`; 409 si hay reservas futuras vigentes (reasignarlas primero) |
 
 ### Reservas: proceso automático (no es un endpoint)

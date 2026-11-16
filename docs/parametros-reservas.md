@@ -82,7 +82,8 @@ dentro de 12:00–22:30). Se crean **solo si no existen** y nunca pisan lo que e
    grupo anteriores sigue siendo válida.
 6. **Caché.** Los parámetros se guardan en memoria hasta 2 minutos y se invalidan al guardar; con varias instancias de
    la API, un cambio puede tardar hasta 2 minutos en verse en las demás.
-7. **Concurrencia.** El 409 por modificación concurrente detecta dos guardados simultáneos; una pantalla abierta mucho
+7. **Concurrencia.** El máximo de reservas vigentes por teléfono se cuenta y se guarda bajo un bloqueo por teléfono, así que
+   solicitudes simultáneas no lo rebasan. El 409 por modificación concurrente detecta dos guardados simultáneos; una pantalla abierta mucho
    rato que guarda sobre cambios ajenos ya hechos los sobrescribe (el cliente no envía la versión de la fila).
 8. **Franjas existentes y horario.** Las franjas ya creadas no se revalidan cuando el horario cambia después; se validan
    al crearlas, al cambiar su horario o al reactivarlas.

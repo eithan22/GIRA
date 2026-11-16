@@ -35,7 +35,10 @@ existentes conservan las suyas hasta que el Gerente las edite.
      franjas (por ejemplo a las 16:30), la última que empezó. Una franja anterior responde 409 y el mensaje nombra la
      franja correcta; una que todavía no empieza también responde 409. En la pantalla solo esa franja es elegible y
      las demás salen deshabilitadas («Ya terminó», «Todavía no empieza»); con el restaurante cerrado se avisa y el
-     botón «Registrar visita» queda deshabilitado.
+     botón «Registrar visita» queda deshabilitado. En el **mapa de mesas**, los botones «Registrar visita» de cada mesa
+     libre dependen de lo mismo (es hoy, el restaurante no está cerrado y ya empezó alguna franja activa), **no** de la
+     franja seleccionada en el mapa: entre franjas el mapa suele mostrar la próxima, y aun así se puede registrar en la
+     última que empezó; el formulario usa esa franja y pide el mapa de mesas libres para ella.
   El aviso de próxima reserva (`GET /api/visitas/advertencia-mesa`) no cambia: no consulta el horario, porque con el
   restaurante cerrado la visita no llega a registrarse.
 
@@ -51,6 +54,18 @@ existentes conservan las suyas hasta que el Gerente las edite.
   reserva vigente en esa franja. En la web el cliente puede acotar la búsqueda a una zona (ver «Zona opcional en la
   reserva web»); el personal no.
 - **Límite por teléfono:** como máximo el número configurado de reservas vigentes con el mismo teléfono (por defecto 2).
+  La creación de reservas de un mismo teléfono está **serializada** (bloqueo de aplicación por teléfono normalizado,
+  `sp_getapplock` dentro de una transacción en SQL Server): varias solicitudes simultáneas del mismo teléfono no pueden
+  rebasar el límite; las que sobran reciben `LIMITE_VIGENTES` igual que en secuencia. Si el bloqueo no se obtiene en 10 s
+  responde 409 («Hay otra reserva de este teléfono registrándose en este momento…»); es un caso extremo y se puede reintentar.
+- **Mover una mesa de zona.** Cambiar la zona de una mesa (`PUT /api/mesas/{id}` con otra `zonaId`) con reservas
+  vigentes (Confirmada o EnCurso) de hoy en adelante responde 409 con el número de reservas, igual que desactivarla o
+  reducir su capacidad por debajo de una reserva: esas reservas cambiarían de zona sin que el cliente lo supiera. Sin
+  reservas vigentes se permite; editar número o capacidad sin cambiar la zona nunca se bloquea por esto.
+- **Sin mesa por visitas.** Cuando la asignación automática del personal no encuentra mesa porque las que alcanzaban están
+  ocupadas por una visita sin reserva, el 409 lo dice («Las mesas disponibles para este grupo tienen una visita sin
+  reserva en esta franja. Elige otra franja.»); si las ocupa otra reserva, o si quien reserva es el cliente web, el texto
+  sigue siendo «Esa mesa ya fue tomada, intenta otra franja.».
 - **Día cerrado:** no se puede reservar en un día de la semana cerrado ni en una fecha cerrada, por ningún canal.
 - **Disponibilidad:** la pública (`GET /api/reservas/disponibilidad`) devuelve todas las franjas activas con `disponible` y
   `motivoNoDisponible` (cerrado, fuera del rango, ya pasó, antelación mínima, sin mesas); la del personal
@@ -212,6 +227,7 @@ dotnet test GIRA.Tests --filter "Category=Integration"
 | Clase | Qué prueba | Base de pruebas | User Secret |
 |---|---|---|---|
 | `ReservaServiceIntegrationTests` (GI-228) | Dos solicitudes simultáneas a la última mesa libre de una zona: una se confirma y la otra falla limpio (sin duplicar); migración de franjas de 2 horas sin romper ediciones ni uso. | `GIRA_GI228_TEST` | `ConnectionStrings:GiraGi228Test` |
+| `ReservaServiceIntegrationTests` (límite por teléfono) | Ocho solicitudes simultáneas del mismo teléfono con límite 2: quedan exactamente 2 reservas y el resto recibe `LIMITE_VIGENTES`. | `GIRA_GI228_TEST` | `ConnectionStrings:GiraGi228Test` |
 | `ProcesoNoShowsIntegrationTests` (GI-161) | Dos ejecuciones simultáneas del proceso automático de no-show: el `RowVersion` de la reserva hace que solo una la marque y publique el evento. | `GIRA_GI161_TEST` | `ConnectionStrings:GiraGi161Test` |
 
 Cada fixture (`IAsyncLifetime`) borra y vuelve a migrar su base antes de la corrida (`EnsureDeletedAsync` +
