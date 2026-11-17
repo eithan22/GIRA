@@ -1,0 +1,49 @@
+.reservas-aviso {
+  padding: 14px 16px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border-radius: var(--reservas-radio-mediano);
+  border: 1px solid transparent;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.reservas-aviso-icono { flex: none; margin-top: 1px; }
+
+.reservas-aviso + .reservas-aviso { margin-top: 12px; }
+
+/* 400/404/409/429: role="alert", texto tal cual del servidor. */
+.reservas-aviso--error {
+  background: var(--reservas-error-fondo);
+  border-color: var(--reservas-error-borde);
+  color: var(--reservas-error-texto);
+}
+
+/* 204/200 de confirmación o cancelación exitosa. */
+.reservas-aviso--exito {
+  background: #eaf8f2;
+  border-color: #c9ead9;
+  color: #0f5c45;
+}
+
+/* 429 y avisos no urgentes ("no te enviamos correo"). */
+.reservas-aviso--advertencia {
+  background: var(--reservas-aviso-fondo);
+  border-color: var(--reservas-aviso-borde);
+  color: var(--reservas-aviso-texto);
+}
+
+/* Notas informativas sin urgencia ("tu teléfono es tu llave"). */
+.reservas-aviso--info {
+  background: #faf9ff;
+  border-color: #e6e2ff;
+  color: #4b5669;
+}
+
+/* Estados neutros: vacío, "no hay franjas", EnCurso/Completada/NoAsistio. */
+.reservas-aviso--neutro {
+  background: var(--reservas-fondo-tenue);
+  border-color: var(--reservas-borde-linea);
+  color: var(--reservas-texto-suave);
+}

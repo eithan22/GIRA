@@ -5,7 +5,7 @@ Fuente de verdad del proyecto para cualquier sesión de Claude Code. Léelo ante
 ## 1. Proyecto
 - **Nombre:** GIRA (Gestión Inteligente de Restaurantes Automatizada).
 - **Contexto:** proyecto final de ITLA, Idea N.º 26. Equipo de 6 personas.
-- **Backend:** ASP.NET Core Web API (.NET), Clean Architecture, SQL Server, EF Core, ML.NET. MediatR está **planeado** solo para eventos entre módulos; aún no está instalado ni usado en ningún proyecto.
+- **Backend:** ASP.NET Core Web API (.NET), Clean Architecture, SQL Server, EF Core, ML.NET. MediatR 12.5.0 está instalado en GIRA.Application y en uso para eventos entre módulos; no subir a una versión mayor (13) sin acordarlo antes.
 - **Frontend:** El frontend React vive en la carpeta Gira.frontend/ de este repositorio (no en un repo separado). No tocar el frontend desde el trabajo de backend sin coordinar.
 - **Documento de requisitos:** SRS GIRA v1.1 (6 módulos, 75 requisitos MoSCoW: 53 Debe, 17 Debería, 5 Podría).
 
@@ -14,7 +14,7 @@ Fuente de verdad del proyecto para cualquier sesión de Claude Code. Léelo ante
 GIRA (solución)
 ├── GIRA.Api              → Controllers, Program.cs, middlewares, configuración
 ├── GIRA.Domain           → entidades, enums, eventos de dominio, interfaces; sin dependencias externas
-├── GIRA.Application      → casos de uso, DTOs, validadores FluentValidation, interfaces (MediatR planeado solo para eventos entre módulos)
+├── GIRA.Application      → casos de uso, DTOs, validadores FluentValidation, interfaces, eventos entre módulos (MediatR 12.5.0)
 └── GIRA.Infrastructure   → GiraDbContext, configuraciones EF, migraciones, repositorios, servicios externos
 ```
 > Nota: `GIRA.slnx` agrupa estos proyectos en carpetas virtuales `GIRA-API`, `GIRA-CORE/GIRA-Domain`, `GIRA-CORE/GIRA-Application`, `GIRA-Infrastructure`. Esas carpetas **no existen físicamente en disco**; son solo organización visual de la solución en Visual Studio.
@@ -35,7 +35,7 @@ Seguridad es, además, la **plantilla de organización por subárea** (Auth, Usu
 - `Api/Common/Seguridad` tiene `AutenticacionJwtExtensions` y `LimiteLoginExtensions` (configuración propia de Seguridad). `ClaimsPrincipalExtensions.ObtenerUsuarioId` se queda en `Api/Common` porque es transversal a todos los módulos.
 - `UsuarioService` no se dividió en varias clases: no hay lógica pura que lo justifique sin tocar `UsuariosController`/`MeController` y sus tests. Solo se extrajo `GeneradorPasswordTemporal` (sin estado, sin dependencias de Identity), declarado `public` porque GIRA.Infrastructure no tiene `InternalsVisibleTo` hacia GIRA.Tests.
 
-MediatR se usa SOLO para eventos entre módulos (Application/Events/<Modulo> y Application/EventHandlers/<Modulo>), publicados tras SaveChanges. Es diseño a futuro: hoy esas carpetas solo tienen scaffold vacío (TextFile1.txt) y el paquete MediatR no está instalado en ningún proyecto; se instalará únicamente en GIRA.Application cuando se implemente el primer evento real.
+MediatR (paquete 12.5.0, instalado en GIRA.Application, registrado con `AddMediatR` en `DependencyInjection.cs`) se usa SOLO para eventos entre módulos (Application/Events/<Modulo> y Application/EventHandlers/<Modulo>), publicados tras SaveChanges. Reservas ya lo usa: `ReservaConfirmadaEvent`, `ReservaModificadaEvent`, `ReservaCanceladaEvent`, `ReservaNoAsistidaEvent` y `VisitaCompletadaEvent` se publican desde `ReservaService` vía `IPublisher`. Los demás módulos siguen con las carpetas en scaffold vacío (solo `.gitkeep`, no `TextFile1.txt`); tampoco hay ningún EventHandler todavía, ni para Reservas. No subir a MediatR 13 sin decidirlo antes.
 
 ## 3. Módulos y responsables
 | Módulo | Responsable(s) |
@@ -102,7 +102,7 @@ Una base en la nube se usará **solo** para la demo final, desplegando desde `ma
 - C# con comentarios XML en clases y métodos públicos; nombres de dominio en español (`Reserva`, `Mesa`, `Empleado`), nombres técnicos en inglés cuando sean estándar.
 - Todas las entidades heredan de `BaseEntity` (Id Guid, auditoría, soft delete, RowVersion).
 - Casos de uso en servicios por módulo (y por subárea cuando el módulo la tenga), con FluentValidation invocado desde el servicio. Errores con `ProblemDetails`. NO usar Commands/Queries de MediatR. Convención de repositorio, servicio y registro de DI por módulo (y la excepción de Seguridad): ver sección 2.
-- MediatR está **planeado** (diseño a futuro, aún no instalado) para eventos entre módulos (`INotification`), publicados tras `SaveChanges`, nunca antes. Cuando se implemente: eventos en Application/Events/<Modulo> (ejemplo propuesto: ReservaCompletadaEvent) y handlers en Application/EventHandlers/<Modulo> (ejemplo propuesto: DescontarInsumosHandler). Los handlers deben ser cortos y no fallar en silencio. Prohibido que un módulo use directamente las entidades internas de otro; la comunicación entre módulos es por eventos.
+- MediatR (12.5.0, instalado) se usa para eventos entre módulos (`INotification`), publicados tras `SaveChanges`, nunca antes. Reservas ya tiene eventos reales en Application/Events/Reservas (ver sección 2); los demás módulos siguen con las carpetas en scaffold. Los handlers deben ser cortos y no fallar en silencio (hoy no existe ningún EventHandler todavía, ni para Reservas). Prohibido que un módulo use directamente las entidades internas de otro; la comunicación entre módulos es por eventos.
 - Mapeo manual o con Mapperly. No usar AutoMapper (licencia comercial).
 - Logging con Serilog. Notificaciones en tiempo real con SignalR. Rate limiting en login.
 - **Reservas:** estados `Confirmada → EnCurso → Completada`, `Cancelada`, `NoAsistio`; transiciones como métodos de la entidad `Reserva`; índice único filtrado en `(MesaId, Fecha, FranjaHorariaId)` contra doble reserva.

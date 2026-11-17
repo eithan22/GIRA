@@ -1,5 +1,6 @@
 using GIRA.Api.Authorization;
 using GIRA.Api.Common;
+using GIRA.Api.Common.Reservas;
 using GIRA.Api.Common.Seguridad;
 using GIRA.Application;
 using GIRA.Infrastructure;
@@ -34,6 +35,9 @@ builder.Services.AddLimiteLogin();
 // Límite de solicitudes de recuperación de contraseña (GI-215).
 builder.Services.AddLimiteOlvidePassword();
 
+// Límite del endpoint público de disponibilidad (GI-157).
+builder.Services.AddLimiteReservas();
+
 //servicios de autorización con políticas y roles.
 builder.Services.AddAutorizacionGira();
 
@@ -57,6 +61,10 @@ if (app.Environment.IsDevelopment())
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<Rol>>();
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<Usuario>>();
     await IdentitySeeder.SeedAsync(roleManager, userManager, app.Configuration);
+
+    await ReservasSeeder.SeedAsync(dbContext);
+    await ConfiguracionReservasSeeder.SembrarAsync(dbContext);
+    await FranjasPorDefectoSeeder.SembrarAsync(dbContext);
 }
 
 // En Development no se redirige a https para que Swagger UI funcione con cualquier perfil de launchSettings; en el resto de entornos se mantiene.
@@ -66,8 +74,8 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseCors(CorsExtensions.Politica);
-app.UseRateLimiter();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();

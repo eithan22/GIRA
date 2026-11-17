@@ -10,6 +10,11 @@ import Users from './security/pages/Users.jsx';
 import AppLayout from './security/components/AppLayout.jsx';
 import RequireRole from './security/components/RequireRole.jsx';
 import Icon from './security/components/Icon.jsx';
+import Reservar from './reservas/pages/Reservar.jsx';
+import MiReserva from './reservas/pages/MiReserva.jsx';
+import AgendaPersonal from './reservas/personal/pages/AgendaPersonal.jsx';
+import MapaPersonal from './reservas/personal/pages/MapaPersonal.jsx';
+import ConfiguracionPersonal from './reservas/personal/pages/ConfiguracionPersonal.jsx';
 
 function Home() {
   const { user } = useAuth();
@@ -35,6 +40,8 @@ function AuthenticatedApp() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/recuperar-password" element={<ForgotPassword />} />
+      <Route path="/reservar" element={<Reservar />} />
+      <Route path="/mi-reserva" element={<MiReserva />} />
       <Route element={<RequireRole />}>
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to={home} replace />} />
@@ -46,6 +53,15 @@ function AuthenticatedApp() {
             <Route path="seguridad/usuarios/nuevo" element={<UserForm />} />
             <Route path="seguridad/usuarios/:userId/editar" element={<UserForm />} />
             <Route path="seguridad/usuarios/:userId" element={<UserDetail />} />
+          </Route>
+          <Route element={<RequireRole roles={['Administrador', 'Gerente', 'Supervisor', 'Mesero']} />}>
+            <Route path="reservas" element={<Navigate to="/reservas/agenda" replace />} />
+            <Route path="reservas/agenda" element={<AgendaPersonal />} />
+            <Route path="reservas/mapa" element={<MapaPersonal />} />
+            <Route path="reservas/visitas" element={<Navigate to="/reservas/agenda" replace />} />
+          </Route>
+          <Route element={<RequireRole roles={['Administrador', 'Gerente']} />}>
+            <Route path="reservas/configuracion" element={<ConfiguracionPersonal />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

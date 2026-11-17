@@ -12,8 +12,8 @@ public class OperationResult<T> : OperationResult
         Value = value;
     }
 
-    /// <summary>Resultado fallido con valor.</summary>
-    internal OperationResult(ErrorType type, string error) : base(false, type, error)
+    /// <summary>Resultado fallido con valor, con código estable opcional.</summary>
+    internal OperationResult(ErrorType type, string error, string? codigo = null) : base(false, type, error, codigo)
     {
         Value = default;
     }
