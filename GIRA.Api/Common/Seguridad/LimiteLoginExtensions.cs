@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using GIRA.Api.Common;
 
 namespace GIRA.Api.Common.Seguridad;
 
@@ -26,7 +27,7 @@ public static class LimiteLoginExtensions
 
                 return new ValueTask(Results.Problem(
                     statusCode: StatusCodes.Status429TooManyRequests,
-                    detail: "Demasiados intentos de inicio de sesión. Espera un minuto e inténtalo de nuevo.")
+                    detail: MensajesRateLimiting.Neutro)
                     .ExecuteAsync(context.HttpContext));
             };
 

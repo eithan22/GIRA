@@ -1,0 +1,83 @@
+/* Nueva reserva y modificar (GI-395). Solo clases reservas-personal-*; los colores salen de las
+   variables --reservas-* de Eithan. */
+
+.reservas-personal-formulario { display: flex; flex-direction: column; gap: 18px; }
+.reservas-personal-fila-campos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.reservas-personal-fila-campos > .reservas-campo { min-width: 0; }
+
+.reservas-personal-grupo { display: flex; flex-direction: column; gap: 10px; min-width: 0; margin: 0; padding: 0; border: none; }
+.reservas-personal-grupo legend { margin-bottom: 8px; padding: 0; }
+
+.reservas-personal-estado-franjas { margin: 0; min-height: 1.2em; font-size: 14px; color: var(--reservas-texto-suave); }
+.reservas-personal-bloque-error { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.reservas-personal-bloque-error > .reservas-aviso { width: 100%; }
+.reservas-personal-bloque { display: flex; flex-direction: column; gap: 10px; }
+.reservas-personal-bloque > .reservas-aviso { width: 100%; }
+
+/* --- Opciones tipo tarjeta (origen y franja) --- */
+.reservas-personal-opciones { display: grid; gap: 8px; }
+.reservas-personal-opciones--fila { grid-template-columns: 1fr 1fr; }
+.reservas-personal-opcion {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--reservas-blanco);
+  border: 1px solid #737d92;
+  border-radius: var(--reservas-radio-mediano);
+  cursor: pointer;
+}
+.reservas-personal-opcion input { margin-top: 3px; accent-color: var(--reservas-morado); }
+.reservas-personal-opcion strong { display: block; }
+.reservas-personal-opcion small { display: block; font-size: 13px; color: var(--reservas-texto-suave); }
+.reservas-personal-opcion:has(input:checked) { border-color: var(--reservas-morado); background: #faf9ff; }
+.reservas-personal-opcion:has(input:focus-visible) { outline: 3px solid var(--reservas-foco); outline-offset: 2px; }
+/* Opción deshabilitada: sin opacity. Su motivo («Empieza a las 18:00», «Sin disponibilidad…») es
+   información y con opacity .65 bajaba a 2,66:1; así queda en 5,30:1. Se distingue por el fondo gris, el
+   borde punteado y el radio deshabilitado. */
+.reservas-personal-opcion--deshabilitada { cursor: not-allowed; background: var(--reservas-fondo-tenue); border-style: dashed; color: var(--reservas-texto-suave); }
+
+/* --- Buscador de cliente --- */
+.reservas-personal-clientes { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.reservas-personal-clientes li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--reservas-fondo-tenue);
+  border: 1px solid var(--reservas-borde-linea);
+  border-radius: var(--reservas-radio-mediano);
+}
+
+/* --- Reserva creada --- */
+.reservas-personal-creada { display: flex; flex-direction: column; gap: 16px; }
+
+/* --- Antes / después --- */
+.reservas-personal-tabla-cambios { width: 100%; border-collapse: collapse; font-size: 14px; }
+.reservas-personal-tabla-cambios th,
+.reservas-personal-tabla-cambios td { padding: 8px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--reservas-borde-linea); overflow-wrap: anywhere; }
+.reservas-personal-tabla-cambios thead th { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--reservas-texto-suave); }
+.reservas-personal-tabla-cambios tbody th { font-weight: 700; color: var(--reservas-texto-medio); }
+.reservas-personal-fila-cambia td:last-child { font-weight: 700; color: var(--reservas-morado-fuerte); }
+.reservas-personal-marca-cambia { font-weight: 700; }
+
+/* --- Fila resaltada de la agenda --- */
+.reservas-personal-resaltada { background: #f4f1ff; box-shadow: inset 4px 0 0 var(--reservas-morado); }
+.reservas-personal-tarjeta-reserva.reservas-personal-resaltada { border-color: var(--reservas-morado); }
+.reservas-personal-insignia {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--reservas-blanco);
+  background: var(--reservas-morado-fuerte);
+  border-radius: var(--reservas-radio-pill);
+}
+
+@media (max-width: 720px) {
+  .reservas-personal-fila-campos,
+  .reservas-personal-opciones--fila { grid-template-columns: 1fr; }
+}
