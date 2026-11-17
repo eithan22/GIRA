@@ -1,6 +1,7 @@
 using GIRA.Domain.Constants;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
+using GIRA.Infrastructure.Persistence.Interceptors;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -29,6 +30,8 @@ public class GiraApiFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:GiraDb", "Server=no-se-usa");
         builder.UseSetting("Jwt:Key", "clave-de-pruebas-de-gira-con-mas-de-32-caracteres");
+        // El proceso automático de reservas (BackgroundService) no debe correr en ninguna prueba HTTP.
+        builder.UseSetting("Reservas:ProcesoAutomatico:Habilitado", "false");
 
         builder.ConfigureTestServices(services =>
         {
@@ -36,9 +39,10 @@ public class GiraApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<IDbContextOptionsConfiguration<GiraDbContext>>();
             // El proveedor InMemory no soporta transacciones; CambiarPasswordAsync abre una a
             // propósito (ver el comentario en AuthService), así que se ignora la advertencia.
-            services.AddDbContext<GiraDbContext>(options => options
+            services.AddDbContext<GiraDbContext>((sp, options) => options
                 .UseInMemoryDatabase(_nombreBase)
-                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning)));
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
+                .AddInterceptors(sp.GetRequiredService<AuditoriaSaveChangesInterceptor>()));
         });
     }
 
