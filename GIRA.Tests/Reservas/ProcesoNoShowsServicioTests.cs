@@ -16,10 +16,11 @@ using Entorno = GIRA.Tests.Reservas.EntornoProceso;
 namespace GIRA.Tests.Reservas;
 
 /// <summary>
-/// Pruebas del marcado automático de no-shows (GI-161, GI-189, GI-231): tolerancia (estrictamente
-/// después de 15 min), solo Confirmada, orden de las más antiguas primero, tope de 200 por ciclo, evento
-/// una sola vez tras guardar, idempotencia y aislamiento por reserva. Repositorios reales sobre EF Core
-/// InMemory y un reloj que solo avanza cuando la prueba lo ordena (hora local = UTC-4).
+/// Pruebas del marcado automático de no-shows (GI-161, GI-189, GI-231, GI-404): tolerancia configurable
+/// (estrictamente después de los minutos configurados, 15 por defecto, contados desde el mayor entre el inicio
+/// de la franja y el último registro de la reserva), solo Confirmada, orden de las más antiguas primero, tope
+/// de 200 por ciclo, evento una sola vez tras guardar, idempotencia y aislamiento por reserva. Repositorios
+/// reales sobre EF Core InMemory y un reloj que solo avanza cuando la prueba lo ordena (hora local = UTC-4).
 /// </summary>
 public class ProcesoNoShowsServicioTests
 {
@@ -29,7 +30,7 @@ public class ProcesoNoShowsServicioTests
     private static DateTimeOffset Utc(DateOnly dia, int hora, int minuto) =>
         new(dia.ToDateTime(new TimeOnly(hora, minuto)).AddHours(4), TimeSpan.Zero);
 
-    // --- Tolerancia ---
+    // --- Tolerancia (GI-404): el no-show ocurre al vencer la tolerancia configurada ---
 
     [Fact]
     public async Task En_La_Tolerancia_Exacta_No_Se_Marca_Y_Un_Minuto_Despues_Si()
@@ -46,12 +47,29 @@ public class ProcesoNoShowsServicioTests
         Assert.Equal(EstadoReserva.NoAsistio, await e.EstadoDeAsync(reserva.Id));
     }
 
+    [Fact]
+    public async Task La_Tolerancia_Se_Lee_En_Cada_Ciclo_Y_Un_Cambio_Rige_Desde_El_Siguiente()
+    {
+        // Franja 12:00; a las 12:40 con 60 min de tolerancia todavía no vence, con 30 min sí.
+        using var e = new Entorno(Utc(Hoy, 12, 40));
+        e.Parametros.ToleranciaNoShow = TimeSpan.FromMinutes(60);
+        var reserva = await e.SembrarAsync(Hoy);
+
+        var conUnaHora = await e.Servicio.MarcarNoShowsAsync(default);
+        e.Parametros.ToleranciaNoShow = TimeSpan.FromMinutes(30);
+        var conMediaHora = await e.Servicio.MarcarNoShowsAsync(default);
+
+        Assert.Equal(0, conUnaHora.NoAsistidas);
+        Assert.Equal(1, conMediaHora.NoAsistidas);
+        Assert.Equal(EstadoReserva.NoAsistio, await e.EstadoDeAsync(reserva.Id));
+    }
+
     // --- GI-403: el plazo cuenta desde max(inicio de la franja, último registro de la reserva) ---
 
     [Fact]
     public async Task Creada_Con_La_Franja_Ya_Empezada_Tiene_Sus_15_Min_Desde_Su_Creacion()
     {
-        // Franja 12:00; el personal la crea a las 12:50. Con el plazo anterior (12:15) se marcaría enseguida.
+        // Franja 12:00; el personal la crea a las 12:50. Con el plazo desde el inicio (12:15) se marcaría enseguida.
         using var e = new Entorno(Utc(Hoy, 12, 51));
         var reserva = await e.SembrarAsync(Hoy, 12, creadaUtc: Utc(Hoy, 12, 50).UtcDateTime);
 
@@ -157,7 +175,7 @@ public class ProcesoNoShowsServicioTests
     [Fact]
     public async Task El_Evento_Lleva_Fecha_Franja_Y_Personas_Reservadas_Y_Se_Publica_Una_Vez()
     {
-        using var e = new Entorno(Utc(Hoy, 13, 0));
+        using var e = new Entorno(Utc(Hoy, 14, 0));
         var reserva = await e.SembrarAsync(Hoy, 12, personas: 5);
 
         await e.Servicio.MarcarNoShowsAsync(default);
@@ -180,7 +198,7 @@ public class ProcesoNoShowsServicioTests
             using var otro = new GiraDbContext(entorno!.Opciones);
             estadoAlPublicar = (await otro.Reservas.SingleAsync()).Estado;
         });
-        using var e = new Entorno(Utc(Hoy, 13, 0), publisher);
+        using var e = new Entorno(Utc(Hoy, 14, 0), publisher);
         entorno = e;
         await e.SembrarAsync(Hoy);
 
@@ -193,7 +211,7 @@ public class ProcesoNoShowsServicioTests
     [Fact]
     public async Task Es_Idempotente_Reejecutar_No_Duplica_El_Evento_Ni_Reprocesa()
     {
-        using var e = new Entorno(Utc(Hoy, 13, 0));
+        using var e = new Entorno(Utc(Hoy, 14, 0));
         await e.SembrarAsync(Hoy);
 
         var primera = await e.Servicio.MarcarNoShowsAsync(default);
@@ -209,7 +227,7 @@ public class ProcesoNoShowsServicioTests
     [Fact]
     public async Task Sin_Reservas_No_Falla()
     {
-        using var e = new Entorno(Utc(Hoy, 13, 0));
+        using var e = new Entorno(Utc(Hoy, 14, 0));
 
         var resultado = await e.Servicio.EjecutarAsync(default);
 
@@ -364,5 +382,35 @@ public class ProcesoNoShowsServicioTests
         await cancelacion.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => e.Servicio.MarcarNoShowsAsync(cancelacion.Token));
+    }
+
+    // --- Visitas sin reserva: el proceso automático no las toca ---
+
+    [Fact]
+    public async Task El_Ciclo_Completo_No_Toca_Ninguna_Visita_Sin_Reserva()
+    {
+        // Decisión de diseño: la visita sin reserva es un registro ya consumado, no una sesión con ciclo de
+        // vida; no hay nada que marcar ni que completar en ella (ver el comentario de VisitaSinReserva).
+        using var e = new Entorno(Utc(Hoy, 23, 0));
+        var reserva = await e.SembrarAsync(Hoy.AddDays(-1), 12);
+        var visita = new VisitaSinReserva
+        {
+            Id = Guid.NewGuid(), Fecha = Hoy.AddDays(-1), FranjaHorariaId = reserva.FranjaHorariaId,
+            MesaId = reserva.MesaId, PersonasReales = 3
+        };
+        e.Contexto.VisitasSinReserva.Add(visita);
+        await e.Contexto.SaveChangesAsync();
+
+        var resultado = await e.Servicio.EjecutarAsync(default);
+
+        // La reserva sí pasa a NoAsistio; la visita queda exactamente igual y no publica ningún evento.
+        Assert.Equal(1, resultado.NoAsistidas);
+        var guardada = await e.Contexto.VisitasSinReserva.AsNoTracking().SingleAsync();
+        Assert.Equal(visita.Id, guardada.Id);
+        Assert.Equal(3, guardada.PersonasReales);
+        Assert.Equal(reserva.MesaId, guardada.MesaId);
+        Assert.False(guardada.IsDeleted);
+        Assert.Null(guardada.UpdatedAt);
+        Assert.IsType<ReservaNoAsistidaEvent>(Assert.Single(e.Publisher.Publicados));
     }
 }

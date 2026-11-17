@@ -1,34 +1,36 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { reservasService, extraerMensajeError } from '../reservasService.js';
+import { reservasService, extraerMensajeError, codigoDeError, CODIGOS_ERROR } from '../reservasService.js';
 import { formatearFechaCorta, formatearHora, formatearCodigoVisual, primerNombre } from '../reservasFormato.js';
 import {
   ESTADOS_RESERVA,
   ESTADO_DESCONOCIDO,
+  ETIQUETA_ZONA,
   MENSAJE_ERROR_GENERICO,
-  TEXTO_LIMITE_CANCELACION,
+  textoLimiteCancelacion,
   TEXTO_RESERVA_CANCELADA,
   TEXTO_DIALOGO_CANCELAR_TITULO,
   TEXTO_DIALOGO_CANCELAR_CUERPO,
 } from '../reservasTextos.js';
 import Aviso from './Aviso.jsx';
 import PortadaReservas from './PortadaReservas.jsx';
+import { usePoliticasReserva } from '../hooks/usePoliticasReserva.js';
 
 const DURACION_BLOQUEO_429_MS = 10_000;
 
-// Los 3 textos de 409 que puede devolver /codigo/{codigo}/cancelar: se
-// distinguen por una sub-cadena del mensaje porque el servidor no manda un
-// código de error propio, solo el detail en texto.
-function tipoDe409(mensaje) {
-  if (mensaje.includes('anticipación')) return '409-anticipacion'; // límite de 2h
-  if (mensaje.includes('cambió mientras se procesaba')) return '409-concurrencia';
-  return '409-ya-no-confirmada'; // "Esta reserva ya no se puede cancelar."
+// Los 3 tipos de 409 que puede devolver /codigo/{codigo}/cancelar, por el código estable del
+// servidor (nunca por el texto, que puede cambiar de redacción).
+function tipoDe409(codigo) {
+  if (codigo === CODIGOS_ERROR.CANCELACION_FUERA_DE_PLAZO) return '409-anticipacion'; // límite de 2h
+  if (codigo === CODIGOS_ERROR.CAMBIO_CONCURRENTE) return '409-concurrencia';
+  return '409-ya-no-confirmada'; // CODIGOS_ERROR.RESERVA_NO_CANCELABLE, o un código que no se reconozca
 }
 
 const TIPOS_409_CON_VOLVER_A_CONSULTAR = ['409-concurrencia', '409-ya-no-confirmada'];
 
 /** Fase "detalle" de /mi-reserva: datos de la reserva y su cancelación. */
 export default function DetalleReserva({ reserva, credenciales, onCancelada, onVolverAConsultar, onNueva }) {
+  const { politicas } = usePoliticasReserva();
   const navigate = useNavigate();
   const [estadoLocal, setEstadoLocal] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
@@ -114,7 +116,7 @@ export default function DetalleReserva({ reserva, credenciales, onCancelada, onV
         if (bloqueoTimerRef.current) clearTimeout(bloqueoTimerRef.current);
         bloqueoTimerRef.current = setTimeout(() => setBloqueado429(false), DURACION_BLOQUEO_429_MS);
       } else if (status === 409) {
-        const tipo = tipoDe409(mensaje);
+        const tipo = tipoDe409(codigoDeError(err));
         setErrorCancelar({ tipo, mensaje });
         // Fuera del límite de anticipación: reintentar siempre va a volver a
         // fallar (el tiempo no retrocede), así que "Sí, cancelar" queda
@@ -231,11 +233,25 @@ export default function DetalleReserva({ reserva, credenciales, onCancelada, onV
               <dd className="reservas-detalle-valor">{reserva.personas === 1 ? '1 persona' : `${reserva.personas} personas`}</dd>
             </div>
           </div>
+          {reserva.zonaNombre && (
+            <div className="reservas-detalle-item">
+              <span className="reservas-detalle-icono" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" />
+                  <circle cx="12" cy="10" r="2.5" />
+                </svg>
+              </span>
+              <div>
+                <dt className="reservas-detalle-etiqueta">{ETIQUETA_ZONA}</dt>
+                <dd className="reservas-detalle-valor">{reserva.zonaNombre}</dd>
+              </div>
+            </div>
+          )}
         </dl>
 
         {info.puedeCancelar && !confirmando && (
           <div className="reservas-detalle-nota-cancelar">
-            <span className="reservas-detalle-nota-cancelar-texto"><strong>{TEXTO_LIMITE_CANCELACION}</strong></span>
+            <span className="reservas-detalle-nota-cancelar-texto"><strong>{textoLimiteCancelacion(politicas)}</strong></span>
             <button ref={botonCancelarRef} type="button" className="reservas-boton reservas-boton--chico reservas-boton--fantasma-error" onClick={abrirDialogo}>
               Cancelar reserva
             </button>

@@ -130,6 +130,18 @@ public class MesaService : IMesaService
             return NumeroDuplicado(request.Numero);
         }
 
+        if (request.ZonaId != mesa.ZonaId)
+        {
+            // Mover la mesa cambiaría la zona de sus reservas vigentes sin que nadie lo avise: se pide reasignarlas antes.
+            var reservasVigentes = await _reservasFuturas.ContarPorMesaAsync(id, _reloj.HoyLocal(), cancellationToken);
+            if (reservasVigentes > 0)
+            {
+                return OperationResult.Failure<MesaDto>(
+                    ErrorType.Conflict,
+                    MensajesReservas.MesaConReservasNoSeMueve(reservasVigentes));
+            }
+        }
+
         if (request.Capacidad < mesa.Capacidad)
         {
             var maximo = await _reservasFuturas.MaximoPersonasPorMesaAsync(id, _reloj.HoyLocal(), cancellationToken);

@@ -1,4 +1,5 @@
 using GIRA.Domain.Base;
+using GIRA.Domain.Entities.Configuracion;
 using GIRA.Domain.Entities.Reservas;
 using GIRA.Domain.Entities.Seguridad;
 using GIRA.Infrastructure.Identity;
@@ -47,6 +48,15 @@ public class GiraDbContext : IdentityDbContext<Usuario, Rol, Guid>
 
     /// <summary>Visitas de clientes que llegaron sin reserva previa.</summary>
     public DbSet<VisitaSinReserva> VisitasSinReserva => Set<VisitaSinReserva>();
+
+    /// <summary>Políticas de reserva del restaurante (una sola fila).</summary>
+    public DbSet<ConfiguracionRestaurante> ConfiguracionesRestaurante => Set<ConfiguracionRestaurante>();
+
+    /// <summary>Horario de operación, una fila por día de la semana.</summary>
+    public DbSet<HorarioOperacion> HorariosOperacion => Set<HorarioOperacion>();
+
+    /// <summary>Fechas concretas en las que el restaurante está cerrado.</summary>
+    public DbSet<DiaCerrado> DiasCerrados => Set<DiaCerrado>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder builder)

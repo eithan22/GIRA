@@ -113,7 +113,7 @@ public class Reserva : BaseEntity
         MotivoCancelacion = motivo;
     }
 
-    /// <summary>Marca la reserva como NoAsistio porque el cliente no llegó dentro de la tolerancia.</summary>
+    /// <summary>Marca la reserva como NoAsistio porque el cliente no llegó (la franja terminó o el personal la marcó con la franja ya empezada).</summary>
     public void MarcarNoAsistio()
     {
         if (Estado != EstadoReserva.Confirmada)

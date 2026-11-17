@@ -45,6 +45,14 @@ public class ReservasFuturasRepository : IReservasFuturasRepository
         return Vigentes(desde).CountAsync(r => r.FranjaHorariaId == franjaId, cancellationToken);
     }
 
+    public async Task<int> ContarPorDiaSemanaAsync(DayOfWeek dia, DateOnly desde, CancellationToken cancellationToken)
+    {
+        // Se traen solo las fechas (de reservas vigentes futuras) y se cuentan en memoria: no depende de cómo
+        // SQL Server traduzca el día de la semana de un DateOnly.
+        var fechas = await Vigentes(desde).Select(r => r.Fecha).ToListAsync(cancellationToken);
+        return fechas.Count(fecha => fecha.DayOfWeek == dia);
+    }
+
     // "Vigente" = Confirmada o EnCurso, igual que el índice único de doble reserva.
     private IQueryable<Reserva> Vigentes(DateOnly desde)
     {

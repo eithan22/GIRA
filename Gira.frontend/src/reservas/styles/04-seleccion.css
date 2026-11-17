@@ -128,6 +128,30 @@
   font-weight: 700;
 }
 
+/* Franja que no se puede elegir (GI-226): sigue en el orden de tabulación (aria-disabled), con el motivo visible. */
+.reservas-franja--deshabilitada {
+  background: var(--reservas-franja-off-fondo);
+  border: 2px dashed var(--reservas-franja-off-borde);
+  cursor: not-allowed;
+}
+
+.reservas-franja--deshabilitada .reservas-franja-nombre { color: var(--reservas-franja-off-texto); }
+.reservas-franja--deshabilitada .reservas-franja-horario { color: var(--reservas-franja-off-horario); }
+.reservas-franja--deshabilitada .reservas-franja-icono { filter: grayscale(1); }
+
+.reservas-franja-badge--no-disponible {
+  background: var(--reservas-franja-off-badge-fondo);
+  color: var(--reservas-franja-off-badge-texto);
+}
+
+.reservas-franja-motivo {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--reservas-franja-off-motivo);
+}
+
 .reservas-franja-nombre { display: block; font: 800 22px var(--reservas-fuente-titulo); color: var(--reservas-texto); }
 .reservas-franja-horario { font-size: 16px; color: var(--reservas-texto-medio); }
 
@@ -191,6 +215,11 @@
   .reservas-franja:hover {
     border-color: var(--reservas-morado);
     box-shadow: var(--reservas-sombra-franja);
+  }
+
+  .reservas-franja--deshabilitada:hover {
+    border-color: var(--reservas-franja-off-borde);
+    box-shadow: none;
   }
 }
 

@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { extraerMensajeError } from '../reservasService.js';
+import { usePoliticasReserva } from '../hooks/usePoliticasReserva.js';
 import {
   AYUDA_TELEFONO_CORTA,
   AYUDA_TELEFONO_FORMATO,
   AYUDA_TELEFONO_CODIGO_PAIS,
   AYUDA_CODIGO,
   MENSAJE_ERROR_GENERICO,
-  TELEFONO_RESTAURANTE,
+  TEXTO_CONTACTAR_RESTAURANTE,
 } from '../reservasTextos.js';
+import { normalizarCodigoReserva } from '../reservasFormato.js';
 import Aviso from './Aviso.jsx';
 
 const DURACION_BLOQUEO_429_MS = 10_000;
@@ -36,6 +38,10 @@ function validarTelefono(digitos) {
  * ganado después con su propio envío.
  */
 export default function BuscarReserva({ inicial, errorInicial, bloqueadoInicial, onBuscar, buscando }) {
+  // El teléfono del restaurante sale de las políticas públicas (la petición está compartida y cacheada entre
+  // todas las pantallas de /reservar y /mi-reserva); mientras no llegue, o si el restaurante no configuró
+  // ninguno, la nota de abajo remite al restaurante sin mostrar ningún número.
+  const { politicas } = usePoliticasReserva();
   const [codigo, setCodigo] = useState(inicial?.codigo ?? '');
   const [telefono, setTelefono] = useState(inicial?.telefono ?? '');
   const [telefonoTocado, setTelefonoTocado] = useState(false);
@@ -114,12 +120,11 @@ export default function BuscarReserva({ inicial, errorInicial, bloqueadoInicial,
               type="text"
               inputMode="numeric"
               autoComplete="off"
-              maxLength={8}
               placeholder="12345678"
               className="reservas-input reservas-input--codigo"
               value={codigo}
               aria-describedby="reservas-buscar-ayuda-codigo"
-              onChange={(evento) => setCodigo(evento.target.value.replace(/\D/g, '').slice(0, 8))}
+              onChange={(evento) => setCodigo(normalizarCodigoReserva(evento.target.value))}
             />
             <span id="reservas-buscar-ayuda-codigo" className="reservas-campo-ayuda">{AYUDA_CODIGO}</span>
           </div>
@@ -178,7 +183,11 @@ export default function BuscarReserva({ inicial, errorInicial, bloqueadoInicial,
           </button>
         </form>
 
-        <p className="reservas-nota reservas-nota--chica">¿Perdiste tu código? Llama al restaurante: <strong>{TELEFONO_RESTAURANTE}</strong>.</p>
+        <p className="reservas-nota reservas-nota--chica">
+          {politicas.telefonoContacto
+            ? <>¿Perdiste tu código? Llama al restaurante: <strong>{politicas.telefonoContacto}</strong>.</>
+            : <>¿Perdiste tu código? {TEXTO_CONTACTAR_RESTAURANTE}</>}
+        </p>
       </section>
 
       <aside className="reservas-tarjeta-ticket">

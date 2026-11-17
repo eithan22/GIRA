@@ -5,6 +5,12 @@ namespace GIRA.Application.DTOs.Reservas;
 /// (hoy, hora de Santo Domingo).
 /// </summary>
 /// <param name="FranjaHorariaId">Franja activa que ya empezó hoy.</param>
-/// <param name="MesaId">Mesa ocupada; opcional. Si se envía debe estar activa y libre en esa franja.</param>
-/// <param name="Personas">Personas atendidas; sin mesa, hasta el tope de capacidad de una mesa (50).</param>
+/// <param name="MesaId">
+/// Mesa donde se sentó el grupo; obligatoria (decisión del líder, GI-166): null, vacía u omitida responde 400.
+/// Debe estar activa, de zona activa, sin reserva vigente y sin otra visita en esa fecha y franja (una mesa
+/// admite un solo grupo por franja). Se mantiene <see cref="Guid"/> nullable (no <see cref="Guid"/> a secas)
+/// para que un cuerpo sin la clave <c>mesaId</c> y uno con <c>"mesaId": null</c> lleguen igual a
+/// <c>null</c> y el validador los rechace con el mismo mensaje.
+/// </param>
+/// <param name="Personas">Personas atendidas; hasta la capacidad de la mesa.</param>
 public record RegistrarVisitaRequest(Guid FranjaHorariaId, Guid? MesaId, int Personas);

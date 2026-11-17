@@ -44,6 +44,7 @@ public class VisitaListadoServicioTests
                 new MesaGestionRepository(Contexto),
                 new ZonaRepository(Contexto),
                 new ReservaRepository(Contexto),
+                new ParametrosReservaFalso(),
                 new RegistrarVisitaRequestValidator(),
                 new ListarVisitasRequestValidator(reloj),
                 new PublicadorEventosSeguro(new PublisherFalso(), NullLogger<PublicadorEventosSeguro>.Instance),

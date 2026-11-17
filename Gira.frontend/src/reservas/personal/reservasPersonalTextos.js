@@ -1,3 +1,4 @@
+import { formatearDuracionMinutos } from '../reservasFormato.js';
 import { ESTADOS_RESERVA } from '../reservasTextos.js';
 
 // Textos y mapas del personal. Lo genérico (colores de estado, mensaje de error
@@ -85,10 +86,12 @@ export const TEXTO_CARGANDO_DATOS_MESA = 'Cargando los datos de la mesa…';
 
 export const TEXTO_ACCION_CHECKIN = 'Check-in';
 export const TEXTO_ACCION_COMPLETAR = 'Completar visita';
+export const TEXTO_ACCION_NO_ASISTIO = 'Marcar No asistió';
 export const TEXTO_ACCION_CANCELAR = 'Cancelar reserva';
 
 export const TEXTO_CONFIRMAR_CHECKIN = 'Confirmar check-in';
 export const TEXTO_CONFIRMAR_COMPLETAR = 'Sí, completar visita';
+export const TEXTO_CONFIRMAR_NO_ASISTIO = 'Sí, marcar No asistió';
 export const TEXTO_CONFIRMAR_CANCELAR = 'Sí, cancelar reserva';
 export const TEXTO_VOLVER = 'Volver';
 export const TEXTO_MANTENER_RESERVA = 'Mantener reserva';
@@ -97,15 +100,23 @@ export const TITULO_CHECKIN = '¿Cuántas personas llegaron?';
 export const CUERPO_CHECKIN = 'Se registra la llegada y la reserva pasa a En curso.';
 export const TITULO_COMPLETAR = '¿Completar la visita?';
 export const CUERPO_COMPLETAR = 'Se registra la visita como completada y la mesa queda libre.';
+export const TITULO_NO_ASISTIO = '¿Marcar como no asistida?';
+export const CUERPO_NO_ASISTIO = 'El cliente no llegó: la reserva pasa a No asistió y la mesa queda libre. Esta acción no se puede deshacer. Si el cliente llega después, regístralo como visita sin reserva.';
 export const TITULO_CANCELAR = '¿Cancelar esta reserva?';
 export const CUERPO_CANCELAR = 'La mesa quedará libre y esta acción no se puede deshacer. El motivo queda guardado en la reserva.';
 
 export const EXITO_CHECKIN = 'Check-in registrado. La reserva está En curso.';
 export const EXITO_COMPLETAR = 'Visita completada.';
 export const EXITO_CANCELAR = 'Reserva cancelada.';
+export const EXITO_NO_ASISTIO = 'Reserva marcada como No asistió. La mesa quedó libre.';
 
 // Solo informa lo que pasó; no promete ningún flujo posterior.
-export const AVISO_NO_ASISTIO = 'El cliente no llegó dentro de la tolerancia, por eso la reserva quedó como no asistida.';
+export const AVISO_NO_ASISTIO = 'El cliente no llegó, por eso la reserva quedó como no asistida.';
+
+// Explica por qué Modificar y Cancelar aparecen deshabilitados (C2, RN-RES-04): lo decide el backend
+// (detalle.puedeModificar / detalle.puedeCancelar), nunca la hora del navegador.
+export const TEXTO_FRANJA_EMPEZADA =
+  "La franja ya empezó; no se puede modificar ni cancelar. Si el cliente no llegó, usa \"Marcar no asistió\".";
 
 export const ETIQUETA_PERSONAS_REALES = 'Personas que llegaron';
 export const ETIQUETA_MOTIVO = 'Motivo de la cancelación';
@@ -124,7 +135,7 @@ export const TEXTO_ORIGEN_PRESENCIAL = 'En persona';
 export const AYUDA_ORIGEN_TELEFONO = 'El cliente llamó por teléfono.';
 export const AYUDA_ORIGEN_PRESENCIAL = 'El cliente está en el restaurante ahora.';
 export const MENSAJE_ORIGEN_OBLIGATORIO = 'Elige cómo llegó la reserva.';
-export const MENSAJE_FECHA_FUERA_DE_RANGO = 'Elige una fecha desde hoy hasta 30 días adelante.';
+export const mensajeFechaFueraDeRango = (dias) => `Elige una fecha desde hoy hasta ${dias} ${dias === 1 ? 'día' : 'días'} adelante.`;
 export const MENSAJE_FRANJA_OBLIGATORIA = 'Elige una franja con disponibilidad.';
 
 export const TEXTO_MESA_AUTOMATICA_CREAR = 'La mesa se asigna automáticamente: la de menor capacidad que alcance.';
@@ -147,9 +158,15 @@ export const TEXTO_SIN_FRANJAS_ACTIVAS = 'No hay franjas activas configuradas.';
 export const TEXTO_SIN_DISPONIBILIDAD_PERSONAL = 'No hay franjas con disponibilidad para esa fecha y esas personas. Prueba otro día.';
 export const TEXTO_FRANJA_SIN_DISPONIBILIDAD = 'Sin disponibilidad (llena o ya terminó)';
 export const TEXTO_FRANJA_SOLO_PERSONAL = 'Disponible solo para el personal';
-export const AVISO_FRANJA_SOLO_PERSONAL =
-  'La franja de hoy está disponible solo para el personal: el cliente web ya no puede reservarla porque '
-  + 'faltan menos de 2 horas o ya empezó. Puedes registrarla mientras no haya terminado.';
+// Recibe la antelación mínima en minutos. Con 0 el cliente web solo se queda sin la franja cuando ya empezó: no se dice
+// «faltan menos de 0 minutos».
+export const avisoFranjaSoloPersonal = (antelacionMinimaMinutos) => {
+  const motivo = antelacionMinimaMinutos > 0
+    ? `faltan menos de ${formatearDuracionMinutos(antelacionMinimaMinutos)} o ya empezó`
+    : 'ya empezó';
+  return 'La franja de hoy está disponible solo para el personal: el cliente web ya no puede reservarla porque '
+    + `${motivo}. Puedes registrarla mientras no haya terminado.`;
+};
 export const TEXTO_FRANJA_SIN_CONFIRMAR = 'Disponibilidad sin confirmar';
 export const TEXTO_FRANJA_DISPONIBLE = 'Disponible';
 export const TEXTO_ACTUALIZAR_DISPONIBILIDAD = 'Actualizar disponibilidad';
@@ -184,7 +201,8 @@ export const TEXTO_VOLVER_A_EDITAR = 'Volver a editar';
 export const TITULO_CONFIRMAR_MODIFICAR = '¿Modificar esta reserva?';
 export const CUERPO_CONFIRMAR_MODIFICAR = 'Se guardan los cambios marcados. El servidor valida la disponibilidad otra vez al guardar.';
 export const EXITO_MODIFICAR = 'Reserva modificada.';
-export const AYUDA_NUEVO_HORARIO = 'Un horario nuevo se valida como reserva nueva: hasta 30 días adelante y con la franja sin terminar.';
+export const ayudaNuevoHorario = (dias) =>
+  `Un horario nuevo se valida como reserva nueva: hasta ${dias} ${dias === 1 ? 'día' : 'días'} adelante y con la franja sin terminar.`;
 export const ETIQUETA_MESA = 'Mesa';
 export const OPCION_MESA_AUTOMATICA = 'Automática (conserva la actual si sirve)';
 export const TEXTO_MESA_ACTUAL = 'actual';
@@ -215,7 +233,7 @@ export const TITULO_VISITAS_HOY = 'Visitas sin reserva de hoy';
 export const TEXTO_VISITAS_VACIO = 'Todavía no hay visitas sin reserva hoy.';
 export const TEXTO_VISITAS_CARGANDO = 'Cargando las visitas…';
 export const TEXTO_VISITAS_ERROR = 'No pudimos cargar las visitas de hoy.';
-export const AYUDA_VISITAS_SIN_MARCA = 'Estas visitas no marcan la mesa como ocupada en el mapa: no tienen hora de salida.';
+export const AYUDA_VISITAS_SIN_MARCA = 'Estas visitas no marcan la mesa como ocupada en el mapa (sigue viéndose Libre), aunque sí se le agrega la etiqueta «Con visita».';
 // Una visita sin registro de hora (no debería pasar en producción): texto neutro en vez de una hora inventada.
 export const TEXTO_VISITA_SIN_HORA = 'sin hora';
 
@@ -227,11 +245,12 @@ export const TEXTO_SIN_FRANJAS_MAPA = 'No hay franjas configuradas.';
 export const TEXTO_SIN_ZONAS = 'No hay zonas ni mesas configuradas.';
 export const TEXTO_ZONA_SIN_MESAS = 'Esta zona no tiene mesas.';
 export const TEXTO_ZONA_INACTIVA = 'Zona inactiva';
-export const TEXTO_VISITA_NO_DISPONIBLE = 'Para registrar visitas, elige hoy y una franja que ya empezó.';
+export const TEXTO_VISITA_NO_DISPONIBLE = 'Las visitas sin reserva se registran solo hoy, con el restaurante abierto y desde que empieza la primera franja.';
 export const TEXTO_ELIGE_FRANJA_MAPA = 'Elige una franja para ver el mapa.';
 export const TEXTO_CARGANDO_MAPA = 'Cargando el mapa…';
 export const TEXTO_ACCION_REGISTRAR_VISITA = 'Registrar visita';
 export const TEXTO_ACCION_ABRIR_RESERVA = 'Abrir reserva';
+export const TEXTO_MESA_CON_VISITA = 'Con visita';
 
 export const ESTADOS_MESA = {
   Libre: { etiqueta: 'Libre', simbolo: '○', clase: 'libre' },
@@ -244,6 +263,24 @@ export function textoConflictoMesaInactiva(cliente) {
   return cliente
     ? `Mesa inactiva con reserva vigente: ${cliente}`
     : 'Mesa inactiva con reserva vigente';
+}
+
+// "Próx. HH:mm": aviso discreto de la próxima reserva vigente de la mesa, en una franja posterior a la que
+// muestra el mapa, que todavía no ha terminado (GI-4xx). No es un estado ni cambia el color de la mesa.
+export function textoProximaReservaMapa(hora) {
+  return `Próx. ${hora}`;
+}
+
+export function textoProximaReservaMapaAccesible(hora, personas) {
+  return personas != null
+    ? `próxima reserva a las ${hora}, ${personas} ${personas === 1 ? 'persona' : 'personas'}`
+    : `próxima reserva a las ${hora}`;
+}
+
+// Fragmento listo para concatenar en un aria-label (con la coma incluida), igual que el resto de datos
+// opcionales de la mesa en MesaMapa.jsx. No es un estado ni cambia el color de la mesa.
+export function textoMesaConVisitaAccesible(tieneVisita) {
+  return tieneVisita ? `, ${TEXTO_MESA_CON_VISITA}` : '';
 }
 
 export function textoZonaResumen(libres, total) {
@@ -261,21 +298,28 @@ export function textoResumenMapa({ franja, horas, fechaLarga, resumen }) {
 // Visitas sin reserva
 export const TITULO_VISITA = 'Registrar visita';
 export const TEXTO_FRANJA_EN_CURSO = 'En curso';
-export const TEXTO_FRANJA_TERMINADA = 'Ya terminó (el servidor lo permite)';
+export const TEXTO_FRANJA_TERMINADA = 'Ya terminó';
+export const TEXTO_FRANJA_NO_EMPEZO = 'Todavía no empieza';
+// Restaurante cerrado (solo informativo; el servidor decide): la visita sin reserva no se registra fuera de horario.
+export const TEXTO_RESTAURANTE_CERRADO_HOY = 'El restaurante está cerrado hoy. No se pueden registrar visitas sin reserva.';
+export const textoRestauranteCerradoAhora = (apertura, cierre) =>
+  `El restaurante está cerrado ahora (horario de hoy: ${apertura}–${cierre}). No se pueden registrar visitas sin reserva fuera de horario.`;
 export const TEXTO_SIN_FRANJAS_VISITA = 'No hay franjas activas configuradas.';
 export const TEXTO_CARGANDO_FRANJAS = 'Cargando las franjas…';
 export const TEXTO_ERROR_FRANJAS = 'No pudimos cargar las franjas.';
 export const ETIQUETA_PERSONAS_VISITA = 'Personas';
-export const ETIQUETA_MESA_VISITA = 'Mesa (opcional)';
+export const ETIQUETA_MESA_VISITA = 'Mesa';
+export const MENSAJE_MESA_OBLIGATORIA = 'Elige la mesa donde se sentó el grupo.';
+// "Sin mesa" ya no es una opción al registrar (la mesa es obligatoria): se queda solo para el listado de
+// visitas históricas de hoy (descripcionVisita), que puede traer una visita sin mesa de antes de esta regla.
 export const OPCION_SIN_MESA = 'Sin mesa';
-export const AYUDA_MESA_VISITA = 'La lista puede incluir mesas con una visita ya sentada: el sistema no las marca como ocupadas.';
 export const AVISO_VISITA_DEFINITIVA = 'Estas visitas no se pueden editar ni borrar después.';
 export const TEXTO_REGISTRAR_VISITA = 'Registrar visita';
 export const TEXTO_REGISTRANDO_VISITA = 'Registrando…';
 export const TEXTO_CONFIRMAR_VISITA = 'Sí, registrar visita';
 export const TITULO_VISITA_REGISTRADA = 'Visita registrada';
 export const TEXTO_REGISTRAR_OTRA = 'Registrar otra';
-export const AVISO_MESA_VISITA_SIN_MARCA = 'El mapa no marca como ocupadas las mesas con visitas sin reserva: la mesa seguirá viéndose Libre.';
+export const AVISO_MESA_VISITA_SIN_MARCA = 'El mapa no marca como ocupadas las mesas con visitas sin reserva: la mesa seguirá viéndose Libre, con la etiqueta «Con visita».';
 
 export function textoSinFranjaEmpezada(horaInicio) {
   return `Todavía no empezó ninguna franja de hoy. La primera empieza a las ${horaInicio}.`;
@@ -363,5 +407,92 @@ export function textoEstadoCambiado(singular, activa) {
 }
 
 export function textoConfirmarVisita(cantidad, mesa) {
-  return `¿Registrar visita de ${textoPersonas(cantidad)} en ${mesa ? `Mesa ${mesa}` : 'sin mesa'}? No se podrá editar ni borrar.`;
+  return `¿Registrar visita de ${textoPersonas(cantidad)} en Mesa ${mesa}? No se podrá editar ni borrar.`;
 }
+
+// --- Configuración de reservas: Políticas, Horario y Días cerrados (GI-226, Lote 6) ---
+
+export const TEXTO_PESTANA_POLITICAS = 'Políticas';
+export const TEXTO_PESTANA_HORARIO = 'Horario';
+export const TEXTO_PESTANA_DIAS_CERRADOS = 'Días cerrados';
+
+export const TITULO_CAMBIOS_SIN_GUARDAR = '¿Salir sin guardar?';
+export const CUERPO_CAMBIOS_SIN_GUARDAR = 'Hay cambios sin guardar en esta pestaña. Si cambias de pestaña, se pierden.';
+export const TEXTO_DESCARTAR_Y_CAMBIAR = 'Descartar y cambiar';
+
+export const INTRO_POLITICAS =
+  'Las reglas de creación (antelación, reservas por teléfono y tamaño de grupo) rigen para las reservas nuevas y no '
+  + 'invalidan las existentes. La ventana de check-in, la tolerancia de no-show y el límite de cancelación se leen '
+  + 'en el momento de usarlos.';
+export const TEXTO_RESTABLECER = 'Restablecer valores recomendados';
+export const TEXTO_DESCARTAR_CAMBIOS = 'Descartar cambios';
+export const AVISO_RECOMENDADOS_CARGADOS = 'Valores recomendados cargados; pulsa Guardar';
+export const EXITO_POLITICAS = 'Políticas guardadas.';
+export const TEXTO_GUARDAR_POLITICAS = 'Guardar políticas';
+export const textoUltimaActualizacion = (fecha) => `Última actualización: ${fecha}`;
+export const textoPorDefecto = (valor, unidad) => `Por defecto: ${valor} ${unidad}.`;
+export const ERROR_CORREGIR_CAMPOS = 'Corrige los campos marcados antes de guardar.';
+export const TEXTO_CARGANDO_CONFIGURACION = 'Cargando la configuración…';
+export const TEXTO_CONFIGURACION_NO_CARGO = 'No pudimos cargar la configuración.';
+
+// Teléfono de contacto (campo de texto, no numérico): es opcional y nace vacío. La frase sobre qué pasa sin
+// teléfono se muestra SIEMPRE, no solo cuando el campo está vacío: así se entiende la consecuencia antes de borrarlo.
+export const ETIQUETA_TELEFONO_CONTACTO = 'Teléfono de contacto';
+export const AVISO_SIN_TELEFONO_CONTACTO = 'Sin teléfono configurado, los clientes no verán un número de contacto.';
+export const AYUDA_TELEFONO_CONTACTO =
+  'Número que se muestra al cliente cuando necesita llamar: grupos más grandes del máximo, sin disponibilidad o '
+  + `código de reserva perdido. Opcional. ${AVISO_SIN_TELEFONO_CONTACTO}`;
+
+/** Etiqueta y ayuda de cada política: qué hace y a qué reservas aplica. El valor por defecto lo pone la pantalla. */
+export const TEXTOS_CAMPOS_POLITICAS = {
+  antelacionMinimaMinutos: {
+    etiqueta: 'Antelación mínima',
+    ayuda: 'Con cuánto tiempo de anticipación se puede reservar por la web. Aplica a las reservas nuevas.',
+  },
+  antelacionMaximaDias: {
+    etiqueta: 'Antelación máxima',
+    ayuda: 'Hasta cuántos días adelante se puede reservar (de 1 a 365). Aplica a las reservas nuevas.',
+  },
+  limiteCancelacionMinutos: {
+    etiqueta: 'Límite de cancelación',
+    ayuda: 'Hasta cuánto antes del inicio de la franja puede cancelar el cliente. Se evalúa al cancelar, también en reservas ya hechas.',
+  },
+  ventanaCheckInMinutos: {
+    etiqueta: 'Ventana de check-in',
+    ayuda: 'Desde cuánto antes del inicio de la franja se permite el check-in (de 0 a 120). Se evalúa en el momento del check-in.',
+  },
+  toleranciaNoShowMinutos: {
+    etiqueta: 'Tolerancia de no-show',
+    ayuda: 'Minutos después del inicio de la franja tras los cuales una reserva sin check-in se marca como No asistió y libera la mesa. Por defecto 15.',
+  },
+  maxReservasVigentesPorTelefono: {
+    etiqueta: 'Reservas vigentes por teléfono',
+    ayuda: 'Máximo de reservas Confirmadas o En curso con un mismo teléfono (de 1 a 10). Aplica a las reservas nuevas.',
+  },
+  maxPersonasPorReserva: {
+    etiqueta: 'Tamaño máximo de grupo',
+    ayuda: 'Máximo de personas por reserva (de 1 a 50). Nunca supera la mesa activa más grande. Aplica a las reservas nuevas.',
+  },
+};
+
+export const INTRO_HORARIO =
+  'Horario de operación de cada día. Las franjas activas deben caber en el horario de todos los días abiertos. '
+  + 'Reducir el horario o cerrar un día no cancela las reservas ya hechas.';
+export const ETIQUETA_ABIERTO = 'Abierto';
+export const ETIQUETA_APERTURA = 'Apertura';
+export const ETIQUETA_CIERRE = 'Cierre';
+export const TEXTO_DIA_CERRADO = 'Cerrado';
+export const exitoHorario = (dia) => `Horario del ${dia.toLowerCase()} guardado.`;
+
+export const INTRO_DIAS_CERRADOS =
+  'Fechas concretas en las que el restaurante no abre (feriados, eventos). No se cancelan las reservas ya hechas: '
+  + 'solo se impiden las nuevas ese día.';
+export const ETIQUETA_FECHA_CIERRE = 'Fecha';
+export const ETIQUETA_MOTIVO_CIERRE = 'Motivo (opcional)';
+export const TEXTO_CERRAR_DIA = 'Cerrar este día';
+export const TEXTO_QUITAR_CIERRE = 'Quitar';
+export const TEXTO_CONFIRMAR_QUITAR = 'Sí, quitar';
+export const textoPreguntaQuitar = (fecha) => `¿Quitar el cierre del ${fecha}?`;
+export const EXITO_DIA_CERRADO = 'Día cerrado agregado.';
+export const EXITO_CIERRE_QUITADO = 'Cierre quitado.';
+export const TEXTO_SIN_DIAS_CERRADOS = 'No hay días cerrados próximos.';

@@ -75,6 +75,15 @@ public interface IReservaService
     Task<OperationResult<ReservaDetalleDto>> CompletarAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Marca manualmente una reserva como NoAsistio (GI-404, RN-RES-07): solo desde Confirmada y con la
+    /// franja ya empezada (antes del inicio corresponde cancelar). Libera la mesa y publica una sola vez
+    /// <c>ReservaNoAsistidaEvent</c> después de guardar; un handler que falla se registra y no revierte.
+    /// ErrorType.NotFound si no existe; ErrorType.Conflict si no está Confirmada, la franja aún no empieza
+    /// o hubo una modificación concurrente.
+    /// </summary>
+    Task<OperationResult<ReservaDetalleDto>> MarcarNoAsistioAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Check-in de una reserva (GI-165, RN-RES-06 y RN-RES-15): pasa de Confirmada a EnCurso y
     /// guarda las personas reales y la hora. Solo desde la ventana configurable antes del inicio
     /// de la franja y hasta que la franja termina. ErrorType.NotFound si no existe,

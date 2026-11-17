@@ -22,6 +22,8 @@ import {
   estadoFranjasVisita,
   listaIncompleta,
   mesaConZonaInactiva,
+  mesasParaVisita,
+  motivoMesaNoDisponibleVisita,
   normalizarHora,
   reemplazarPorId,
   textoImpactoZona,
@@ -60,6 +62,7 @@ import {
   minutosDeHora,
   origenAApi,
   paginasTotales,
+  puedeMarcarNoAsistio,
   puedeRegistrarVisita,
   rangoFechasReserva,
   resumenCambios,
@@ -67,6 +70,8 @@ import {
   resumenPorZona,
   soloDigitos,
   sumarDias,
+  textoSinMesasVisita,
+  textoUltimaFranja,
   validarMotivo,
   validarNombreCliente,
   validarPersonas,
@@ -360,6 +365,60 @@ test('mesasSeleccionables: sin reserva actual solo devuelve libres, y con grupo 
   assert.deepEqual(mesasSeleccionables(null, 2), []);
 });
 
+// Mapa específico de Visitas: a diferencia de MAPA (que usan mesasSeleccionables/Modificar), aquí algunas
+// mesas Libres ya tienen una visita en esta franja (tieneVisita), que mesasParaVisita debe excluir.
+const MAPA_VISITA = {
+  zonas: [
+    {
+      nombre: 'Patio',
+      mesas: [
+        { mesaId: 'v1', numero: 1, capacidad: 2, estado: 'Libre', tieneVisita: false },
+        { mesaId: 'v2', numero: 2, capacidad: 6, estado: 'Libre', tieneVisita: true },
+        { mesaId: 'v3', numero: 3, capacidad: 4, estado: 'Reservada', tieneVisita: false },
+      ],
+    },
+    {
+      nombre: 'Salón',
+      mesas: [
+        { mesaId: 'v4', numero: 4, capacidad: 8, estado: 'Libre', tieneVisita: false },
+        { mesaId: 'v5', numero: 5, capacidad: 4, estado: 'Libre', tieneVisita: false },
+      ],
+    },
+  ],
+};
+
+test('mesasParaVisita: libres, sin otra visita en esa franja y con capacidad suficiente, por capacidad ascendente', () => {
+  const r = mesasParaVisita(MAPA_VISITA, 2);
+  assert.deepEqual(r.map((m) => m.numero), [1, 5, 4]); // 2, 4 y 8: no la 2 (tieneVisita) ni la 3 (Reservada)
+});
+
+test('mesasParaVisita: descarta las que ya tienen visita, aunque estén Libres', () => {
+  assert.ok(!mesasParaVisita(MAPA_VISITA, 2).some((m) => m.numero === 2));
+});
+
+test('mesasParaVisita: grupo grande puede dejar la lista vacía; sin mapa, vacía', () => {
+  assert.deepEqual(mesasParaVisita(MAPA_VISITA, 20), []);
+  assert.deepEqual(mesasParaVisita(null, 2), []);
+});
+
+test('motivoMesaNoDisponibleVisita: distingue visita, capacidad y mesa que ya no está libre', () => {
+  assert.equal(motivoMesaNoDisponibleVisita(MAPA_VISITA, 'v2', 2), 'La mesa 2 ya tiene una visita en esta franja.');
+  assert.equal(motivoMesaNoDisponibleVisita(MAPA_VISITA, 'v5', 6), 'La mesa 5 no alcanza para 6 personas.');
+  assert.equal(motivoMesaNoDisponibleVisita(MAPA_VISITA, 'v3', 2), 'La mesa 3 ya no está libre en esta franja.');
+  assert.equal(motivoMesaNoDisponibleVisita(MAPA_VISITA, 'inexistente', 2), 'La mesa que elegiste ya no está disponible.');
+  assert.equal(motivoMesaNoDisponibleVisita(MAPA_VISITA, 'v1', 2), null); // sigue siendo válida
+});
+
+test('textoUltimaFranja: con hora de cierre la incluye; sin ella, texto genérico', () => {
+  assert.equal(textoUltimaFranja('22:30'), 'Última franja (el restaurante cierra a las 22:30)');
+  assert.equal(textoUltimaFranja(null), 'Última franja');
+});
+
+test('textoSinMesasVisita: singular y plural', () => {
+  assert.equal(textoSinMesasVisita(1), 'No hay mesas libres para 1 persona en esta franja');
+  assert.equal(textoSinMesasVisita(4), 'No hay mesas libres para 4 personas en esta franja');
+});
+
 const ANTES = {
   fecha: '2026-11-14', fechaTexto: 'Sáb 14 nov 2026', franjaId: 'a', franjaTexto: 'Almuerzo',
   personas: 4, mesaId: 'm4', mesaTexto: 'Mesa 4',
@@ -469,9 +528,13 @@ test('hoy y franja se calculan en Santo Domingo y no con la zona del navegador',
   assert.equal(franjaPorDefecto(DIA, { fecha: tarde.hoy, hoy: tarde.hoy, hora: tarde.hora }).id, 'cena');
 });
 
-test('franjasParaVisita: solo activas, ordenadas, con estado; las que no empezaron no son elegibles', () => {
+test('franjasParaVisita: solo activas, ordenadas, con estado; solo la más reciente que ya empezó es elegible', () => {
+  // Entre franjas (16:00): la última que empezó es el almuerzo (aunque ya terminó); la cena todavía no empieza.
   const r = franjasParaVisita(DIA, '16:00');
   assert.deepEqual(r.map((f) => [f.id, f.estado, f.elegible]), [['almuerzo', 'terminada', true], ['cena', 'noEmpezo', false]]);
+  // Con la cena en curso (19:00) el almuerzo ya no es elegible: antes se permitía ("el servidor lo permite").
+  const enCena = franjasParaVisita(DIA, '19:00');
+  assert.deepEqual(enCena.map((f) => [f.id, f.estado, f.elegible]), [['almuerzo', 'terminada', false], ['cena', 'enCurso', true]]);
 });
 
 test('franjaDefectoVisita: la actual; si no hay, la última ya empezada; si ninguna empezó, null', () => {
@@ -486,14 +549,32 @@ test('inicioPrimeraFranja: el inicio de la primera activa o null', () => {
   assert.equal(inicioPrimeraFranja([DIA[0]]), null);
 });
 
-test('puedeRegistrarVisita: solo hoy y con franja activa que ya empezó', () => {
-  const almuerzo = DIA[2];
-  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franja: almuerzo, hora: '13:00' }), true);
-  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franja: almuerzo, hora: '16:00' }), true);
-  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franja: almuerzo, hora: '11:00' }), false);
-  assert.equal(puedeRegistrarVisita({ fecha: '2026-11-12', hoy: HOY, franja: almuerzo, hora: '13:00' }), false);
-  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franja: DIA[0], hora: '10:00' }), false);
-  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franja: null, hora: '13:00' }), false);
+test('puedeRegistrarVisita: hoy, abierto y con alguna franja activa ya empezada, sin depender de la franja del mapa', () => {
+  const abierto = { estado: 'abierto' };
+  // DIA: almuerzo 12:00–15:00 y cena 18:00–22:30 (la de 09:00 está inactiva).
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '13:00', restaurante: abierto }), true);  // en curso
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '19:00', restaurante: abierto }), true);  // en curso (cena)
+  // Hueco entre franjas (15:00–18:00): el mapa mostraría la cena (no empezó), pero la visita va a la última que empezó.
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '15:00', restaurante: abierto }), true);
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '17:59', restaurante: abierto }), true);
+  // Después de la última franja pero todavía dentro del horario: sigue valiendo la última que empezó.
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '22:45', restaurante: abierto }), true);
+});
+
+test('puedeRegistrarVisita: antes de abrir (ninguna franja ha empezado) o sin franjas activas no se ofrece', () => {
+  const abierto = { estado: 'abierto' };
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '11:59', restaurante: abierto }), false);
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '10:00', restaurante: null }), false);
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: [DIA[0]], hora: '13:00', restaurante: abierto }), false);
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: [], hora: '13:00', restaurante: abierto }), false);
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: null, hora: '13:00' }), false);
+});
+
+test('puedeRegistrarVisita: restaurante cerrado (hoy o ahora) u otra fecha no se ofrece; sin horario cargado no se bloquea', () => {
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '13:00', restaurante: { estado: 'cerradoHoy' } }), false);
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '23:00', restaurante: { estado: 'cerradoAhora' } }), false);
+  assert.equal(puedeRegistrarVisita({ fecha: '2026-11-12', hoy: HOY, franjas: DIA, hora: '13:00', restaurante: { estado: 'abierto' } }), false);
+  assert.equal(puedeRegistrarVisita({ fecha: HOY, hoy: HOY, franjas: DIA, hora: '13:00', restaurante: null }), true);
 });
 
 test('validarPersonasVisita: sin mesa hasta 50; con mesa hasta su capacidad', () => {
@@ -866,4 +947,34 @@ test('descripcionVisita: la hora de medianoche es una hora válida y no se confu
     descripcionVisita({ horaRegistro: '00:05:00', personas: 2, franjaNombre: 'Cena', mesaNumero: 1 }),
     '00:05 · 2 personas · Cena · Mesa 1',
   );
+});
+
+// --- GI-404: «Marcar No asistió» ---
+
+const BASE_NO_ASISTIO = { estado: 'Confirmada', fecha: '2026-12-01', hoy: '2026-12-01', hora: '12:00', franjaHoraInicio: '12:00:00' };
+
+test('puedeMarcarNoAsistio: confirmada de hoy, desde el inicio exacto de la franja', () => {
+  assert.equal(puedeMarcarNoAsistio(BASE_NO_ASISTIO), true);
+  assert.equal(puedeMarcarNoAsistio({ ...BASE_NO_ASISTIO, hora: '13:45' }), true);
+});
+
+test('puedeMarcarNoAsistio: un minuto antes del inicio no se ofrece (corresponde cancelar)', () => {
+  assert.equal(puedeMarcarNoAsistio({ ...BASE_NO_ASISTIO, hora: '11:59' }), false);
+});
+
+test('puedeMarcarNoAsistio: una confirmada de un día pasado sí; una de un día futuro no', () => {
+  assert.equal(puedeMarcarNoAsistio({ ...BASE_NO_ASISTIO, fecha: '2026-11-30', hora: '08:00' }), true);
+  assert.equal(puedeMarcarNoAsistio({ ...BASE_NO_ASISTIO, fecha: '2026-12-02', hora: '23:00' }), false);
+});
+
+test('puedeMarcarNoAsistio: solo en Confirmada, sea cual sea la hora', () => {
+  for (const estado of ['EnCurso', 'Completada', 'Cancelada', 'NoAsistio', undefined]) {
+    assert.equal(puedeMarcarNoAsistio({ ...BASE_NO_ASISTIO, estado, hora: '20:00' }), false, String(estado));
+  }
+});
+
+test('puedeMarcarNoAsistio: con datos parciales (fila del mapa sin fecha ni franja) no se ofrece', () => {
+  assert.equal(puedeMarcarNoAsistio({ estado: 'Confirmada', hoy: '2026-12-01', hora: '20:00' }), false);
+  assert.equal(puedeMarcarNoAsistio({ ...BASE_NO_ASISTIO, franjaHoraInicio: undefined }), false);
+  assert.equal(puedeMarcarNoAsistio({ ...BASE_NO_ASISTIO, fecha: 'ayer' }), false);
 });

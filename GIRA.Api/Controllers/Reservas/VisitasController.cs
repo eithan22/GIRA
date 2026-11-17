@@ -16,16 +16,20 @@ namespace GIRA.Api.Controllers.Reservas;
 public class VisitasController : ControllerBase
 {
     private readonly IVisitaService _visitas;
+    private readonly IAdvertenciaVisitaService _advertencia;
 
-    /// <summary>Crea el controlador con el servicio de visitas.</summary>
-    public VisitasController(IVisitaService visitas)
+    /// <summary>Crea el controlador con el servicio de visitas y el de aviso de próxima reserva.</summary>
+    public VisitasController(IVisitaService visitas, IAdvertenciaVisitaService advertencia)
     {
         _visitas = visitas;
+        _advertencia = advertencia;
     }
 
     /// <summary>
     /// Registra una visita sin reserva de hoy (la fecha la pone el servidor). La franja debe estar
-    /// activa y haber empezado; la mesa, si se envía, debe estar activa y libre en esa franja.
+    /// activa y haber empezado; la mesa es obligatoria (una mesa admite un solo grupo por franja, con o
+    /// sin reserva) y debe estar activa, de zona activa y libre en esa franja. Cambio incompatible
+    /// (GI-166): antes <c>mesaId</c> era opcional; un cliente que no la enviara ahora recibe 400.
     /// Publica <c>VisitaCompletadaEvent</c> con <c>ConReserva = false</c>. Devuelve 200, como el
     /// resto del proyecto.
     /// </summary>
@@ -44,14 +48,40 @@ public class VisitasController : ControllerBase
     /// GI-402: visitas sin reserva de un día (<c>fecha</c>, aaaa-mm-dd; sin ella, hoy en Santo Domingo): totales del
     /// día y las 200 más recientes primero, con <c>truncada</c> si hay más. Sin datos personales. La fecha no puede
     /// ser futura ni de hace más de 365 días (400, igual que un formato inválido). Es solo lectura: la visita sin
-    /// reserva NO marca la mesa como ocupada en el mapa (no tiene hora de salida), y esto no lo cambia.
+    /// reserva NO marca la mesa como ocupada en el mapa (no tiene hora de salida; sí sale con TieneVisita en true),
+    /// y esto no lo cambia.
     /// </summary>
+    /// <remarks>
+    /// No hay endpoint para "terminar" una visita: se evaluó agregarle un estado o una hora de fin y se decidió
+    /// que el modelo la trate como un registro ya consumado, no como una sesión con ciclo de vida (ver el
+    /// comentario de <c>VisitaSinReserva</c>). Sí ocupa su mesa en su franja para las reservas y la
+    /// disponibilidad; el mapa de ocupación no la pinta Ocupada ni la cuenta en el resumen, pero sí marca la
+    /// mesa con TieneVisita.
+    /// </remarks>
     [HttpGet]
     [ProducesResponseType<VisitasDelDiaDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Listar([FromQuery] ListarVisitasRequest request, CancellationToken cancellationToken)
     {
         var resultado = await _visitas.ListarAsync(request, cancellationToken);
+
+        return resultado.ToActionResult();
+    }
+
+    /// <summary>
+    /// Aviso (no bloqueante) de próxima reserva: si la mesa tiene una reserva vigente en una franja
+    /// posterior del mismo día que todavía no ha terminado, para que el personal decida antes de registrar
+    /// una visita sin reserva ahí. No cambia el registro de la visita (<see cref="Registrar"/>), que sigue
+    /// permitido aunque haya aviso.
+    /// </summary>
+    [HttpGet("advertencia-mesa")]
+    [ProducesResponseType<AdvertenciaMesaDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AdvertenciaMesa(
+        [FromQuery] ConsultarAdvertenciaMesaRequest request, CancellationToken cancellationToken)
+    {
+        var resultado = await _advertencia.ConsultarAsync(request, cancellationToken);
 
         return resultado.ToActionResult();
     }

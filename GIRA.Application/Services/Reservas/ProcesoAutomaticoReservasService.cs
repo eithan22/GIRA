@@ -53,17 +53,21 @@ public class ProcesoAutomaticoReservasService : IProcesoAutomaticoReservasServic
         var ahoraLocal = _reloj.AhoraLocal();
         var hoy = DateOnly.FromDateTime(ahoraLocal);
 
+        // La tolerancia se lee en cada ciclo (nunca se cachea en un campo): es un parámetro editable y un
+        // cambio debe regir desde el ciclo siguiente (GI-404).
+        var parametros = await _parametros.ObtenerAsync(cancellationToken);
+
         // Se leen ordenadas por fecha e inicio de franja (las más antiguas primero), con un tope de
-        // TopePorCiclo (200). Desde GI-403 el plazo cuenta desde max(inicio, último registro), así que ese
-        // orden ya no garantiza que toda vencida quede antes que una que aún no vence: una reserva de hoy
-        // creada hace pocos minutos sobre una franja ya empezada va adelante en la lista pero todavía no
-        // vence. Solo habría retraso si hubiera 200 de esas a la vez; incluso entonces cada una vence a
-        // los 15 min de su registro, así que las vencidas de atrás se procesan en los ciclos siguientes
-        // (se retrasan, no se pierden).
+        // TopePorCiclo (200). El plazo cuenta desde max(inicio de la franja, último registro de la reserva),
+        // así que ese orden no garantiza que toda vencida quede antes que una que aún no vence: una reserva
+        // de hoy creada hace pocos minutos sobre una franja ya empezada va adelante en la lista pero todavía
+        // no vence. Solo habría retraso si hubiera 200 de esas a la vez; incluso entonces cada una vence al
+        // cumplirse su tolerancia, así que las vencidas de atrás se procesan en los ciclos siguientes (se
+        // retrasan, no se pierden).
         var candidatas = await _reservas.ListarPorEstadoHastaAsync(
             EstadoReserva.Confirmada, hoy, TopePorCiclo, cancellationToken);
         var vencidas = candidatas
-            .Where(c => ahoraLocal > InicioDelPlazo(c.Reserva, c.HoraInicio) + _parametros.ToleranciaNoShow)
+            .Where(c => ahoraLocal > InicioDelPlazo(c.Reserva, c.HoraInicio) + parametros.ToleranciaNoShow)
             .ToList();
 
         var noAsistidas = 0;
@@ -124,7 +128,7 @@ public class ProcesoAutomaticoReservasService : IProcesoAutomaticoReservasServic
             : reserva.CreatedAt;
         if (ultimoRegistro == default)
         {
-            return inicio; // fila sin auditoría: se conserva el comportamiento anterior
+            return inicio; // fila sin auditoría: el plazo corre desde el inicio de la franja
         }
 
         var registroLocal = TimeZoneInfo.ConvertTimeFromUtc(

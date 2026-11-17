@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Aviso from '../../components/Aviso.jsx';
 import { useAhora } from '../hooks/useAhora.js';
 import { useDisponibilidadCrear } from '../hooks/useDisponibilidadCrear.js';
+import { useParametrosOperativos } from '../hooks/useParametrosOperativos.js';
 import {
   PERSONAS_POR_DEFECTO,
   esBorradorCrear,
@@ -21,7 +22,7 @@ import {
   AYUDA_ORIGEN_PRESENCIAL,
   AYUDA_ORIGEN_TELEFONO,
   AVISO_NOMBRE_SE_ACTUALIZA,
-  MENSAJE_FECHA_FUERA_DE_RANGO,
+  mensajeFechaFueraDeRango,
   MENSAJE_FRANJA_OBLIGATORIA,
   MENSAJE_ORIGEN_OBLIGATORIO,
   TEXTO_CANCELAR_FORMULARIO,
@@ -81,7 +82,8 @@ export default function PanelNuevaReserva({
 
   const disponibilidad = useDisponibilidadCrear({ fecha: formulario.fecha, personas: formulario.personas, hoy });
   const franjasEstado = franjasConEstado(franjas, disponibilidad.disponibles);
-  const { min, max } = rangoFechasReserva(hoy);
+  const { antelacionMaximaDias } = useParametrosOperativos();
+  const { min, max } = rangoFechasReserva(hoy, antelacionMaximaDias);
 
   // Si la franja elegida deja de tener disponibilidad al cambiar fecha o personas, se desmarca.
   useEffect(() => {
@@ -97,14 +99,14 @@ export default function PanelNuevaReserva({
   const validacionNombre = validarNombreCliente(formulario.nombre);
   const validacionTelefono = validarTelefono(formulario.telefono);
   const validacionPersonas = validarPersonas(formulario.personas);
-  const fechaValida = fechaEnRango(formulario.fecha, hoy);
+  const fechaValida = fechaEnRango(formulario.fecha, hoy, antelacionMaximaDias);
   const franjaValida = formulario.franjaId !== '';
 
   const errores = {
     origen: formulario.origen ? '' : MENSAJE_ORIGEN_OBLIGATORIO,
     nombre: validacionNombre.valido ? '' : validacionNombre.mensaje,
     telefono: validacionTelefono.valido ? '' : validacionTelefono.mensaje,
-    fecha: fechaValida ? '' : MENSAJE_FECHA_FUERA_DE_RANGO,
+    fecha: fechaValida ? '' : mensajeFechaFueraDeRango(antelacionMaximaDias),
     personas: validacionPersonas.valido ? '' : validacionPersonas.mensaje,
     franja: franjaValida ? '' : MENSAJE_FRANJA_OBLIGATORIA,
   };

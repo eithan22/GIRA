@@ -1,6 +1,10 @@
-// Único lugar donde vive este dato: todo lo demás (reservasFormato.js, componentes)
-// debe importarlo de aquí, nunca repetirlo como texto suelto.
-export const TELEFONO_RESTAURANTE = '[TELÉFONO DEL RESTAURANTE]';
+import { formatearDuracionMinutos } from './reservasFormato.js';
+
+// El teléfono del restaurante NO vive aquí: llega en las políticas del servidor
+// (politicas.telefonoContacto, GET /api/reservas/politicas) y puede no estar
+// configurado. Cuando no lo está, los textos que invitaban a llamar usan esta
+// frase en vez de mostrar un número inventado o un hueco sin rellenar.
+export const TEXTO_CONTACTAR_RESTAURANTE = 'Contacta directamente al restaurante.';
 
 // Para 500 o sin red: nunca se muestra el detalle crudo del servidor.
 export const MENSAJE_ERROR_GENERICO = 'No pudimos completar la acción. Revisa tu conexión e inténtalo de nuevo.';
@@ -9,17 +13,71 @@ export const MENSAJE_ERROR_GENERICO = 'No pudimos completar la acción. Revisa t
 
 export const TEXTO_CARGANDO_DISPONIBILIDAD = 'Buscando mesas disponibles…';
 
-export const TEXTO_SIN_DISPONIBILIDAD =
-  `No hay mesas disponibles para esa fecha y esa cantidad de personas. Prueba otro día o llámanos al ${TELEFONO_RESTAURANTE}.`;
+// Con teléfono configurado invita a llamar; sin él, solo sugiere otro día y remite al restaurante.
+export const textoSinDisponibilidad = (politicas) =>
+  (politicas.telefonoContacto
+    ? `No hay mesas disponibles para esa fecha y esa cantidad de personas. Prueba otro día o llámanos al ${politicas.telefonoContacto}.`
+    : `No hay mesas disponibles para esa fecha y esa cantidad de personas. Prueba otro día. ${TEXTO_CONTACTAR_RESTAURANTE}`);
 
-export const TEXTO_VENTANA_RESERVA =
-  'Reservamos desde hoy hasta 30 días adelante y con al menos 2 horas de anticipación.';
+// Los textos que dependen de las políticas de reserva (GI-226) reciben las políticas: nunca llevan 30 días,
+// 2 horas ni 8 personas escritos a mano.
+export const textoVentanaReserva = (politicas) => {
+  const dias = politicas.antelacionMaximaDias;
+  // Con antelación mínima 0 no se dice «con al menos 0 minutos de anticipación»: se reserva sin antelación mínima.
+  const antelacion = politicas.antelacionMinimaMinutos > 0
+    ? `con al menos ${formatearDuracionMinutos(politicas.antelacionMinimaMinutos)} de anticipación`
+    : 'sin antelación mínima';
+  return `Reservamos desde hoy hasta ${dias} ${dias === 1 ? 'día' : 'días'} adelante y ${antelacion}.`;
+};
 
-export const TEXTO_MAS_DE_8 = `¿Más de 8? Llama al ${TELEFONO_RESTAURANTE}.`;
+export const textoMasDePersonas = (politicas) =>
+  (politicas.telefonoContacto
+    ? `¿Más de ${politicas.maxPersonas}? Llama al ${politicas.telefonoContacto}.`
+    : `¿Más de ${politicas.maxPersonas}? ${TEXTO_CONTACTAR_RESTAURANTE}`);
 
-// Regla de cancelación que el diseño repite en Confirmación y en Mi reserva · Detalle.
-export const TEXTO_LIMITE_CANCELACION =
-  'Cancelación gratis hasta 2 horas antes de la franja. Para cambiar algo, cancela y vuelve a reservar.';
+// Mismo texto que el servidor ("Para grupos de más de N personas, llama al restaurante.") más el teléfono cuando
+// está configurado. Sin teléfono se queda solo con el texto del servidor: ya dice que hay que llamar al
+// restaurante, así que repetir «Contacta directamente al restaurante.» sobraría.
+export const textoGrupoGrande = (politicas) =>
+  (politicas.telefonoContacto
+    ? `Para grupos de más de ${politicas.maxPersonas} personas, llama al restaurante. ${politicas.telefonoContacto}`
+    : `Para grupos de más de ${politicas.maxPersonas} personas, llama al restaurante.`);
+
+/**
+ * Mensaje del servidor que invita a llamar al restaurante, con el teléfono configurado pegado al final. Sin
+ * teléfono se devuelve tal cual: el mensaje del servidor ya se entiende solo y nunca se muestra un hueco vacío.
+ */
+export const textoMensajeConTelefono = (mensaje, politicas) =>
+  (politicas.telefonoContacto ? `${mensaje} ${politicas.telefonoContacto}` : mensaje);
+
+// Regla de cancelación que el diseño repite en Confirmación y en Mi reserva · Detalle. Sin la palabra "gratis":
+// cancelar no tiene costo en ningún caso, así que no hace falta decirlo; lo relevante es el plazo.
+export const textoLimiteCancelacion = (politicas) => {
+  if (politicas.limiteCancelacionMinutos === 0) {
+    return 'Puedes cancelar hasta el inicio de la franja. Para cambiar algo, cancela y vuelve a reservar.';
+  }
+  const despues = politicas.telefonoContacto
+    ? `llama al ${politicas.telefonoContacto}.`
+    : 'contacta directamente al restaurante.';
+  return `Puedes cancelar hasta ${formatearDuracionMinutos(politicas.limiteCancelacionMinutos)} antes de tu franja. Después, ${despues}`;
+};
+
+// Límite de reservas vigentes por teléfono: el número sale de las políticas públicas (maxReservasVigentesPorTelefono),
+// nunca escrito a mano, y concuerda en singular y plural (1 reserva vigente, 2 reservas vigentes).
+export const textoReservasVigentes = (cantidad) => (cantidad === 1 ? '1 reserva vigente' : `${cantidad} reservas vigentes`);
+export const textoLimiteVigentesTicket = (politicas) => `Hasta ${textoReservasVigentes(politicas.maxReservasVigentesPorTelefono)} por teléfono.`;
+export const textoLimiteVigentesDatos = (politicas) => `Puedes tener hasta ${textoReservasVigentes(politicas.maxReservasVigentesPorTelefono)} con el mismo número.`;
+
+// --- Franjas y personas (Paso 1) ---
+
+export const BADGE_FRANJA_DISPONIBLE = 'Disponible';
+export const BADGE_FRANJA_NO_DISPONIBLE = 'No disponible';
+export const AVISO_DIA_CERRADO = 'El restaurante está cerrado ese día. Elige otra fecha.';
+
+export const ETIQUETA_PERSONAS_NUMERO = 'Número de personas';
+export const textoAyudaPersonas = (politicas) => `Entre 1 y ${politicas.maxPersonas} personas.`;
+export const ERROR_PERSONAS_FORMATO = 'Escribe solo números, por ejemplo 4.';
+export const ERROR_PERSONAS_MINIMO = 'Debe haber al menos 1 persona.';
 
 // Aviso de éxito tras cancelar, como en Detalle.dc.html.
 export const TEXTO_RESERVA_CANCELADA =
@@ -45,7 +103,7 @@ export const AYUDA_TELEFONO_CODIGO_PAIS =
 
 // No hay un texto de ayuda para el código en ningún .dc.html (solo el placeholder
 // "12345678" y el maxLength); este texto es propio del frontend, no del diseño.
-export const AYUDA_CODIGO = 'Los 8 dígitos que recibiste al reservar, sin espacios ni guiones.';
+export const AYUDA_CODIGO = 'Los 8 dígitos que recibiste al reservar; puedes pegarlos con espacio o guion.';
 
 // --- Validación de campos (antes vivían sueltos en los componentes) ---
 
@@ -123,3 +181,14 @@ export const ESTADO_DESCONOCIDO = {
   punto: '#5d687c',
   puedeCancelar: false,
 };
+
+// --- Zona opcional (GI-4xx) ---
+export const ETIQUETA_ZONA = 'Zona';
+export const TITULO_SELECTOR_ZONA = '¿Dónde prefieres sentarte?';
+export const ETIQUETA_SIN_PREFERENCIA = 'Sin preferencia';
+export const AYUDA_SELECTOR_ZONA =
+  'Solo mostramos las zonas con mesa libre en esa franja. Si se llena antes de confirmar, te avisamos y eliges de nuevo.';
+export const TEXTO_TICKET_SIN_ZONA = 'Te asignaremos una mesa en la zona disponible.';
+// Resumen del ticket: la zona elegida, o el aviso de que se asigna en la zona disponible. Nunca el número de mesa.
+export const textoZonaTicket = (zonaNombre) =>
+  (zonaNombre ? `Zona elegida: ${zonaNombre}. La mesa exacta la asignamos nosotros.` : TEXTO_TICKET_SIN_ZONA);

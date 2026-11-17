@@ -6,7 +6,10 @@ using GIRA.Application.Interfaces.Services.Reservas;
 using GIRA.Domain.Entities.Reservas;
 using GIRA.Infrastructure;
 using GIRA.Infrastructure.Persistence.Context;
+using GIRA.Tests.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -51,6 +54,9 @@ public class ReservaServiceIntegrationFixture : IAsyncLifetime
 
         await db.Database.EnsureDeletedAsync();
         await db.Database.MigrateAsync();
+
+        // Las pruebas usan mesas de 11 a 13 personas: el tamaño máximo de grupo por defecto (8) las rechazaría.
+        await ConfiguracionDePrueba.SembrarAsync(db);
     }
 
     /// <inheritdoc />
@@ -78,6 +84,7 @@ public class ReservaServiceIntegrationTests : IClassFixture<ReservaServiceIntegr
     private const int NumeroMesaAlmuerzo = 9002;
     private const int NumeroMesaCena = 9003;
     private const int NumeroMesaLimiteDosReservas = 9004;
+    private const int NumeroMesaVariasSimultaneasMismoTelefono = 9006;
 
     private readonly string _conexion;
 
@@ -121,6 +128,153 @@ public class ReservaServiceIntegrationTests : IClassFixture<ReservaServiceIntegr
         services.AddInfrastructure(configuracionServicios);
 
         return services.BuildServiceProvider();
+    }
+
+    // --- Migración Reservas_FranjasDeDosHoras (GI-226): sin DeleteData; solo toca franjas sin editar y sin uso ---
+
+    private const string MigracionAnterior = "20261114001712_Configuracion_CrearTablas";
+
+    private static readonly (string, string, string)[] FranjasDeDosHoras =
+    [
+        ("Almuerzo", "12:00", "13:45"), ("Tarde", "14:00", "15:45"), ("Cena", "18:30", "20:15"), ("Noche", "20:30", "22:15")
+    ];
+
+    private static readonly (string, string, string)[] FranjasOriginales =
+    [
+        ("Almuerzo", "12:00", "15:00"), ("Cena", "18:00", "22:30")
+    ];
+
+    private static async Task<List<(string Nombre, string Inicio, string Fin)>> LeerFranjasAsync(string conexion)
+    {
+        var opciones = new DbContextOptionsBuilder<GiraDbContext>().UseSqlServer(conexion).Options;
+        await using var db = new GiraDbContext(opciones);
+        var franjas = await db.FranjasHorarias.AsNoTracking().OrderBy(f => f.HoraInicio).ToListAsync();
+        return franjas.Select(f => (f.Nombre, f.HoraInicio.ToString("HH:mm"), f.HoraFin.ToString("HH:mm"))).ToList();
+    }
+
+    [Fact]
+    public async Task Migracion_FranjasDeDosHoras_ActualizaSoloSinEdicionesNiUso_Y_NuncaBorra()
+    {
+        var datosConexion = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(_conexion);
+        if (!string.Equals(datosConexion.InitialCatalog, "GIRA_GI228_TEST", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Las pruebas GI-228 solo pueden utilizar GIRA_GI228_TEST.");
+        }
+
+        var opciones = new DbContextOptionsBuilder<GiraDbContext>().UseSqlServer(_conexion).Options;
+        await using var db = new GiraDbContext(opciones);
+        var migrador = db.GetService<IMigrator>();
+        var almuerzoId = "00000000-0000-0000-0000-000000000001";
+        var sufijo = Guid.NewGuid().ToString("N");
+        var zonaId = Guid.NewGuid();
+        var mesaId = Guid.NewGuid();
+        var clienteId = Guid.NewGuid();
+        var reservaId = Guid.NewGuid();
+
+        try
+        {
+            // A. Base nueva (borrada y migrada por el fixture): las 2 originales, sin editar y sin uso, pasan a las 4 nuevas.
+            Assert.Equal(FranjasDeDosHoras, await LeerFranjasAsync(_conexion));
+
+            // B. Down con las 4 sin editar y sin uso: vuelve a las 2 originales (no borra ninguna de las que había).
+            // Las otras pruebas de la clase ya dejaron reservas en esta base (solo de pruebas, validada arriba): con
+            // reservas sobre las franjas la migración correctamente no toca nada, así que se parte de cero.
+            await db.Database.ExecuteSqlRawAsync("DELETE FROM reservas.VisitaSinReserva; DELETE FROM reservas.Reserva;");
+            await migrador.MigrateAsync(MigracionAnterior);
+            Assert.Equal(FranjasOriginales, await LeerFranjasAsync(_conexion));
+
+            // C. Una franja editada por el Gerente: Up no toca nada.
+            await db.Database.ExecuteSqlRawAsync(
+                "UPDATE reservas.FranjaHoraria SET Nombre = N'Almuerzo largo', UpdatedAt = SYSUTCDATETIME() WHERE Id = '00000000-0000-0000-0000-000000000001'");
+            await migrador.MigrateAsync();
+            Assert.Equal(
+                [("Almuerzo largo", "12:00", "15:00"), ("Cena", "18:00", "22:30")],
+                await LeerFranjasAsync(_conexion));
+            await db.Database.ExecuteSqlRawAsync(
+                "UPDATE reservas.FranjaHoraria SET Nombre = N'Almuerzo', UpdatedAt = NULL WHERE Id = '00000000-0000-0000-0000-000000000001'");
+
+            // D. Una reserva usa Almuerzo (instalación en uso): Up no toca nada y la reserva sigue ahí.
+            await migrador.MigrateAsync(MigracionAnterior);
+            db.Zonas.Add(new Zona { Id = zonaId, Nombre = $"Zona-Migracion-{sufijo}" });
+            db.Mesas.Add(new Mesa { Id = mesaId, Numero = 9801, Capacidad = 4, ZonaId = zonaId });
+            db.Clientes.Add(new Cliente { Id = clienteId, Nombre = "Cliente Migración", Telefono = GenerarTelefonoUnico() });
+            db.Reservas.Add(new Reserva
+            {
+                Id = reservaId, Codigo = sufijo[..8], ClienteId = clienteId, MesaId = mesaId,
+                FranjaHorariaId = Guid.Parse(almuerzoId), Fecha = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(60)),
+                Personas = 2, Origen = GIRA.Domain.Enums.Reservas.OrigenReserva.Telefono
+            });
+            await db.SaveChangesAsync();
+            await migrador.MigrateAsync();
+            Assert.Equal(FranjasOriginales, await LeerFranjasAsync(_conexion));
+            Assert.True(await db.Reservas.AsNoTracking().AnyAsync(r => r.Id == reservaId));
+
+            // E. Sin la reserva y sin ediciones, otra vez pasa a las 4 nuevas.
+            db.Reservas.Remove(await db.Reservas.SingleAsync(r => r.Id == reservaId));
+            db.Mesas.Remove(await db.Mesas.SingleAsync(m => m.Id == mesaId));
+            db.Clientes.Remove(await db.Clientes.SingleAsync(c => c.Id == clienteId));
+            db.Zonas.Remove(await db.Zonas.SingleAsync(z => z.Id == zonaId));
+            await db.SaveChangesAsync();
+            await migrador.MigrateAsync(MigracionAnterior);
+            await migrador.MigrateAsync();
+            Assert.Equal(FranjasDeDosHoras, await LeerFranjasAsync(_conexion));
+        }
+        finally
+        {
+            // Pase lo que pase, la base de pruebas queda con todas las migraciones aplicadas.
+            await migrador.MigrateAsync();
+        }
+    }
+
+    [Fact]
+    public async Task CrearAsync_VariasSolicitudesSimultaneasDelMismoTelefono_NuncaSuperanElLimiteDeVigentes()
+    {
+        using var proveedor = CrearProveedor(_conexion);
+
+        // Capacidad 14, única de esta prueba. Cada solicitud va a una fecha distinta (la misma mesa y franja sirve para
+        // todas): lo único que las enfrenta es el límite de reservas vigentes del teléfono (2 por defecto).
+        const int capacidad = 14;
+        const int solicitudes = 8;
+
+        using (var scopeDatos = proveedor.CreateScope())
+        {
+            var db = scopeDatos.ServiceProvider.GetRequiredService<GiraDbContext>();
+            var zona = new Zona { Id = Guid.NewGuid(), Nombre = $"Zona-GI228-telefono-{Guid.NewGuid():N}" };
+            db.Zonas.Add(zona);
+            db.Mesas.Add(new Mesa { Id = Guid.NewGuid(), Numero = NumeroMesaVariasSimultaneasMismoTelefono, Capacidad = capacidad, ZonaId = zona.Id });
+            await db.SaveChangesAsync();
+        }
+
+        var telefono = GenerarTelefonoUnico();
+        var scopes = Enumerable.Range(0, solicitudes).Select(_ => proveedor.CreateScope()).ToList();
+        try
+        {
+            var inicio = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10));
+            var tareas = scopes.Select((scope, i) => Task.Run(() =>
+                scope.ServiceProvider.GetRequiredService<IReservaService>().CrearAsync(
+                    new CrearReservaRequest($"Prueba Carrera {i}", telefono, inicio.AddDays(i), FranjaAlmuerzoId, capacidad), default)));
+
+            var resultados = await Task.WhenAll(tareas);
+
+            Assert.Equal(2, resultados.Count(r => r.IsSuccess));
+            Assert.All(
+                resultados.Where(r => !r.IsSuccess),
+                r =>
+                {
+                    Assert.Equal(GIRA.Application.Common.Reservas.CodigosErrorReservas.LimiteVigentes, r.Codigo);
+                });
+
+            using var scopeVerificacion = proveedor.CreateScope();
+            var verificacion = scopeVerificacion.ServiceProvider.GetRequiredService<GiraDbContext>();
+            var vigentes = await verificacion.Reservas
+                .Join(verificacion.Clientes, r => r.ClienteId, cl => cl.Id, (r, cl) => new { r, cl })
+                .CountAsync(x => x.cl.Telefono == telefono);
+            Assert.Equal(2, vigentes);
+        }
+        finally
+        {
+            scopes.ForEach(scope => scope.Dispose());
+        }
     }
 
     [Fact]
@@ -177,6 +331,44 @@ public class ReservaServiceIntegrationTests : IClassFixture<ReservaServiceIntegr
         var vigentesEnEsaFechaYFranja = await dbVerificacion.Reservas
             .CountAsync(r => r.Fecha == fecha && r.FranjaHorariaId == FranjaAlmuerzoId);
         Assert.Equal(1, vigentesEnEsaFechaYFranja);
+    }
+
+    [Fact]
+    public async Task CrearAsync_DosSolicitudesSimultaneasALaUltimaMesaDeUnaZona_UnaExitosaYLaOtraFallaLimpio()
+    {
+        using var proveedor = CrearProveedor(_conexion);
+
+        // Capacidad 14, única de esta prueba; zona propia con una sola mesa (la "última" de la zona).
+        const int capacidad = 14;
+        Guid zonaId;
+
+        using (var scopeDatos = proveedor.CreateScope())
+        {
+            var db = scopeDatos.ServiceProvider.GetRequiredService<GiraDbContext>();
+            var zona = new Zona { Id = Guid.NewGuid(), Nombre = $"Zona-GI4xx-ultima-{Guid.NewGuid():N}" };
+            zonaId = zona.Id;
+            db.Zonas.Add(zona);
+            db.Mesas.Add(new Mesa { Id = Guid.NewGuid(), Numero = 9005, Capacidad = capacidad, ZonaId = zona.Id });
+            await db.SaveChangesAsync();
+        }
+
+        var fecha = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(6));
+
+        using var scope1 = proveedor.CreateScope();
+        using var scope2 = proveedor.CreateScope();
+        var servicio1 = scope1.ServiceProvider.GetRequiredService<IReservaService>();
+        var servicio2 = scope2.ServiceProvider.GetRequiredService<IReservaService>();
+
+        var resultados = await Task.WhenAll(
+            servicio1.CrearAsync(new CrearReservaRequest(
+                "Prueba Uno", GenerarTelefonoUnico(), fecha, FranjaAlmuerzoId, capacidad, ZonaId: zonaId), default),
+            servicio2.CrearAsync(new CrearReservaRequest(
+                "Prueba Dos", GenerarTelefonoUnico(), fecha, FranjaAlmuerzoId, capacidad, ZonaId: zonaId), default));
+
+        Assert.Equal(1, resultados.Count(r => r.IsSuccess));
+        var fallida = resultados.Single(r => r.IsFailure);
+        Assert.Equal(ErrorType.Conflict, fallida.Type);
+        Assert.Contains(resultados, r => r.IsSuccess && r.Value!.ZonaNombre.StartsWith("Zona-GI4xx-ultima-"));
     }
 
     [Fact]

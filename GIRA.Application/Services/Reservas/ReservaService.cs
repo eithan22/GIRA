@@ -1,6 +1,7 @@
 using System.Globalization;
 using FluentValidation;
 using GIRA.Application.Common;
+using GIRA.Application.Common.Reservas;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Events.Reservas;
 using GIRA.Application.Interfaces.Repository.Reservas;
@@ -9,7 +10,6 @@ using GIRA.Application.Validations.Reservas;
 using GIRA.Domain.Entities.Reservas;
 using GIRA.Domain.Enums.Reservas;
 using GIRA.Domain.Exceptions.Reservas;
-using MediatR;
 
 namespace GIRA.Application.Services.Reservas;
 
@@ -21,6 +21,8 @@ public class ReservaService : IReservaService
     private readonly IReservaRepository _reservaRepository;
     private readonly IClienteRepository _clienteRepository;
     private readonly IMesaGestionRepository _mesaGestionRepository;
+    private readonly IVisitaRepository _visitas;
+    private readonly IZonaRepository _zonas;
     private readonly IParametrosReservaService _parametros;
     private readonly IValidator<CrearReservaRequest> _validator;
     private readonly IValidator<ListarReservasRequest> _validadorListado;
@@ -28,12 +30,22 @@ public class ReservaService : IReservaService
     private readonly IValidator<CancelarPorPersonalRequest> _validadorCancelarPersonal;
     private readonly IValidator<ModificarReservaRequest> _validadorModificar;
     private readonly GeneradorCodigoReserva _generadorCodigo;
-    private readonly IPublisher _publisher;
     private readonly IPublicadorEventosSeguro _publicadorSeguro;
     private readonly TimeProvider _timeProvider;
 
     // Mismo mensaje para "código no existe" y "teléfono no coincide": nunca se revela cuál falló.
     private const string MensajeCodigoOTelefonoIncorrectos = "Código o teléfono incorrectos.";
+
+    // PuedeModificar/PuedeCancelar (RN-RES-04): la misma regla que ya aplican ModificarAsync y
+    // CancelarPorPersonalAsync al rechazar la operación, calculada aquí para que el personal la vea de
+    // antemano con el reloj del servidor. Hoy ambos botones comparten la regla, pero se calculan por
+    // separado porque son conceptos distintos (RN-RES-04 vs RN-RES-05) que podrían divergir después.
+    private ReservaDetalleDto ConPermisosDeEdicion(ReservaDetalleDto detalle)
+    {
+        var puede = Enum.Parse<EstadoReserva>(detalle.Estado) == EstadoReserva.Confirmada
+            && _timeProvider.AhoraLocal() < detalle.Fecha.ToDateTime(detalle.FranjaHoraInicio);
+        return detalle with { PuedeModificar = puede, PuedeCancelar = puede };
+    }
 
     /// <summary>Crea el servicio con sus repositorios, dependencias y el reloj.</summary>
     public ReservaService(
@@ -42,6 +54,8 @@ public class ReservaService : IReservaService
         IReservaRepository reservaRepository,
         IClienteRepository clienteRepository,
         IMesaGestionRepository mesaGestionRepository,
+        IVisitaRepository visitas,
+        IZonaRepository zonas,
         IParametrosReservaService parametros,
         IValidator<CrearReservaRequest> validator,
         IValidator<ListarReservasRequest> validadorListado,
@@ -49,7 +63,6 @@ public class ReservaService : IReservaService
         IValidator<CancelarPorPersonalRequest> validadorCancelarPersonal,
         IValidator<ModificarReservaRequest> validadorModificar,
         GeneradorCodigoReserva generadorCodigo,
-        IPublisher publisher,
         IPublicadorEventosSeguro publicadorSeguro,
         TimeProvider timeProvider)
     {
@@ -58,6 +71,8 @@ public class ReservaService : IReservaService
         _reservaRepository = reservaRepository;
         _clienteRepository = clienteRepository;
         _mesaGestionRepository = mesaGestionRepository;
+        _visitas = visitas;
+        _zonas = zonas;
         _parametros = parametros;
         _validator = validator;
         _validadorListado = validadorListado;
@@ -65,7 +80,6 @@ public class ReservaService : IReservaService
         _validadorCancelarPersonal = validadorCancelarPersonal;
         _validadorModificar = validadorModificar;
         _generadorCodigo = generadorCodigo;
-        _publisher = publisher;
         _publicadorSeguro = publicadorSeguro;
         _timeProvider = timeProvider;
     }
@@ -100,6 +114,14 @@ public class ReservaService : IReservaService
             return OperationResult.Failure<ReservaCreadaDto>(ErrorType.Validation, validacion.ToString());
         }
 
+        // C3: el canal del personal no usa zona (la mesa se asigna a mano); antes se ignoraba en silencio
+        // un ZonaId que llegara de ese canal, ahora se rechaza para no sugerir una preferencia que nunca se aplicó.
+        if (audiencia == AudienciaReserva.Personal && request.ZonaId is not null)
+        {
+            return OperationResult.Failure<ReservaCreadaDto>(
+                ErrorType.Validation, MensajesReservas.ZonaNoAplicaPersonal, CodigosErrorReservas.ZonaNoAplicaPersonal);
+        }
+
         var telefono = TelefonoRd.Normalizar(request.Telefono);
 
         // --- Todo lo que no necesita al cliente, primero: así no se crea un cliente por una
@@ -108,24 +130,38 @@ public class ReservaService : IReservaService
         var asignacion = await ValidarYAsignarMesaAsync(
             request.Fecha, request.FranjaHorariaId, request.Personas,
             mesaPreferidaId: null, preferidaObligatoria: false, excluirReservaId: null,
-            validarHorario: true, audiencia, cancellationToken);
+            validarHorario: true, audiencia == AudienciaReserva.Cliente ? request.ZonaId : null, audiencia, cancellationToken);
         if (!asignacion.IsSuccess)
         {
-            return OperationResult.Failure<ReservaCreadaDto>(asignacion.Type!.Value, asignacion.Error!);
+            return OperationResult.Failure<ReservaCreadaDto>(asignacion.Type!.Value, asignacion.Error!, asignacion.Codigo);
         }
 
         var franja = asignacion.Value!.Franja;
         var mesaElegida = asignacion.Value.Mesa;
 
-        // Limitación conocida y aceptada: esta cuenta y el guardado final no están en la misma
-        // transacción, así que dos solicitudes del mismo teléfono a la vez podrían dejar pasar
-        // una tercera reserva vigente. No hay índice ni restricción de base que lo evite hoy.
+        // La zona real es la de la mesa asignada (nunca la pedida, que pudo ser "sin preferencia"). Se resuelve
+        // ANTES de guardar: si fallara aquí no puede quedar una reserva creada con una respuesta de error.
+        var zonaNombreMesa = (await _zonas.BuscarPorIdAsync(mesaElegida.ZonaId, cancellationToken))?.Nombre
+            ?? throw new InvalidOperationException($"La mesa {mesaElegida.Id} referencia una zona que no existe.");
+
+        // El límite de vigentes por teléfono se cuenta y se guarda dentro de un bloqueo por teléfono: sin él, varias
+        // solicitudes simultáneas del mismo teléfono contarían todas «menos del máximo» y lo rebasarían. El bloqueo
+        // termina (ConfirmarAsync) justo tras el último guardado, antes de publicar el evento; en cualquier retorno
+        // temprano o excepción, DisposeAsync descarta lo pendiente y lo libera.
+        await using var bloqueo = await _reservaRepository.BloquearCreacionPorTelefonoAsync(telefono, cancellationToken);
+        if (bloqueo is null)
+        {
+            return OperationResult.Failure<ReservaCreadaDto>(ErrorType.Conflict, MensajesReservas.CreacionEnCursoParaElTelefono);
+        }
+
+        var parametros = await _parametros.ObtenerAsync(cancellationToken);
         var vigentesDelTelefono = await _reservaRepository.ContarVigentesPorTelefonoAsync(telefono, cancellationToken);
-        if (vigentesDelTelefono >= 2)
+        if (vigentesDelTelefono >= parametros.MaxReservasVigentesPorTelefono)
         {
             return OperationResult.Failure<ReservaCreadaDto>(
                 ErrorType.Conflict,
-                MensajesReservas.LimiteVigentesPorTelefono(audiencia));
+                MensajesReservas.LimiteVigentesPorTelefono(audiencia, parametros.MaxReservasVigentesPorTelefono),
+                CodigosErrorReservas.LimiteVigentes);
         }
 
         // --- Solo ahora, con la reserva confirmada como posible, se toca al cliente. Se guarda
@@ -203,14 +239,19 @@ public class ReservaService : IReservaService
             return OperationResult.Failure<ReservaCreadaDto>(ErrorType.Conflict, ex.Message);
         }
 
-        await _publisher.Publish(
+        await bloqueo.ConfirmarAsync(cancellationToken);
+
+        // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
+        await _publicadorSeguro.PublicarAsync(
             new ReservaConfirmadaEvent(
                 reserva.Id, reserva.Codigo, cliente.Id, mesaElegida.Id, franja.Id,
                 reserva.Fecha, reserva.Personas, reserva.Origen),
+            $"ReservaId={reserva.Id}",
             cancellationToken);
 
         return OperationResult.Success(new ReservaCreadaDto(
-            reserva.Codigo, cliente.Nombre, reserva.Fecha, franja.Nombre, franja.HoraInicio, franja.HoraFin, reserva.Personas));
+            reserva.Codigo, cliente.Nombre, reserva.Fecha, franja.Nombre, franja.HoraInicio, franja.HoraFin,
+            reserva.Personas, zonaNombreMesa));
     }
 
     /// <inheritdoc />
@@ -243,7 +284,7 @@ public class ReservaService : IReservaService
 
         return detalle is null
             ? OperationResult.Failure<ReservaDetalleDto>(ErrorType.NotFound, "No encontramos esa reserva.")
-            : OperationResult.Success(detalle);
+            : OperationResult.Success(ConPermisosDeEdicion(detalle));
     }
 
     /// <inheritdoc />
@@ -260,7 +301,7 @@ public class ReservaService : IReservaService
 
         return detalle is null
             ? OperationResult.Failure<ReservaDetalleDto>(ErrorType.NotFound, "No encontramos esa reserva.")
-            : OperationResult.Success(detalle);
+            : OperationResult.Success(ConPermisosDeEdicion(detalle));
     }
 
     /// <inheritdoc />
@@ -289,7 +330,9 @@ public class ReservaService : IReservaService
             ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} referencia una franja que no existe.");
 
         var ahoraLocal = _timeProvider.AhoraLocal();
-        var aperturaCheckIn = reserva.Fecha.ToDateTime(franja.HoraInicio) - _parametros.VentanaCheckIn;
+        // La ventana se lee ahora, no al crear la reserva: una regla operativa del día (GI-226).
+        var parametrosCheckIn = await _parametros.ObtenerAsync(cancellationToken);
+        var aperturaCheckIn = reserva.Fecha.ToDateTime(franja.HoraInicio) - parametrosCheckIn.VentanaCheckIn;
         if (ahoraLocal < aperturaCheckIn)
         {
             var hora = aperturaCheckIn.ToString("HH:mm", CultureInfo.InvariantCulture);
@@ -325,16 +368,17 @@ public class ReservaService : IReservaService
         }
         catch (ReservaConflictoConcurrenciaException)
         {
-            // Mensaje propio: el del repositorio habla de la cancelación y la pantalla pública lo
-            // compara por subcadena, así que no se toca.
+            // El texto se deja igual (el del repositorio habla de la cancelación), pero el frontend ya
+            // no depende de él: decide por CodigosErrorReservas.CambioConcurrente.
             return OperationResult.Failure<ReservaDetalleDto>(
-                ErrorType.Conflict, "La reserva cambió mientras se procesaba el check-in; vuelve a consultarla.");
+                ErrorType.Conflict, "La reserva cambió mientras se procesaba el check-in; vuelve a consultarla.",
+                CodigosErrorReservas.CambioConcurrente);
         }
 
         var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken)
             ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} desapareció después del check-in.");
 
-        return OperationResult.Success(detalle);
+        return OperationResult.Success(ConPermisosDeEdicion(detalle));
     }
 
     /// <summary>Mesa y franja resueltas por <see cref="ValidarYAsignarMesaAsync"/>.</summary>
@@ -348,15 +392,19 @@ public class ReservaService : IReservaService
     // antelación mínima para el cliente, o que la franja no haya terminado para el personal (GI-403).
     private async Task<OperationResult<AsignacionMesa>> ValidarYAsignarMesaAsync(
         DateOnly fecha, Guid franjaId, int personas, Guid? mesaPreferidaId, bool preferidaObligatoria,
-        Guid? excluirReservaId, bool validarHorario, AudienciaReserva audiencia, CancellationToken cancellationToken)
+        Guid? excluirReservaId, bool validarHorario, Guid? zonaId, AudienciaReserva audiencia, CancellationToken cancellationToken)
     {
+        var parametros = await _parametros.ObtenerAsync(cancellationToken);
         var mesas = await _mesaRepository.ListarActivasAsync(cancellationToken);
+        // Tamaño efectivo del grupo: el configurado, sin pasar de la mesa activa más grande.
         var capacidadMaxima = mesas.Count == 0 ? 0 : mesas.Max(m => m.Capacidad);
-        if (personas > capacidadMaxima)
+        var tamanoMaximo = Math.Min(parametros.MaxPersonasPorReserva, capacidadMaxima);
+        if (personas > tamanoMaximo)
         {
             return OperationResult.Failure<AsignacionMesa>(
                 ErrorType.Validation,
-                MensajesReservas.GrupoGrande(audiencia, capacidadMaxima));
+                MensajesReservas.GrupoGrande(audiencia, tamanoMaximo),
+                CodigosErrorReservas.ContactarRestaurante);
         }
 
         var franjas = await _franjaHorariaRepository.ListarActivasAsync(cancellationToken);
@@ -367,10 +415,10 @@ public class ReservaService : IReservaService
                 ErrorType.Validation, "La franja horaria no existe o no está activa.");
         }
 
-        if (_parametros.DiasCerrados.Contains(fecha.DayOfWeek))
+        // Día cerrado (día de la semana sin servicio o fecha cerrada): bloquea a todas las audiencias.
+        if (!parametros.EstaAbierto(fecha))
         {
-            return OperationResult.Failure<AsignacionMesa>(
-                ErrorType.Validation, "El restaurante está cerrado ese día.");
+            return OperationResult.Failure<AsignacionMesa>(ErrorType.Validation, MensajesReservas.RestauranteCerrado);
         }
 
         if (validarHorario)
@@ -385,10 +433,23 @@ public class ReservaService : IReservaService
                         ErrorType.Validation, MensajesReservas.FranjaTerminadaPersonal);
                 }
             }
-            else if (fecha.ToDateTime(franja.HoraInicio) < ahoraLocal + _parametros.AntelacionMinima)
+            else if (fecha.ToDateTime(franja.HoraInicio) < ahoraLocal + parametros.AntelacionMinima)
             {
                 return OperationResult.Failure<AsignacionMesa>(
                     ErrorType.Validation, MensajesReservas.SinAntelacionMinima);
+            }
+        }
+
+        // Zona preferida (GI-4xx, solo canal web): se valida que exista y esté activa, igual que la franja.
+        // Null = "sin preferencia", el comportamiento de siempre.
+        Zona? zonaPreferida = null;
+        if (zonaId is { } zId)
+        {
+            zonaPreferida = await _zonas.BuscarPorIdAsync(zId, cancellationToken);
+            if (zonaPreferida is null || !zonaPreferida.Activa)
+            {
+                return OperationResult.Failure<AsignacionMesa>(
+                    ErrorType.Validation, "La zona indicada no existe o no está activa.");
             }
         }
 
@@ -397,6 +458,12 @@ public class ReservaService : IReservaService
             .Where(r => r.FranjaHorariaId == franja.Id && r.Id != excluirReservaId)
             .Select(r => r.MesaId)
             .ToHashSet();
+
+        // Una visita sin reserva en esa fecha y franja también ocupa la mesa: no tiene hora de salida, así que
+        // se considera ocupada toda la franja. Con esto la asignación automática ya las salta sola.
+        var mesasConVisita = await _visitas.ListarMesasConVisitaAsync(fecha, franja.Id, cancellationToken);
+        var mesasReservadasIds = mesasOcupadasIds.ToHashSet();
+        mesasOcupadasIds.UnionWith(mesasConVisita);
 
         if (mesaPreferidaId is { } preferidaId)
         {
@@ -420,6 +487,14 @@ public class ReservaService : IReservaService
                         $"La mesa {preferida.Numero} admite como máximo {preferida.Capacidad} personas.");
                 }
 
+                // Se distingue el motivo: una visita sin reserva no es una reserva, y el personal necesita
+                // saber por qué la mesa no sirve (el mensaje de la visita va primero).
+                if (mesasConVisita.Contains(preferida.Id))
+                {
+                    return OperationResult.Failure<AsignacionMesa>(
+                        ErrorType.Conflict, MensajesReservas.MesaConVisita(preferida.Numero));
+                }
+
                 if (mesasOcupadasIds.Contains(preferida.Id))
                 {
                     return OperationResult.Failure<AsignacionMesa>(
@@ -436,15 +511,28 @@ public class ReservaService : IReservaService
             }
         }
 
+        // Con zona preferida (GI-4xx) los candidatos se limitan a las mesas de esa zona; sin ella, todas.
         var mesaElegida = mesas
-            .Where(m => m.Capacidad >= personas)
+            .Where(m => m.Capacidad >= personas && (zonaPreferida is null || m.ZonaId == zonaPreferida.Id))
             .OrderBy(m => m.Capacidad)
             .FirstOrDefault(m => !mesasOcupadasIds.Contains(m.Id));
 
+        if (mesaElegida is null && zonaPreferida is not null)
+        {
+            // Nunca se cae en silencio a otra zona: el cliente decide.
+            return OperationResult.Failure<AsignacionMesa>(
+                ErrorType.Conflict, MensajesReservas.ZonaSinMesas(zonaPreferida.Nombre), CodigosErrorReservas.ZonaSinMesas);
+        }
+
         if (mesaElegida is null)
         {
+            // Si alguna mesa con capacidad quedó sin servir SOLO por una visita sin reserva, el personal debe saberlo:
+            // «ya fue tomada» sugiere otra reserva. El cliente web no ve las visitas, así que conserva el texto general.
+            var bloqueadaSoloPorVisita = audiencia == AudienciaReserva.Personal && mesas.Any(m =>
+                m.Capacidad >= personas && mesasConVisita.Contains(m.Id) && !mesasReservadasIds.Contains(m.Id));
             return OperationResult.Failure<AsignacionMesa>(
-                ErrorType.Conflict, "Esa mesa ya fue tomada, intenta otra franja.");
+                ErrorType.Conflict,
+                bloqueadaSoloPorVisita ? MensajesReservas.SinMesaPorVisitas : "Esa mesa ya fue tomada, intenta otra franja.");
         }
 
         return OperationResult.Success(new AsignacionMesa(mesaElegida, franja));
@@ -494,7 +582,8 @@ public class ReservaService : IReservaService
                 return OperationResult.Failure<ReservaDetalleDto>(ErrorType.Validation, "La fecha no puede ser en el pasado.");
             }
 
-            if (request.Fecha > hoy.AddDays(_parametros.AntelacionMaxima.Days))
+            var parametrosModificar = await _parametros.ObtenerAsync(cancellationToken);
+            if (request.Fecha > parametrosModificar.FechaMaximaReservable(hoy))
             {
                 return OperationResult.Failure<ReservaDetalleDto>(
                     ErrorType.Validation, "La fecha supera la ventana máxima de anticipación.");
@@ -504,10 +593,10 @@ public class ReservaService : IReservaService
         var asignacion = await ValidarYAsignarMesaAsync(
             request.Fecha, request.FranjaHorariaId, request.Personas,
             mesaPreferidaId: request.MesaId ?? reserva.MesaId, preferidaObligatoria: request.MesaId is not null,
-            excluirReservaId: reserva.Id, validarHorario: cambiaHorario, AudienciaReserva.Personal, cancellationToken);
+            excluirReservaId: reserva.Id, validarHorario: cambiaHorario, zonaId: null, AudienciaReserva.Personal, cancellationToken);
         if (!asignacion.IsSuccess)
         {
-            return OperationResult.Failure<ReservaDetalleDto>(asignacion.Type!.Value, asignacion.Error!);
+            return OperationResult.Failure<ReservaDetalleDto>(asignacion.Type!.Value, asignacion.Error!, asignacion.Codigo);
         }
 
         var mesa = asignacion.Value!.Mesa;
@@ -530,9 +619,10 @@ public class ReservaService : IReservaService
             }
             catch (ReservaConflictoConcurrenciaException)
             {
-                // Mensaje propio: el del repositorio habla de la cancelación y la pantalla pública lo compara por subcadena.
+                // El texto se deja igual, pero el frontend ya no depende de él.
                 return OperationResult.Failure<ReservaDetalleDto>(
-                    ErrorType.Conflict, "La reserva cambió mientras se modificaba; vuelve a consultarla.");
+                    ErrorType.Conflict, "La reserva cambió mientras se modificaba; vuelve a consultarla.",
+                    CodigosErrorReservas.CambioConcurrente);
             }
 
             // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
@@ -546,7 +636,7 @@ public class ReservaService : IReservaService
         var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken)
             ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} desapareció después de modificarla.");
 
-        return OperationResult.Success(detalle);
+        return OperationResult.Success(ConPermisosDeEdicion(detalle));
     }
 
     private static string MensajeModificarNoPermitido(EstadoReserva estado) => estado switch
@@ -598,9 +688,10 @@ public class ReservaService : IReservaService
         }
         catch (ReservaConflictoConcurrenciaException)
         {
-            // Mensaje propio: el del repositorio habla de la cancelación por código y la pantalla pública lo compara por subcadena.
+            // El texto se deja igual, pero el frontend ya no depende de él.
             return OperationResult.Failure<ReservaDetalleDto>(
-                ErrorType.Conflict, "La reserva cambió mientras se cancelaba; vuelve a consultarla.");
+                ErrorType.Conflict, "La reserva cambió mientras se cancelaba; vuelve a consultarla.",
+                CodigosErrorReservas.CambioConcurrente);
         }
 
         // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
@@ -612,7 +703,7 @@ public class ReservaService : IReservaService
         var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken)
             ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} desapareció después de cancelarla.");
 
-        return OperationResult.Success(detalle);
+        return OperationResult.Success(ConPermisosDeEdicion(detalle));
     }
 
     private static string MensajeCancelarPorPersonalNoPermitido(EstadoReserva estado) => estado switch
@@ -650,9 +741,10 @@ public class ReservaService : IReservaService
         }
         catch (ReservaConflictoConcurrenciaException)
         {
-            // Mensaje propio: el del repositorio habla de la cancelación y la pantalla pública lo compara por subcadena.
+            // El texto se deja igual, pero el frontend ya no depende de él.
             return OperationResult.Failure<ReservaDetalleDto>(
-                ErrorType.Conflict, "La reserva cambió mientras se completaba la visita; vuelve a consultarla.");
+                ErrorType.Conflict, "La reserva cambió mientras se completaba la visita; vuelve a consultarla.",
+                CodigosErrorReservas.CambioConcurrente);
         }
 
         // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
@@ -664,8 +756,68 @@ public class ReservaService : IReservaService
         var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken)
             ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} desapareció después de completarla.");
 
-        return OperationResult.Success(detalle);
+        return OperationResult.Success(ConPermisosDeEdicion(detalle));
     }
+
+    /// <inheritdoc />
+    public async Task<OperationResult<ReservaDetalleDto>> MarcarNoAsistioAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var reserva = await _reservaRepository.BuscarPorIdAsync(id, cancellationToken);
+        if (reserva is null)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.NotFound, "No encontramos esa reserva.");
+        }
+
+        if (reserva.Estado != EstadoReserva.Confirmada)
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(ErrorType.Conflict, MensajeNoAsistioNoPermitido(reserva.Estado));
+        }
+
+        // Si esto fuera null sería una violación de integridad (ver ConsultarPorCodigoAsync).
+        var franja = await _franjaHorariaRepository.BuscarPorIdAsync(reserva.FranjaHorariaId, cancellationToken)
+            ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} referencia una franja que no existe.");
+
+        // Antes del inicio de la franja el cliente aún puede llegar: lo que corresponde es cancelar.
+        if (_timeProvider.AhoraLocal() < reserva.Fecha.ToDateTime(franja.HoraInicio))
+        {
+            return OperationResult.Failure<ReservaDetalleDto>(
+                ErrorType.Conflict, "La franja aún no empieza; si el cliente no vendrá, cancela la reserva.");
+        }
+
+        reserva.MarcarNoAsistio();
+
+        try
+        {
+            await _reservaRepository.GuardarCambiosAsync(cancellationToken);
+        }
+        catch (ReservaConflictoConcurrenciaException)
+        {
+            // El texto se deja igual, pero el frontend ya no depende de él.
+            return OperationResult.Failure<ReservaDetalleDto>(
+                ErrorType.Conflict, "La reserva cambió mientras se marcaba como no asistida; vuelve a consultarla.",
+                CodigosErrorReservas.CambioConcurrente);
+        }
+
+        // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
+        await _publicadorSeguro.PublicarAsync(
+            new ReservaNoAsistidaEvent(reserva.Id, reserva.Fecha, reserva.FranjaHorariaId, reserva.Personas),
+            $"ReservaId={reserva.Id}",
+            cancellationToken);
+
+        var detalle = await _reservaRepository.ObtenerDetalleAsync(id, cancellationToken)
+            ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} desapareció después de marcarla como no asistida.");
+
+        return OperationResult.Success(ConPermisosDeEdicion(detalle));
+    }
+
+    private static string MensajeNoAsistioNoPermitido(EstadoReserva estado) => estado switch
+    {
+        EstadoReserva.EnCurso => "Esta reserva ya tiene el check-in registrado; no se puede marcar como no asistida.",
+        EstadoReserva.Completada => "La reserva ya fue completada; no se puede marcar como no asistida.",
+        EstadoReserva.Cancelada => "La reserva fue cancelada; no se puede marcar como no asistida.",
+        EstadoReserva.NoAsistio => "La reserva ya fue marcada como no asistida.",
+        _ => "Solo se puede marcar como no asistida una reserva Confirmada."
+    };
 
     private static string MensajeCompletarNoPermitido(EstadoReserva estado) => estado switch
     {
@@ -710,10 +862,23 @@ public class ReservaService : IReservaService
             ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} referencia un cliente que no existe.");
         var franja = await _franjaHorariaRepository.BuscarPorIdAsync(reserva.FranjaHorariaId, cancellationToken)
             ?? throw new InvalidOperationException($"La reserva {reserva.Codigo} referencia una franja que no existe.");
+        // La zona de la mesa ACTUAL de la reserva: si el personal la movió, aquí ya se ve la zona nueva.
+        var zonaNombre = await ObtenerZonaNombrePorMesaAsync(reserva.MesaId, cancellationToken);
 
         return OperationResult.Success(new ReservaConsultadaDto(
             reserva.Codigo, cliente.Nombre, reserva.Fecha, franja.Nombre, franja.HoraInicio, franja.HoraFin,
-            reserva.Personas, reserva.Estado.ToString()));
+            reserva.Personas, reserva.Estado.ToString(), zonaNombre));
+    }
+
+    // Zona de una mesa por su id, para los DTOs públicos (ReservaCreadaDto/ReservaConsultadaDto) que muestran
+    // la zona pero nunca el número de mesa.
+    private async Task<string> ObtenerZonaNombrePorMesaAsync(Guid mesaId, CancellationToken cancellationToken)
+    {
+        var mesa = await _mesaGestionRepository.BuscarPorIdAsync(mesaId, cancellationToken)
+            ?? throw new InvalidOperationException($"La mesa {mesaId} no existe.");
+        var zona = await _zonas.BuscarPorIdAsync(mesa.ZonaId, cancellationToken)
+            ?? throw new InvalidOperationException($"La mesa {mesaId} referencia una zona que no existe.");
+        return zona.Nombre;
     }
 
     /// <inheritdoc />
@@ -737,7 +902,8 @@ public class ReservaService : IReservaService
 
         if (reserva.Estado != EstadoReserva.Confirmada)
         {
-            return OperationResult.Failure(ErrorType.Conflict, "Esta reserva ya no se puede cancelar.");
+            return OperationResult.Failure(
+                ErrorType.Conflict, "Esta reserva ya no se puede cancelar.", CodigosErrorReservas.ReservaNoCancelable);
         }
 
         // Si esto fuera null sería una violación de integridad (ver ConsultarPorCodigoAsync).
@@ -746,11 +912,14 @@ public class ReservaService : IReservaService
 
         var inicioFranjaLocal = reserva.Fecha.ToDateTime(franja.HoraInicio);
         var ahoraLocal = _timeProvider.AhoraLocal();
-        if (inicioFranjaLocal - ahoraLocal < _parametros.LimiteCancelacion)
+        // El límite se lee ahora, no al crear la reserva: una regla operativa (GI-226).
+        var limiteCancelacion = (await _parametros.ObtenerAsync(cancellationToken)).LimiteCancelacion;
+        if (inicioFranjaLocal - ahoraLocal < limiteCancelacion)
         {
             return OperationResult.Failure(
                 ErrorType.Conflict,
-                $"Ya no se puede cancelar esta reserva; debe hacerse con al menos {FormatearDuracion(_parametros.LimiteCancelacion)} de anticipación.");
+                $"Ya no se puede cancelar esta reserva; debe hacerse con al menos {MensajesReservas.Duracion(limiteCancelacion)} de anticipación.",
+                CodigosErrorReservas.CancelacionFueraDePlazo);
         }
 
         reserva.Cancelar(null);
@@ -761,25 +930,17 @@ public class ReservaService : IReservaService
         }
         catch (ReservaConflictoConcurrenciaException ex)
         {
-            return OperationResult.Failure(ErrorType.Conflict, ex.Message);
+            // El texto lo pone el repositorio (ver ReservaRepository.GuardarCambiosAsync); el código es el
+            // mismo CambioConcurrente de las demás rutas, el frontend ya no depende del texto.
+            return OperationResult.Failure(ErrorType.Conflict, ex.Message, CodigosErrorReservas.CambioConcurrente);
         }
 
-        await _publisher.Publish(
+        // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
+        await _publicadorSeguro.PublicarAsync(
             new ReservaCanceladaEvent(reserva.Id, reserva.Fecha, reserva.FranjaHorariaId, reserva.Personas),
+            $"ReservaId={reserva.Id}",
             cancellationToken);
 
         return OperationResult.Success();
-    }
-
-    /// <summary>Formatea una duración como texto legible en español: "2 horas" o "90 minutos".</summary>
-    private static string FormatearDuracion(TimeSpan duracion)
-    {
-        if (duracion.Days == 0 && duracion.Minutes == 0 && duracion.Hours > 0)
-        {
-            return duracion.Hours == 1 ? "1 hora" : $"{duracion.Hours} horas";
-        }
-
-        var minutosTotales = (int)duracion.TotalMinutes;
-        return minutosTotales == 1 ? "1 minuto" : $"{minutosTotales} minutos";
     }
 }

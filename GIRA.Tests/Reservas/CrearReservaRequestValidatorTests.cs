@@ -36,6 +36,19 @@ public class CrearReservaRequestValidatorTests
     }
 
     [Fact]
+    public async Task Nombre_De_Mas_De_150_Caracteres_Da_Mensaje_En_Espanol()
+    {
+        var validador = CrearValidador();
+        var request = new CrearReservaRequest(new string('N', 151), "8095551234", Fecha, Guid.NewGuid(), 2);
+
+        var resultado = await validador.ValidateAsync(request);
+
+        var error = Assert.Single(resultado.Errors, e => e.PropertyName == nameof(CrearReservaRequest.Nombre));
+        Assert.Equal("El nombre no puede superar los 150 caracteres.", error.ErrorMessage);
+        Assert.True((await validador.ValidateAsync(request with { Nombre = new string('N', 150) })).IsValid);
+    }
+
+    [Fact]
     public async Task Telefono_10DigitosValido_NoDaErrorDeTelefono()
     {
         var validador = CrearValidador();

@@ -48,6 +48,7 @@ public class OcupacionServicioTests
             Contexto = new GiraDbContext(opciones);
             Servicio = new OcupacionService(
                 new OcupacionRepository(Contexto),
+                new VisitaRepository(Contexto),
                 new ConsultarOcupacionRequestValidator(),
                 new TimeProviderFalso(new DateTimeOffset(2026, 12, 1, 16, 0, 0, TimeSpan.Zero)));
 
@@ -106,6 +107,19 @@ public class OcupacionServicioTests
             Contexto.Reservas.Add(reserva);
             await Contexto.SaveChangesAsync();
             return reserva;
+        }
+
+        public async Task<VisitaSinReserva> RegistrarVisitaAsync(
+            Mesa? mesa, FranjaHoraria? franja = null, DateOnly? fecha = null, int personas = 2)
+        {
+            var visita = new VisitaSinReserva
+            {
+                Id = Guid.NewGuid(), Fecha = fecha ?? Hoy, FranjaHorariaId = (franja ?? Almuerzo).Id,
+                MesaId = mesa?.Id, PersonasReales = personas
+            };
+            Contexto.VisitasSinReserva.Add(visita);
+            await Contexto.SaveChangesAsync();
+            return visita;
         }
 
         public async Task<MapaOcupacionDto> MapaAsync(DateOnly? fecha = null, FranjaHoraria? franja = null)
@@ -197,6 +211,69 @@ public class OcupacionServicioTests
         Assert.Equal("Libre", Mesa(mapa, 2).Estado);
         Assert.Equal("Reservada", Mesa(await e.MapaAsync(franja: e.Cena), 2).Estado);
         Assert.Equal("Reservada", Mesa(await e.MapaAsync(fecha: Hoy.AddDays(1)), 1).Estado);
+    }
+
+    // --- Visita sin reserva (TieneVisita) ---
+
+    [Fact]
+    public async Task Una_Visita_Sin_Reserva_Marca_La_Mesa_Con_Visita_Pero_La_Deja_Libre()
+    {
+        using var e = new Entorno();
+        await e.RegistrarVisitaAsync(e.Mesa1);
+
+        var mapa = await e.MapaAsync();
+        var mesa = Mesa(mapa, 1);
+
+        Assert.Equal("Libre", mesa.Estado);
+        Assert.True(mesa.TieneVisita);
+        // Mesas activas sin reserva de este Entorno: 1, 2 y 4 (la 3, 5 y 6 son inactivas). La visita no las cambia.
+        Assert.Equal(3, mapa.Resumen.Libres);
+    }
+
+    [Fact]
+    public async Task Una_Visita_En_Otra_Franja_No_Marca_La_Mesa()
+    {
+        using var e = new Entorno();
+        await e.RegistrarVisitaAsync(e.Mesa1, franja: e.Cena);
+
+        var mesa = Mesa(await e.MapaAsync(), 1); // mapa por defecto: Almuerzo
+
+        Assert.False(mesa.TieneVisita);
+    }
+
+    [Fact]
+    public async Task Una_Visita_En_Otra_Fecha_No_Marca_La_Mesa()
+    {
+        using var e = new Entorno();
+        await e.RegistrarVisitaAsync(e.Mesa1, fecha: Hoy.AddDays(1));
+
+        var mesa = Mesa(await e.MapaAsync(), 1); // mapa por defecto: Hoy
+
+        Assert.False(mesa.TieneVisita);
+    }
+
+    [Fact]
+    public async Task Una_Mesa_Con_Reserva_Y_Visita_Mantiene_El_Estado_De_La_Reserva_Y_Se_Marca_Con_Visita()
+    {
+        using var e = new Entorno();
+        await e.ReservarAsync(e.Mesa1, EstadoReserva.EnCurso);
+        await e.RegistrarVisitaAsync(e.Mesa1);
+
+        var mesa = Mesa(await e.MapaAsync(), 1);
+
+        Assert.Equal("Ocupada", mesa.Estado);
+        Assert.True(mesa.TieneVisita);
+    }
+
+    [Fact]
+    public async Task Una_Visita_Sin_Mesa_No_Marca_Ninguna_Mesa()
+    {
+        using var e = new Entorno();
+        await e.RegistrarVisitaAsync(mesa: null);
+
+        var mapa = await e.MapaAsync();
+
+        Assert.All(mapa.Zonas.SelectMany(z => z.Mesas), m => Assert.False(m.TieneVisita));
     }
 
     // --- La inactividad gana (A) ---

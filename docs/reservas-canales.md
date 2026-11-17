@@ -1,44 +1,265 @@
-# Canales de reserva y ciclo de vida (GI-403)
+# Canales de reserva y ciclo de vida (GI-403, GI-226)
 
-Definición para el SRS del módulo Reservas. La antelación mínima (2 h) y la ventana máxima (30 días) son
-parámetros provisionales (`ParametrosReservaService`) hasta que Configuración los entregue (GI-226).
+Definición para el SRS del módulo Reservas. Las reglas de reserva (antelaciones, límites y tamaño de grupo) son
+**parámetros editables** por el Gerente y el Administrador desde Configuración (GI-226); ver
+[parametros-reservas.md](parametros-reservas.md). Los valores que se citan abajo son los **por defecto**.
+
+## Franjas por defecto
+
+El sistema se entrega con cuatro franjas de 2 horas: **Almuerzo 12:00–13:45, Tarde 14:00–15:45, Cena 18:30–20:15 y
+Noche 20:30–22:15**, con 15 minutos entre las contiguas y dentro del horario de operación (12:00–22:30). Una franja
+activa debe caber en el horario de todos los días abiertos. Las franjas se crean solo si no existen: las instalaciones
+existentes conservan las suyas hasta que el Gerente las edite.
 
 ## Canales
 
-- **Web.** El cliente reserva por su cuenta desde `/reservar`, sin cuenta. Debe hacerlo con al menos 2 horas
-  de antelación y hasta 30 días antes. Origen: `Web`.
+- **Web.** El cliente reserva por su cuenta desde `/reservar`, sin cuenta. Debe hacerlo con al menos la antelación
+  mínima (por defecto 2 horas) y hasta la antelación máxima (por defecto 30 días). `/reservar` muestra **todas** las
+  franjas del día: las que no se pueden elegir salen deshabilitadas con su motivo. Puede elegir una **zona** opcional
+  (ver «Zona opcional en la reserva web»). Origen: `Web`.
 - **Por llamada.** El personal registra la reserva de quien llama, desde Agenda → Nueva reserva. Puede ser
-  para hoy, sin la antelación de 2 horas, mientras la franja no haya terminado. Origen: `Telefono`.
+  para hoy, sin la antelación mínima, mientras la franja no haya terminado. Origen: `Telefono`.
 - **En persona.** El personal registra la reserva con el cliente presente en el restaurante, con las mismas
   reglas que por llamada. Origen: `Presencial`.
 - **Sin reserva (visita).** Un grupo que llega y se sienta de inmediato. No es una reserva: no tiene código
-  ni cliente. Se registra la franja, las personas y, opcionalmente, la mesa; no se guardan datos personales.
-  **No marca la mesa como ocupada en el mapa**, porque no tiene hora de salida y no se sabe cuándo se libera.
+  ni cliente. Se registra la franja, las personas y la **mesa (obligatoria)**; no se guardan datos personales.
+  **No marca la mesa como ocupada en el mapa**, porque no tiene hora de salida y no se sabe cuándo se libera; sí
+  ocupa esa mesa en esa franja para las reservas y la disponibilidad (ver «Reglas comunes»).
   Las visitas del día se consultan en la sección «Visitas sin reserva de hoy» de la Agenda (total de visitas y
   de personas, y la lista con las más recientes primero; `GET /api/visitas`, hasta 200 por día en la lista).
+  **Cuándo se puede registrar (`POST /api/visitas`, hora de Santo Domingo):**
+  1. **Solo con el restaurante abierto ahora.** No se registran visitas si el día de la semana o la fecha de hoy están
+     cerrados, ni antes de la apertura ni a partir del cierre del horario de hoy (la apertura es inclusiva y el
+     cierre exclusivo, como el fin de una franja). Responde 409 con el horario del día.
+  2. **Solo en la franja más reciente de las activas que ya empezaron:** la actual o, si el grupo llega entre
+     franjas (por ejemplo a las 16:30), la última que empezó. Una franja anterior responde 409 y el mensaje nombra la
+     franja correcta; una que todavía no empieza también responde 409. En la pantalla solo se muestra esa franja, ya
+     seleccionada (si ya terminó pero el restaurante sigue abierto, se rotula «Última franja», no «Ya terminó»); con
+     el restaurante cerrado se avisa y el botón «Registrar visita» queda deshabilitado. En el **mapa de mesas**, los
+     botones «Registrar visita» de cada mesa libre dependen de lo mismo (es hoy, el restaurante no está cerrado y ya
+     empezó alguna franja activa), **no** de la franja seleccionada en el mapa: entre franjas el mapa suele mostrar la
+     próxima, y aun así se puede registrar en la última que empezó; el formulario usa esa franja y pide el mapa de
+     mesas libres para ella.
+  3. **Una mesa por franja (decisión del líder).** La mesa es obligatoria —null, vacía u omitida responde 400
+     («Elige la mesa donde se sentó el grupo.»)— y admite un solo grupo por fecha y franja, con o sin reserva: si ya
+     tiene otra visita en esa franja, responde 409 («La mesa N ya tiene una visita en esta franja.»). **Cambio
+     incompatible:** antes `mesaId` era opcional; un cliente que la omitiera ahora recibe 400. La pantalla solo
+     ofrece mesas utilizables (activas, de zona activa, libres, sin otra visita en esa franja y con capacidad
+     suficiente para las personas indicadas), ordenadas por capacidad de menor a mayor; sin ninguna, lo dice («No hay
+     mesas libres para N personas en esta franja») y el botón queda deshabilitado. Sin índice único en BD: dos
+     registros simultáneos en la misma mesa y franja podrían pasar la comprobación a la vez (carrera aceptada, es
+     una acción manual del personal).
+  El aviso de próxima reserva (`GET /api/visitas/advertencia-mesa`) no cambia: no consulta el horario, porque con el
+  restaurante cerrado la visita no llega a registrarse.
 
 ## Reglas comunes a las reservas
 
-- **Máximo de personas:** el tamaño de la mesa más grande activa (hoy, 8 personas). Los grupos mayores se
-  atienden por teléfono, fuera del sistema.
+- **Máximo de personas:** el **menor** entre el parámetro de tamaño máximo de grupo (por defecto 8) y la capacidad de
+  la mesa activa más grande. Los grupos mayores se atienden por teléfono, fuera del sistema.
 - **Mesa:** se asigna automáticamente: la mesa libre de menor capacidad que alcance para el grupo en esa fecha
-  y franja.
-- **Límite por teléfono:** como máximo 2 reservas vigentes con el mismo teléfono.
-- **Disponibilidad:** la del personal (`GET /api/reservas/disponibilidad-personal`) incluye la franja de hoy en
-  curso y solo excluye las que ya terminaron; la pública (`GET /api/reservas/disponibilidad`) conserva la
-  antelación de 2 horas.
+  y franja. Una mesa con **visita sin reserva** en esa fecha y franja cuenta como ocupada: la asignación automática
+  la salta, la disponibilidad no ofrece la franja si no queda otra mesa que alcance, y si el personal la elige a mano
+  recibe 409 («tiene una visita sin reserva en esta franja»). Al no haber hora de salida, se considera ocupada toda
+  la franja y se libera al cambiar de franja. El inverso ya existía: no se puede registrar una visita en una mesa con
+  reserva vigente en esa franja. En la web el cliente puede acotar la búsqueda a una zona (ver «Zona opcional en la
+  reserva web»); el personal no.
+- **Límite por teléfono:** como máximo el número configurado de reservas vigentes con el mismo teléfono (por defecto 2).
+  La creación de reservas de un mismo teléfono está **serializada** (bloqueo de aplicación por teléfono normalizado,
+  `sp_getapplock` dentro de una transacción en SQL Server): varias solicitudes simultáneas del mismo teléfono no pueden
+  rebasar el límite; las que sobran reciben `LIMITE_VIGENTES` igual que en secuencia. Si el bloqueo no se obtiene en 10 s
+  responde 409 («Hay otra reserva de este teléfono registrándose en este momento…»); es un caso extremo y se puede reintentar.
+- **Mover una mesa de zona.** Cambiar la zona de una mesa (`PUT /api/mesas/{id}` con otra `zonaId`) con reservas
+  vigentes (Confirmada o EnCurso) de hoy en adelante responde 409 con el número de reservas, igual que desactivarla o
+  reducir su capacidad por debajo de una reserva: esas reservas cambiarían de zona sin que el cliente lo supiera. Sin
+  reservas vigentes se permite; editar número o capacidad sin cambiar la zona nunca se bloquea por esto.
+- **Sin mesa por visitas.** Cuando la asignación automática del personal no encuentra mesa porque las que alcanzaban están
+  ocupadas por una visita sin reserva, el 409 lo dice («Las mesas disponibles para este grupo tienen una visita sin
+  reserva en esta franja. Elige otra franja.»); si las ocupa otra reserva, o si quien reserva es el cliente web, el texto
+  sigue siendo «Esa mesa ya fue tomada, intenta otra franja.».
+- **Día cerrado:** no se puede reservar en un día de la semana cerrado ni en una fecha cerrada, por ningún canal.
+- **Disponibilidad:** la pública (`GET /api/reservas/disponibilidad`) devuelve todas las franjas activas con `disponible` y
+  `motivoNoDisponible` (cerrado, fuera del rango, ya pasó, antelación mínima, sin mesas); la del personal
+  (`GET /api/reservas/disponibilidad-personal`) incluye la franja de hoy en curso, solo excluye las que ya terminaron y
+  no exige la antelación mínima. **La fecha es obligatoria en ambas:** sin `fecha` responden 400 («La fecha es
+  obligatoria.»); una fecha válida, pasada o futura, responde como siempre.
+- **Reglas de creación y reglas operativas.** Las de creación (antelaciones, límite por teléfono, tamaño de grupo,
+  horario y días cerrados) rigen para las reservas **nuevas** y no invalidan las existentes. La ventana de check-in y el
+  límite de cancelación se leen en el momento de evaluarlos.
 
 ## Ciclo de vida de la reserva
 
 1. Se crea **Confirmada**.
-2. Con el check-in (desde 30 minutos antes de la franja y hasta que termina) pasa a **EnCurso**, con las
-   personas reales que llegaron.
+2. Con el check-in (desde la ventana configurada antes de la franja, por defecto 15 minutos, y hasta que termina) pasa a
+   **EnCurso**, con las personas reales que llegaron.
 3. **Completada**: al terminar la franja se completa sola, o el personal la completa antes.
 4. Desde Confirmada también puede quedar **Cancelada** (el personal, hasta el inicio de la franja; el cliente,
-   con al menos 2 horas de anticipación) o **NoAsistio**: si no llega, se marca sola cuando pasan 15 minutos de
-   tolerancia, contados desde el mayor entre el inicio de la franja y el momento en que se registró la reserva.
+   con al menos el límite de cancelación configurado, por defecto 2 horas) o **NoAsistio** (GI-404): si el cliente no
+   llega, la reserva se marca sola **a los N minutos del inicio de su franja** (N = tolerancia de no-show
+   configurable, 15 minutos por defecto, contada desde el mayor entre el inicio de la franja y el último registro de
+   la reserva), o el personal la marca antes con **«Marcar No asistió»** desde el detalle de la reserva, una vez que
+   la franja ya empezó (antes del inicio, el personal cancela en vez de marcar). Al quedar NoAsistio la mesa se
+   libera, se publica `ReservaNoAsistidaEvent` y el check-in ya no es posible: si el cliente llega después, se
+   registra como visita sin reserva.
+
+> **`puedeModificar` / `puedeCancelar` (RN-RES-04).** El detalle de una reserva para el personal
+> (`GET /api/reservas/{id}`, `GET /api/reservas/codigo/{codigo}` y la respuesta de check-in, modificar, cancelar,
+> completar y marcar no asistida) incluye estos dos indicadores calculados por el backend con su propio reloj
+> (America/Santo_Domingo): `true` solo si la reserva está Confirmada y su franja todavía no empezó. Antes los
+> botones Modificar/Cancelar de la agenda se mostraban siempre activos y el servidor los rechazaba con 409 recién
+> al enviarlos; ahora el personal los ve deshabilitados de antemano, con el texto «La franja ya empezó; no se puede
+> modificar ni cancelar. Si el cliente no llegó, usa "Marcar no asistió".». El frontend solo consume estos campos:
+> nunca recalcula con la hora del navegador, y el servidor sigue rechazando la operación igual si de todos modos se
+> envía (el backend sigue siendo la autoridad).
 
 > **Reserva creada con la franja en curso (RN-RES-04).** Como el personal solo puede modificar y cancelar
 > hasta el inicio de la franja, una reserva creada con la franja ya en curso no se puede modificar ni cancelar
 > después: solo se ajustan las personas reales en el check-in. Si el cliente no llega, el sistema la marca
-> NoAsistio a los 15 minutos de su registro.
+> NoAsistio a los N minutos de su registro (tolerancia configurable: una reserva creada con la franja ya empezada
+> tiene su plazo completo desde que se creó), o el personal la marca antes con «Marcar No asistió».
+
+> **Limitación conocida: llegar tarde.** Mientras la reserva siga Confirmada, el cliente puede llegar y se le hace
+> el check-in con normalidad (desde la ventana de check-in y hasta que la franja termina). Pero una vez que la
+> reserva pasa a NoAsistio (sola, a los N minutos del inicio de su franja según la tolerancia configurada, o porque
+> el personal la marcó), ya no hay vuelta atrás: el cliente que llega después pierde la reserva y solo se le puede
+> atender como visita sin reserva, si hay una mesa libre. Por eso el personal debe marcar «No asistió» únicamente
+> cuando esté seguro de que el cliente no vendrá, y la tolerancia debe ajustarse a lo que el restaurante quiera
+> esperar.
+
+> **Limitaciones de la configuración (GI-226).** Una instalación con mesas de más de 8 personas queda limitada a 8
+> hasta que se edite el parámetro de tamaño máximo de grupo. Las instalaciones existentes conservan sus franjas
+> anteriores. Reducir el horario o cerrar un día no cancela las reservas ya hechas. Detalle en
+> [parametros-reservas.md](parametros-reservas.md).
+
+## Códigos de error estables
+
+Los errores 4xx de Reservas que el frontend necesita distinguir sin leer el texto de `detail` (que puede cambiar
+de redacción, de idioma o según un parámetro configurado) llevan además un código estable en la extensión
+`codigo` del `ProblemDetails` de respuesta: `{ "status": 409, "detail": "...", "codigo": "LIMITE_VIGENTES" }`. El
+mensaje en español se conserva igual, para mostrarlo al usuario; el código es solo para que el cliente decida qué
+hacer. Un error sin código asignado sigue funcionando igual que antes (el frontend cae a su tratamiento genérico).
+
+| Código | Cuándo ocurre | HTTP |
+|---|---|---|
+| `LIMITE_VIGENTES` | El teléfono ya alcanzó el máximo de reservas vigentes configurado, al crear. | 409 |
+| `CANCELACION_FUERA_DE_PLAZO` | Se intentó cancelar por código fuera del límite de cancelación configurado. | 409 |
+| `CAMBIO_CONCURRENTE` | Otra solicitud modificó la misma reserva antes de que esta terminara de procesarse (check-in, modificar, cancelar, completar, marcar no asistida). | 409 |
+| `CONTACTAR_RESTAURANTE` | El grupo supera el tamaño máximo configurado (al consultar disponibilidad o al crear): el canal web no resuelve este caso. | 400 |
+| `RESERVA_NO_CANCELABLE` | La reserva ya no está Confirmada (Cancelada, NoAsistio, EnCurso o Completada): no se puede cancelar por código. | 409 |
+| `ZONA_SIN_MESAS` | La zona elegida (solo canal web) ya no tiene mesas disponibles en esa franja, al crear. | 409 |
+| `ZONA_NO_APLICA_PERSONAL` | El canal del personal (`Telefono`/`Presencial`) envió `zonaId`, al crear: ese canal no usa zona, la mesa se asigna a mano. | 400 |
+| `LIMITE_IP_DIARIO` *(reservado, no implementado)* | Esa IP alcanzó el máximo de reservas web del día de negocio actual. | 409 |
+| `TELEFONO_BLOQUEADO_NOSHOW` *(reservado, no implementado)* | Ese teléfono tiene inasistencias recientes y el canal web no lo acepta. | 409 |
+
+`LIMITE_IP_DIARIO` y `TELEFONO_BLOQUEADO_NOSHOW` están declarados en `CodigosErrorReservas.cs` para fijar el nombre
+final, pero el backend **no los devuelve**: quedan reservados para las mejoras futuras (ver más abajo). No se quitan
+ni se usan.
+
+## Zona opcional en la reserva web
+
+En `/reservar` el cliente puede elegir **una zona** (por ejemplo Salón o Terraza) o dejar «Sin preferencia».
+
+- **Cuándo aparece el selector.** Después de elegir la franja, y solo si **2 o más zonas tienen una mesa libre de
+  capacidad suficiente en esa franja**. Con una sola zona con lugar (o una sola zona activa) no se pregunta nada y la
+  mesa se asigna como siempre. Las zonas llenas **no se ofrecen** (se ocultan, no se deshabilitan). La lista sale de
+  `zonasDisponibles` en cada franja de `GET /api/reservas/disponibilidad`; la disponibilidad del personal no la lleva.
+- **Cómo se asigna.** Con zona elegida, la mesa se busca solo entre las mesas de esa zona (capacidad suficiente, la de
+  menor capacidad primero, sin reservas ni visitas en esa fecha y franja). Sin zona, el comportamiento es el de siempre
+  (menor capacidad de todo el salón). `POST /api/reservas` acepta `zonaId` opcional (solo canal web); una zona
+  inexistente o inactiva se rechaza con 400. **El canal del personal (`Telefono`/`Presencial`) rechaza `zonaId` con 400
+  y el código `ZONA_NO_APLICA_PERSONAL`** («El canal del personal no usa zona; la mesa la asigna el sistema.»): ese
+  canal usa la asignación automática de siempre (sin zona) — el personal solo cambia la mesa después, al modificar la
+  reserva —, así que una zona no tendría efecto y antes se ignoraba en silencio. La UI del personal nunca envía
+  `zonaId`, así que esto no cambia nada visible ahí.
+- **Zona llena al confirmar.** Si la zona elegida se llenó mientras el cliente completaba sus datos, la respuesta es
+  409 con código `ZONA_SIN_MESAS` («La zona X ya no tiene mesas disponibles en esa franja. Elige otra zona o "sin
+  preferencia".»). Nunca se asigna en silencio una mesa de otra zona. El frontend decide por el código: vuelve al
+  Paso 1 con el mensaje, con la disponibilidad actualizada y la zona sin elegir.
+- **Qué ve el cliente al confirmar y al consultar.** `ReservaCreadaDto` y `ReservaConsultadaDto` incluyen `zonaNombre`.
+  **Nunca se muestra el número de mesa ni su capacidad**, porque el personal puede mover la reserva de mesa el mismo día.
+- **La zona no se guarda como preferencia aparte.** La zona de una reserva es **siempre la de su mesa actual**: si el
+  personal la mueve a una mesa de otra zona, la consulta posterior por código muestra la zona nueva.
+- **Carrera por la última mesa.** Si dos solicitudes simultáneas se disputan la última mesa de una zona, una se
+  confirma y la otra recibe **409 sin código** con el texto genérico «Esa mesa ya fue tomada, intenta otra franja.»
+  (la zona podría tener todavía otras mesas libres, así que no se usa `ZONA_SIN_MESAS` en ese caso).
+
+## Aviso de próxima reserva al registrar una visita
+
+Al registrar una visita sin reserva en una mesa, el sistema avisa —sin bloquear— si esa mesa tiene una reserva vigente
+(Confirmada o EnCurso) en la **franja activa INMEDIATAMENTE siguiente** a aquella en la que se registraría la visita
+(SRS v1.4 §5.2). Una reserva dos o más franjas después, o en la última franja activa del día, no genera aviso: antes
+avisaba de cualquier franja posterior del día, sin importar cuán lejos (por ejemplo, una reserva 16 horas después),
+lo que resultaba poco útil en la práctica.
+
+- **«Inmediatamente siguiente»** = la próxima franja activa del día por hora de inicio, después de aquella en la que la
+  visita se registraría (la misma regla de «franja más reciente de las activas que ya empezaron» que usa el registro
+  de la visita). Si el grupo llega en el hueco entre dos franjas, la visita se registra en la franja anterior y
+  «siguiente» es la franja después de esa.
+- **Endpoint:** `GET /api/visitas/advertencia-mesa?mesaId=…&franjaId=…&fecha=…` (la fecha es opcional; por defecto hoy en
+  hora de Santo Domingo). Devuelve `hayAviso`, `mensaje`, `franjaNombre`, `horaInicio`, `personas` y `minutosFaltantes`
+  (solo cuando la fecha es hoy). **Sin nombre ni teléfono del cliente.**
+- **Mensaje:** «La mesa N tiene una reserva a las HH:mm (franja X, P personas), en «tiempo». Si registras la visita, la
+  mesa podría no estar libre a tiempo.» El «tiempo» se muestra así: menos de 60 minutos → «M min» (p. ej. «45 min»);
+  hora exacta → «H h» (p. ej. «1 h»); el resto → «H h M min» (p. ej. «1 h 15 min»).
+- **«Registrar de todos modos».** El aviso no cambia el registro: la visita se registra igual si el personal lo decide.
+- **Mapa de ocupación.** La mesa con una reserva posterior ese día muestra **«Próx. HH:mm»** (la más cercana que aún no
+  ha terminado; solo en esa mesa). `MesaOcupacionDto` trae `proximaReservaHoraInicio` y `proximaReservaPersonas`. La
+  visita sin reserva no cuenta como «próxima»: no tiene hora de salida.
+  Una mesa con una visita sin reserva en esa fecha y franja muestra la etiqueta **«Con visita»**, sin cambiar su
+  estado (Libre/Reservada/Ocupada/Inactiva) ni el resumen de conteos: es solo informativa para el personal.
+
+## Texto de cancelación
+
+El texto que repiten Confirmación y «Mi reserva · Detalle» **ya no usa la palabra «gratis»**: cancelar no tiene costo en
+ningún caso, así que solo se indica el plazo («Puedes cancelar hasta 2 horas antes de tu franja. Después, llama al … /
+contacta directamente al restaurante.»; con límite 0: «Puedes cancelar hasta el inicio de la franja…»). Sale del
+parámetro de límite de cancelación y del teléfono de contacto configurados.
+
+## Limitaciones conocidas
+
+- **El teléfono solo se valida por formato** (809/829/849 + 7 dígitos): no se verifica que exista ni que sea de quien
+  reserva. Las únicas barreras contra reservas falsas son el máximo de reservas vigentes por teléfono y la limitación de
+  tasa (en creación: 30/min por usuario autenticado y 5/min por IP para invitados).
+- **Los estados de la API son números** (enums sin convertir a texto): decisión del equipo; el frontend los traduce.
+- **Códigos reservados sin implementar** (`LIMITE_IP_DIARIO`, `TELEFONO_BLOQUEADO_NOSHOW`): ver «Mejoras futuras».
+- **Carrera por la última mesa:** el segundo solicitante recibe un 409 sin código (ver «Zona opcional»).
+
+## Suite de integración (SQL Server real)
+
+Además de `dotnet test` (EF Core InMemory y repositorios falsos, lo que corre en CI), hay pruebas marcadas
+`[Trait("Category", "Integration")]` que corren contra **SQL Server real** en Docker, porque necesitan concurrencia
+real (dos solicitudes a la vez) que InMemory no reproduce. El `.csproj` de `GIRA.Tests` las excluye de la corrida
+normal (`<VSTestTestCaseFilter>Category!=Integration</VSTestTestCaseFilter>`), así que hay que pedirlas aparte:
+
+```bash
+dotnet test GIRA.Tests --filter "Category=Integration"
+```
+
+| Clase | Qué prueba | Base de pruebas | User Secret |
+|---|---|---|---|
+| `ReservaServiceIntegrationTests` (GI-228) | Dos solicitudes simultáneas a la última mesa libre de una zona: una se confirma y la otra falla limpio (sin duplicar); migración de franjas de 2 horas sin romper ediciones ni uso. | `GIRA_GI228_TEST` | `ConnectionStrings:GiraGi228Test` |
+| `ReservaServiceIntegrationTests` (límite por teléfono) | Ocho solicitudes simultáneas del mismo teléfono con límite 2: quedan exactamente 2 reservas y el resto recibe `LIMITE_VIGENTES`. | `GIRA_GI228_TEST` | `ConnectionStrings:GiraGi228Test` |
+| `ProcesoNoShowsIntegrationTests` (GI-161) | Dos ejecuciones simultáneas del proceso automático de no-show: el `RowVersion` de la reserva hace que solo una la marque y publique el evento. | `GIRA_GI161_TEST` | `ConnectionStrings:GiraGi161Test` |
+
+Cada fixture (`IAsyncLifetime`) borra y vuelve a migrar su base antes de la corrida (`EnsureDeletedAsync` +
+`MigrateAsync`), así que la base **no hace falta crearla a mano**: solo necesita existir el contenedor
+`gira-sqlserver` encendido y el User Secret correspondiente en `GIRA.Tests` apuntando a ella. Cada fixture verifica
+por código que el nombre de la base en la cadena de conexión sea exactamente el de pruebas (`GIRA_GI228_TEST` /
+`GIRA_GI161_TEST`) antes de borrar nada, para no poder apuntar nunca a `GIRA_DB` por error. Configurar el secreto que
+falte (sustituyendo `<cadena-de-conexión-a-una-base-de-PRUEBA>` por una cadena real, con la misma base/puerto que
+`GiraDb` pero `Database=GIRA_GI161_TEST`):
+
+```bash
+dotnet user-secrets set "ConnectionStrings:GiraGi161Test" "<cadena-de-conexión-a-una-base-de-PRUEBA>" --project GIRA.Tests
+```
+
+## Mejoras futuras (no implementadas)
+
+Decididas como fuera del alcance actual; no hay código, parámetros ni migraciones para ellas.
+
+- **IP real tras un proxy** (`ForwardedHeaders` con `KnownProxies`/`KnownNetworks` de configuración): hoy los limitadores
+  leen `RemoteIpAddress`, que tras un proxy es la IP del proxy.
+- **Límite diario de reservas web por IP** (con hash de la IP, nunca en claro) y **bloqueo web por reputación de
+  no-show** (por teléfono y ventana de días); sus códigos `LIMITE_IP_DIARIO` y `TELEFONO_BLOQUEADO_NOSHOW` quedan reservados.
+- **CAPTCHA**, **tope de mesas por la web** y **verificación del teléfono por SMS**.
+- **Estados como texto en la API** (en vez de números).
+- **«Terminar visita»**: dar a la visita sin reserva una hora de salida para liberar la mesa antes de que acabe la franja.

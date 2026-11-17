@@ -105,6 +105,7 @@
 .reservas-personal-mesa-conflicto { font-weight: 700; color: var(--reservas-error-texto); overflow-wrap: anywhere; }
 .reservas-personal-mesa--conflicto { border-color: var(--reservas-error-boton); }
 .reservas-personal-mesa-accion { margin-top: auto; font-weight: 800; text-decoration: underline; }
+.reservas-personal-mesa-visita { font-weight: 800; }
 /* El texto secundario hereda el color del estado, sin opacity (a .85 bajaba Ocupada a 3,99:1). */
 .reservas-personal-mesa .reservas-personal-secundario { color: inherit; }
 button.reservas-personal-mesa:focus-visible { outline: 3px solid var(--reservas-foco); outline-offset: 2px; }

@@ -17,4 +17,5 @@ public record ReservaConsultadaDto(
     TimeOnly FranjaHoraInicio,
     TimeOnly FranjaHoraFin,
     int Personas,
-    string Estado);
+    string Estado,
+    string ZonaNombre);

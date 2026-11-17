@@ -43,7 +43,7 @@ public class SalonServiciosTests
 
             Zonas = new ZonaService(zonas, futuras, new GuardarZonaRequestValidator(), listado, reloj);
             Mesas = new MesaService(mesas, zonas, futuras, new GuardarMesaRequestValidator(), listado, reloj);
-            Franjas = new FranjaService(franjas, futuras, new GuardarFranjaRequestValidator(), listado, reloj);
+            Franjas = new FranjaService(franjas, futuras, new ParametrosReservaFalso { HoraApertura = new TimeOnly(8, 0) }, new GuardarFranjaRequestValidator(), listado, reloj);
         }
 
         public void Dispose() => Contexto.Dispose();
@@ -80,7 +80,7 @@ public class SalonServiciosTests
         }
 
         public async Task SembrarReservaAsync(
-            Guid mesaId, Guid franjaId, DateOnly fecha, int personas = 2, bool cancelada = false)
+            Guid mesaId, Guid franjaId, DateOnly fecha, int personas = 2, bool cancelada = false, bool enCurso = false)
         {
             var reserva = new Reserva
             {
@@ -95,6 +95,11 @@ public class SalonServiciosTests
             if (cancelada)
             {
                 reserva.Cancelar("Prueba");
+            }
+
+            if (enCurso)
+            {
+                reserva.HacerCheckIn(personas, DateTime.UtcNow);
             }
 
             Contexto.Reservas.Add(reserva);
@@ -322,6 +327,58 @@ public class SalonServiciosTests
 
         EsFallo(rechazada, ErrorType.Conflict);
         Assert.True(aceptada.IsSuccess);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Mesa_Mover_A_Otra_Zona_Con_Reservas_Vigentes_Es_Conflict_Con_El_Conteo(bool enCurso)
+    {
+        using var e = new Entorno();
+        var salon = await e.SembrarZonaAsync("Salón");
+        var terraza = await e.SembrarZonaAsync("Terraza");
+        var mesa = await e.SembrarMesaAsync(salon.Id);
+        var franja = await e.SembrarFranjaAsync("Cena", 18, 22);
+        await e.SembrarReservaAsync(mesa.Id, franja.Id, Futuro, enCurso: enCurso);
+        await e.SembrarReservaAsync(mesa.Id, franja.Id, Futuro.AddDays(1));
+
+        var resultado = await e.Mesas.ActualizarAsync(mesa.Id, new GuardarMesaRequest(1, 4, terraza.Id), default);
+
+        EsFallo(resultado, ErrorType.Conflict);
+        Assert.Contains("2 reserva(s) vigente(s)", resultado.Error!);
+        Assert.Equal(salon.Id, (await e.Contexto.Mesas.FindAsync(mesa.Id))!.ZonaId);
+    }
+
+    [Fact]
+    public async Task Mesa_Mover_A_Otra_Zona_Sin_Reservas_Vigentes_Se_Permite()
+    {
+        using var e = new Entorno();
+        var salon = await e.SembrarZonaAsync("Salón");
+        var terraza = await e.SembrarZonaAsync("Terraza");
+        var mesa = await e.SembrarMesaAsync(salon.Id);
+        var franja = await e.SembrarFranjaAsync("Cena", 18, 22);
+        await e.SembrarReservaAsync(mesa.Id, franja.Id, Pasado);                   // pasada: no bloquea
+        await e.SembrarReservaAsync(mesa.Id, franja.Id, Futuro, cancelada: true);  // cancelada: no bloquea
+
+        var resultado = await e.Mesas.ActualizarAsync(mesa.Id, new GuardarMesaRequest(1, 4, terraza.Id), default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal("Terraza", resultado.Value!.ZonaNombre);
+    }
+
+    [Fact]
+    public async Task Mesa_Con_Reservas_Vigentes_Puede_Editarse_Sin_Cambiar_De_Zona()
+    {
+        using var e = new Entorno();
+        var salon = await e.SembrarZonaAsync("Salón");
+        var mesa = await e.SembrarMesaAsync(salon.Id, capacidad: 4);
+        var franja = await e.SembrarFranjaAsync("Cena", 18, 22);
+        await e.SembrarReservaAsync(mesa.Id, franja.Id, Futuro, personas: 2);
+
+        var resultado = await e.Mesas.ActualizarAsync(mesa.Id, new GuardarMesaRequest(7, 6, salon.Id), default);
+
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal(7, resultado.Value!.Numero);
     }
 
     [Fact]

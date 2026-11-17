@@ -53,6 +53,8 @@ public class AgendaServiciosTests
                 new ReservaRepository(Contexto),
                 clientes,
                 new MesaGestionRepository(Contexto),
+                new VisitaRepository(Contexto),
+                new ZonaRepository(Contexto),
                 parametros,
                 new CrearReservaRequestValidator(parametros, reloj),
                 new ListarReservasRequestValidator(),
@@ -60,7 +62,6 @@ public class AgendaServiciosTests
                 new CancelarPorPersonalRequestValidator(),
                 new ModificarReservaRequestValidator(),
                 new GeneradorCodigoReserva(),
-                new PublisherFalso(),
                 new PublicadorEventosSeguro(new PublisherFalso(), NullLogger<PublicadorEventosSeguro>.Instance),
                 reloj);
             Clientes = new ClienteService(clientes, new BuscarClientesRequestValidator());

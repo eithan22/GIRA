@@ -1,4 +1,5 @@
 using FluentValidation;
+using GIRA.Application.Services.Configuracion;
 using GIRA.Application.Services.Reservas;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +14,7 @@ public static class DependencyInjection
     {
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(DependencyInjection).Assembly));
+        services.AddConfiguracion();
         services.AddReservas();
         return services;
     }

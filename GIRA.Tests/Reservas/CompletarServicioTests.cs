@@ -55,6 +55,8 @@ public class CompletarServicioTests
                 reservas,
                 new ClienteRepository(Contexto),
                 new MesaGestionRepository(Contexto),
+                new VisitaRepository(Contexto),
+                new ZonaRepository(Contexto),
                 parametros,
                 new CrearReservaRequestValidator(parametros, reloj),
                 new ListarReservasRequestValidator(),
@@ -62,7 +64,6 @@ public class CompletarServicioTests
                 new CancelarPorPersonalRequestValidator(),
                 new ModificarReservaRequestValidator(),
                 new GeneradorCodigoReserva(),
-                publisher,
                 new PublicadorEventosSeguro(publisher, logger ?? NullLogger<PublicadorEventosSeguro>.Instance),
                 reloj);
         }

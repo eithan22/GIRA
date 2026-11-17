@@ -15,6 +15,16 @@ public interface IReservaRepository
     Task<int> ContarVigentesPorTelefonoAsync(string telefono, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Serializa la creación de reservas de un teléfono (ya normalizado): quien lo obtiene es el único que puede, a la
+    /// vez, contar las reservas vigentes de ese teléfono y guardar la nueva, así el límite de vigentes no se rebasa con
+    /// solicitudes simultáneas. Devuelve null si no se obtuvo a tiempo (otra creación del mismo teléfono sigue en curso).
+    /// La implementación por defecto no bloquea nada (fakes de pruebas y proveedores sin bloqueos); SQL Server usa un
+    /// bloqueo de aplicación (<c>sp_getapplock</c>) dentro de una transacción.
+    /// </summary>
+    Task<IBloqueoCreacionReserva?> BloquearCreacionPorTelefonoAsync(string telefono, CancellationToken cancellationToken) =>
+        Task.FromResult<IBloqueoCreacionReserva?>(BloqueoCreacionReservaNulo.Instancia);
+
+    /// <summary>
     /// Busca la reserva con ese código Y ese teléfono (del cliente asociado) a la vez.
     /// Null si no coinciden los dos, sin distinguir cuál falló.
     /// </summary>
@@ -46,6 +56,13 @@ public interface IReservaRepository
 
     /// <summary>True si la mesa tiene una reserva vigente (Confirmada o EnCurso) en esa fecha y franja (GI-166).</summary>
     Task<bool> ExisteVigenteAsync(Guid mesaId, DateOnly fecha, Guid franjaId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reservas vigentes (Confirmada o EnCurso) de una mesa en una fecha, en cualquier franja (aviso de
+    /// próxima reserva al registrar una visita sin reserva). El servicio que llama filtra por franja
+    /// posterior; aquí no se conoce el horario de las franjas.
+    /// </summary>
+    Task<IReadOnlyList<Reserva>> ListarVigentesDeMesaAsync(Guid mesaId, DateOnly fecha, CancellationToken cancellationToken);
 
     /// <summary>
     /// Reservas en el <paramref name="estado"/> indicado con fecha hasta <paramref name="fechaMaxima"/>, con seguimiento

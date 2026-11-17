@@ -9,7 +9,11 @@ namespace GIRA.Infrastructure.Persistence.Configurations.Reservas;
 /// </summary>
 public class VisitaSinReservaConfiguration : IEntityTypeConfiguration<VisitaSinReserva>
 {
-    /// <summary>Configura la tabla y las relaciones con Mesa (opcional) y FranjaHoraria.</summary>
+    /// <summary>
+    /// Configura la tabla y las relaciones con Mesa y FranjaHoraria. <c>MesaId</c> es obligatoria a nivel
+    /// de negocio (ver <see cref="VisitaSinReserva.MesaId"/>), pero la columna queda NULLABLE por las
+    /// visitas históricas sin mesa.
+    /// </summary>
     public void Configure(EntityTypeBuilder<VisitaSinReserva> builder)
     {
         builder.ToTable("VisitaSinReserva", "reservas");

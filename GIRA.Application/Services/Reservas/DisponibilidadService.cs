@@ -1,29 +1,42 @@
 using FluentValidation;
 using GIRA.Application.Common;
+using GIRA.Application.Common.Reservas;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Interfaces.Repository.Reservas;
 using GIRA.Application.Interfaces.Services.Reservas;
+using GIRA.Domain.Entities.Reservas;
 
 namespace GIRA.Application.Services.Reservas;
 
 /// <summary>
-/// Implementación de <see cref="IDisponibilidadService"/>: calcula qué franjas tienen al
-/// menos una mesa disponible para una fecha y cantidad de personas.
+/// Implementación de <see cref="IDisponibilidadService"/>. Para el cliente devuelve TODAS las franjas activas del
+/// día, cada una con su disponibilidad y, si no se puede elegir, el motivo (GI-226); el frontend decide cómo
+/// presentarlas. Para el personal conserva su regla: solo las franjas que todavía se pueden reservar, sin la
+/// antelación mínima. En ambos casos una mesa con visita sin reserva en esa fecha y franja cuenta como
+/// ocupada, igual que en la asignación de mesa de <see cref="ReservaService"/>.
 /// </summary>
 public class DisponibilidadService : IDisponibilidadService
 {
     private readonly IMesaRepository _mesaRepository;
     private readonly IFranjaHorariaRepository _franjaHorariaRepository;
     private readonly IReservaRepository _reservaRepository;
+    private readonly IVisitaRepository _visitaRepository;
+    private readonly IZonaRepository _zonaRepository;
     private readonly IParametrosReservaService _parametros;
     private readonly IValidator<ConsultarDisponibilidadRequest> _validator;
     private readonly TimeProvider _timeProvider;
+
+    // Franja sin visitas sin reserva: se reutiliza para no crear un conjunto vacío por franja.
+    private static readonly IReadOnlySet<Guid> SinVisitas = new HashSet<Guid>();
+    private static readonly IReadOnlyList<ZonaDisponibleDto> SinZonas = Array.Empty<ZonaDisponibleDto>();
 
     /// <summary>Crea el servicio con sus repositorios, los parámetros del restaurante y el reloj.</summary>
     public DisponibilidadService(
         IMesaRepository mesaRepository,
         IFranjaHorariaRepository franjaHorariaRepository,
         IReservaRepository reservaRepository,
+        IVisitaRepository visitaRepository,
+        IZonaRepository zonaRepository,
         IParametrosReservaService parametros,
         IValidator<ConsultarDisponibilidadRequest> validator,
         TimeProvider timeProvider)
@@ -31,6 +44,8 @@ public class DisponibilidadService : IDisponibilidadService
         _mesaRepository = mesaRepository;
         _franjaHorariaRepository = franjaHorariaRepository;
         _reservaRepository = reservaRepository;
+        _visitaRepository = visitaRepository;
+        _zonaRepository = zonaRepository;
         _parametros = parametros;
         _validator = validator;
         _timeProvider = timeProvider;
@@ -41,28 +56,131 @@ public class DisponibilidadService : IDisponibilidadService
         ConsultarDisponibilidadRequest request, CancellationToken cancellationToken,
         AudienciaReserva audiencia = AudienciaReserva.Cliente)
     {
-        var validacion = await _validator.ValidateAsync(request, cancellationToken);
+        // Las reglas de fecha (pasada, fuera de la ventana) viven en el RuleSet "Fecha": el personal las conserva
+        // como error 400; para el cliente son franjas deshabilitadas con su motivo, no un error.
+        var validacion = audiencia == AudienciaReserva.Personal
+            ? await _validator.ValidateAsync(request, opciones => opciones.IncludeAllRuleSets(), cancellationToken)
+            : await _validator.ValidateAsync(request, cancellationToken);
         if (!validacion.IsValid)
         {
             return OperationResult.Failure<IReadOnlyList<FranjaDisponibleDto>>(
                 ErrorType.Validation, validacion.ToString());
         }
 
+        var parametros = await _parametros.ObtenerAsync(cancellationToken);
         var mesas = await _mesaRepository.ListarActivasAsync(cancellationToken);
-        if (mesas.Count == 0)
+
+        // Tamaño efectivo del grupo: el configurado, sin pasar de la mesa activa más grande.
+        if (mesas.Count > 0)
         {
-            return OperationResult.Success<IReadOnlyList<FranjaDisponibleDto>>(Array.Empty<FranjaDisponibleDto>());
+            var tamanoMaximo = Math.Min(parametros.MaxPersonasPorReserva, mesas.Max(m => m.Capacidad));
+            if (request.Personas > tamanoMaximo)
+            {
+                return OperationResult.Failure<IReadOnlyList<FranjaDisponibleDto>>(
+                    ErrorType.Validation,
+                    MensajesReservas.GrupoGrande(audiencia, tamanoMaximo),
+                    CodigosErrorReservas.ContactarRestaurante);
+            }
         }
 
-        var capacidadMaxima = mesas.Max(m => m.Capacidad);
-        if (request.Personas > capacidadMaxima)
+        var franjas = (await _franjaHorariaRepository.ListarActivasAsync(cancellationToken))
+            .OrderBy(f => f.HoraInicio)
+            .ToList();
+
+        return audiencia == AudienciaReserva.Personal
+            ? await ConsultarPersonalAsync(request, parametros, mesas, franjas, cancellationToken)
+            : await ConsultarClienteAsync(request, parametros, mesas, franjas, cancellationToken);
+    }
+
+    // Cliente: todas las franjas activas; las que no se pueden elegir salen con su motivo.
+    private async Task<OperationResult<IReadOnlyList<FranjaDisponibleDto>>> ConsultarClienteAsync(
+        ConsultarDisponibilidadRequest request, ParametrosReserva parametros, IReadOnlyList<Mesa> mesas,
+        IReadOnlyList<FranjaHoraria> franjas, CancellationToken cancellationToken)
+    {
+        var ocupadas = await _reservaRepository.ListarVigentesPorFechaAsync(request.Fecha, cancellationToken);
+        // Las visitas sin reserva de ese día también ocupan su mesa en su franja (una sola consulta para todas).
+        var visitasPorFranja = await _visitaRepository.ListarMesasConVisitaPorFechaAsync(request.Fecha, cancellationToken);
+        var mesasConCapacidad = mesas.Where(m => m.Capacidad >= request.Personas).ToList();
+        // IMesaRepository.ListarActivasAsync ya excluye mesas de zona inactiva (RN-RES-21): solo faltan los nombres.
+        var zonaNombres = await _zonaRepository.ObtenerNombresAsync(
+            mesasConCapacidad.Select(m => m.ZonaId).Distinct().ToList(), cancellationToken);
+        var ahoraLocal = _timeProvider.AhoraLocal();
+        var hoy = DateOnly.FromDateTime(ahoraLocal);
+
+        var resultado = new List<FranjaDisponibleDto>();
+        foreach (var franja in franjas)
         {
-            return OperationResult.Failure<IReadOnlyList<FranjaDisponibleDto>>(
-                ErrorType.Validation,
-                MensajesReservas.GrupoGrande(audiencia, capacidadMaxima));
+            var mesasConVisita = visitasPorFranja.GetValueOrDefault(franja.Id) ?? SinVisitas;
+            var motivo = MotivoNoDisponibleCliente(
+                request, parametros, franja, ahoraLocal, hoy, mesasConCapacidad, ocupadas, mesasConVisita);
+            var zonasDisponibles = motivo is null
+                ? ZonasConMesaLibre(mesasConCapacidad, franja.Id, ocupadas, mesasConVisita, zonaNombres)
+                : SinZonas;
+            resultado.Add(new FranjaDisponibleDto(
+                franja.Id, franja.Nombre, franja.HoraInicio, franja.HoraFin, zonasDisponibles, motivo is null, motivo));
         }
 
-        if (_parametros.DiasCerrados.Contains(request.Fecha.DayOfWeek))
+        return OperationResult.Success<IReadOnlyList<FranjaDisponibleDto>>(resultado);
+    }
+
+    // Zonas activas (ya garantizado por IMesaRepository.ListarActivasAsync) con al menos una mesa libre de
+    // capacidad suficiente en esta franja (GI-4xx). Una franja sigue disponible si lo es en alguna zona: esta
+    // lista es un subconjunto informativo de la misma condición que ya evalúa MotivoNoDisponibleCliente.
+    private static IReadOnlyList<ZonaDisponibleDto> ZonasConMesaLibre(
+        IReadOnlyList<Mesa> mesasConCapacidad, Guid franjaId, IReadOnlyList<Reserva> ocupadas,
+        IReadOnlySet<Guid> mesasConVisita, IReadOnlyDictionary<Guid, string> zonaNombres) =>
+        mesasConCapacidad
+            .Where(mesa => !mesasConVisita.Contains(mesa.Id)
+                && !ocupadas.Any(reserva => reserva.MesaId == mesa.Id && reserva.FranjaHorariaId == franjaId))
+            .Select(mesa => mesa.ZonaId)
+            .Distinct()
+            .Select(zonaId => new ZonaDisponibleDto(zonaId, zonaNombres.GetValueOrDefault(zonaId, "")))
+            .OrderBy(z => z.Nombre, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+    // Orden de los motivos: restaurante cerrado, fuera de la ventana de reserva, franja que ya pasó, antelación
+    // mínima y, al final, sin mesas. Devuelve null si la franja se puede elegir.
+    private static string? MotivoNoDisponibleCliente(
+        ConsultarDisponibilidadRequest request, ParametrosReserva parametros, FranjaHoraria franja,
+        DateTime ahoraLocal, DateOnly hoy, IReadOnlyList<Mesa> mesasConCapacidad, IReadOnlyList<Reserva> ocupadas,
+        IReadOnlySet<Guid> mesasConVisita)
+    {
+        if (!parametros.EstaAbierto(request.Fecha))
+        {
+            return MensajesReservas.RestauranteCerrado;
+        }
+
+        if (request.Fecha > parametros.FechaMaximaReservable(hoy))
+        {
+            return MensajesReservas.FueraDelRango(parametros.DiasAntelacionMaxima);
+        }
+
+        // Fecha pasada, o franja de hoy que ya terminó (el fin exacto cuenta como terminada).
+        if (request.Fecha < hoy || ahoraLocal >= request.Fecha.ToDateTime(franja.HoraFin))
+        {
+            return MensajesReservas.FranjaYaPaso;
+        }
+
+        // Antelación mínima desde el inicio; también cubre la franja de hoy que está en curso.
+        if (request.Fecha.ToDateTime(franja.HoraInicio) < ahoraLocal + parametros.AntelacionMinima)
+        {
+            return MensajesReservas.RequiereAntelacion(parametros.AntelacionMinima);
+        }
+
+        var hayMesaLibre = mesasConCapacidad.Any(mesa =>
+            !mesasConVisita.Contains(mesa.Id)
+            && !ocupadas.Any(reserva => reserva.MesaId == mesa.Id && reserva.FranjaHorariaId == franja.Id));
+
+        return hayMesaLibre ? null : MensajesReservas.SinMesas(request.Personas);
+    }
+
+    // Personal (GI-403): sin la antelación mínima; solo se excluyen las franjas terminadas y, como antes, un día
+    // cerrado o la falta de mesas dan una lista vacía.
+    private async Task<OperationResult<IReadOnlyList<FranjaDisponibleDto>>> ConsultarPersonalAsync(
+        ConsultarDisponibilidadRequest request, ParametrosReserva parametros, IReadOnlyList<Mesa> mesas,
+        IReadOnlyList<FranjaHoraria> franjas, CancellationToken cancellationToken)
+    {
+        if (mesas.Count == 0 || !parametros.EstaAbierto(request.Fecha))
         {
             return OperationResult.Success<IReadOnlyList<FranjaDisponibleDto>>(Array.Empty<FranjaDisponibleDto>());
         }
@@ -73,30 +191,28 @@ public class DisponibilidadService : IDisponibilidadService
             return OperationResult.Success<IReadOnlyList<FranjaDisponibleDto>>(Array.Empty<FranjaDisponibleDto>());
         }
 
-        var franjas = await _franjaHorariaRepository.ListarActivasAsync(cancellationToken);
         var ocupadas = await _reservaRepository.ListarVigentesPorFechaAsync(request.Fecha, cancellationToken);
-
+        // Igual que para el cliente: una visita sin reserva ocupa su mesa en su franja.
+        var visitasPorFranja = await _visitaRepository.ListarMesasConVisitaPorFechaAsync(request.Fecha, cancellationToken);
         var ahoraLocal = _timeProvider.AhoraLocal();
         var disponibles = new List<FranjaDisponibleDto>();
 
-        foreach (var franja in franjas.OrderBy(f => f.HoraInicio))
+        foreach (var franja in franjas)
         {
-            // Cliente: antelación mínima desde el inicio. Personal: sin antelación, solo se excluye la franja
-            // que ya terminó (el fin exacto cuenta como terminada, igual que en el check-in).
-            var excluida = audiencia == AudienciaReserva.Personal
-                ? ahoraLocal >= request.Fecha.ToDateTime(franja.HoraFin)
-                : request.Fecha.ToDateTime(franja.HoraInicio) < ahoraLocal + _parametros.AntelacionMinima;
-            if (excluida)
+            // El fin exacto cuenta como terminada, igual que en el check-in.
+            if (ahoraLocal >= request.Fecha.ToDateTime(franja.HoraFin))
             {
                 continue;
             }
 
+            var mesasConVisita = visitasPorFranja.GetValueOrDefault(franja.Id) ?? SinVisitas;
             var hayMesaLibre = mesasConCapacidad.Any(mesa =>
-                !ocupadas.Any(reserva => reserva.MesaId == mesa.Id && reserva.FranjaHorariaId == franja.Id));
+                !mesasConVisita.Contains(mesa.Id)
+                && !ocupadas.Any(reserva => reserva.MesaId == mesa.Id && reserva.FranjaHorariaId == franja.Id));
 
             if (hayMesaLibre)
             {
-                disponibles.Add(new FranjaDisponibleDto(franja.Id, franja.Nombre, franja.HoraInicio, franja.HoraFin));
+                disponibles.Add(new FranjaDisponibleDto(franja.Id, franja.Nombre, franja.HoraInicio, franja.HoraFin, SinZonas));
             }
         }
 

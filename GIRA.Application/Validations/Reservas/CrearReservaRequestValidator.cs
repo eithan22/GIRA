@@ -2,6 +2,7 @@ using FluentValidation;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Interfaces.Services.Reservas;
+using GIRA.Application.Services.Reservas;
 
 namespace GIRA.Application.Validations.Reservas;
 
@@ -18,7 +19,8 @@ public class CrearReservaRequestValidator : AbstractValidator<CrearReservaReques
     {
         RuleFor(r => r.Nombre)
             .NotEmpty().WithMessage("El nombre es obligatorio.")
-            .MaximumLength(150);
+            .MaximumLength(MensajesReservas.MaximoNombreCliente)
+            .WithMessage(MensajesReservas.NombreClienteMuyLargo);
 
         RuleFor(r => r.Telefono)
             .Cascade(CascadeMode.Stop)
@@ -30,7 +32,9 @@ public class CrearReservaRequestValidator : AbstractValidator<CrearReservaReques
         RuleFor(r => r.Fecha)
             .GreaterThanOrEqualTo(_ => timeProvider.HoyLocal())
             .WithMessage("La fecha no puede ser en el pasado.")
-            .LessThanOrEqualTo(_ => timeProvider.HoyLocal().AddDays(parametros.AntelacionMaxima.Days))
+            // Regla asíncrona: la antelación máxima se lee de la configuración (los servicios validan con ValidateAsync).
+            .MustAsync(async (fecha, cancellationToken) =>
+                fecha <= (await parametros.ObtenerAsync(cancellationToken)).FechaMaximaReservable(timeProvider.HoyLocal()))
             .WithMessage("La fecha supera la ventana máxima de anticipación.");
 
         RuleFor(r => r.Personas)

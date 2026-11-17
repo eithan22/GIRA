@@ -1,53 +1,31 @@
-using GIRA.Domain.Entities.Reservas;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
-namespace GIRA.Infrastructure.Persistence.Configurations.Reservas;
-
-/// <summary>
-/// Configuración Fluent API de <see cref="FranjaHoraria"/>.
-/// </summary>
-public class FranjaHorariaConfiguration : IEntityTypeConfiguration<FranjaHoraria>
-{
-    /// <summary>Nombre del índice único (filtrado por no eliminadas) sobre el nombre de la franja.</summary>
-    public const string IndiceNombre = "IX_FranjaHoraria_Nombre";
-
-    /// <summary>Configura la tabla, el índice único y las franjas sembradas.</summary>
-    public void Configure(EntityTypeBuilder<FranjaHoraria> builder)
-    {
-        builder.ToTable("FranjaHoraria", "reservas");
-
-        builder.HasKey(f => f.Id);
-
-        builder.Property(f => f.Nombre)
-            .HasMaxLength(50)
-            .IsRequired();
-
-        builder.HasIndex(f => f.Nombre).IsUnique().HasFilter("[IsDeleted] = 0").HasDatabaseName(IndiceNombre);
+using GIRA.Domain.Entities.Reservas;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace GIRA.Infrastructure.Persistence.Configurations.Reservas;
+
+/// <summary>
+/// Configuración Fluent API de <see cref="FranjaHoraria"/>. Las franjas por defecto ya no se siembran aquí
+/// (sin <c>HasData</c>): las inserta <c>FranjasPorDefectoSeeder</c> y la migración <c>Reservas_FranjasDeDosHoras</c>,
+/// solo si no existen, para no pisar lo que el Gerente edite.
+/// </summary>
+public class FranjaHorariaConfiguration : IEntityTypeConfiguration<FranjaHoraria>
+{
+    /// <summary>Nombre del índice único (filtrado por no eliminadas) sobre el nombre de la franja.</summary>
+    public const string IndiceNombre = "IX_FranjaHoraria_Nombre";
+
+    /// <summary>Configura la tabla y el índice único del nombre.</summary>
+    public void Configure(EntityTypeBuilder<FranjaHoraria> builder)
+    {
+        builder.ToTable("FranjaHoraria", "reservas");
+
+        builder.HasKey(f => f.Id);
+
+        builder.Property(f => f.Nombre)
+            .HasMaxLength(50)
+            .IsRequired();
+
+        builder.HasIndex(f => f.Nombre).IsUnique().HasFilter("[IsDeleted] = 0").HasDatabaseName(IndiceNombre);
         // Activa: GI-163 la desactiva; GI-157 excluye franjas inactivas de la disponibilidad.
-
-        var creadaEn = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
-        builder.HasData(
-            new FranjaHoraria
-            {
-                Id = Guid.Parse("00000000-0000-0000-0000-000000000001"),
-                Nombre = "Almuerzo",
-                HoraInicio = new TimeOnly(12, 0),
-                HoraFin = new TimeOnly(15, 0),
-                CreatedAt = creadaEn,
-                IsDeleted = false,
-                Activa = true
-            },
-            new FranjaHoraria
-            {
-                Id = Guid.Parse("00000000-0000-0000-0000-000000000002"),
-                Nombre = "Cena",
-                HoraInicio = new TimeOnly(18, 0),
-                HoraFin = new TimeOnly(22, 30),
-                CreatedAt = creadaEn,
-                IsDeleted = false,
-                Activa = true
-            });
     }
 }

@@ -1,3 +1,4 @@
+import { POLITICAS_POR_DEFECTO, formatearDuracionMinutos } from '../reservasFormato.js';
 import {
   AYUDA_TELEFONO_CODIGO_PAIS,
   MENSAJE_NOMBRE_MUY_LARGO,
@@ -238,7 +239,6 @@ export function origenAApi(origen) {
 
 export const MAXIMO_NOMBRE = 150;
 export const PERSONAS_POR_DEFECTO = '2';
-export const DIAS_VENTANA = 30;
 
 /** Nombre del cliente: obligatorio y de hasta 150 caracteres ya recortado (igual que el backend). */
 export function validarNombreCliente(texto) {
@@ -257,13 +257,17 @@ export function validarPersonas(texto) {
   return { valido: true, valor, mensaje: '' };
 }
 
-/** Ventana de reservas: desde hoy hasta hoy + 30 días (el servidor tiene la última palabra). */
-export function rangoFechasReserva(hoy) {
-  return { min: hoy, max: sumarDias(hoy, DIAS_VENTANA) };
+/**
+ * Ventana de reservas: desde hoy hasta hoy + la antelación máxima configurada (el servidor tiene la última
+ * palabra). `dias` sale de GET /api/configuracion/reservas/parametros (useParametrosOperativos); sin él se usa
+ * el valor por defecto de POLITICAS_POR_DEFECTO.
+ */
+export function rangoFechasReserva(hoy, dias = POLITICAS_POR_DEFECTO.antelacionMaximaDias) {
+  return { min: hoy, max: sumarDias(hoy, dias) };
 }
 
-export function fechaEnRango(fecha, hoy) {
-  const { min, max } = rangoFechasReserva(hoy);
+export function fechaEnRango(fecha, hoy, dias = POLITICAS_POR_DEFECTO.antelacionMaximaDias) {
+  const { min, max } = rangoFechasReserva(hoy, dias);
   return esFechaIso(fecha) && fecha >= min && fecha <= max;
 }
 
@@ -381,20 +385,18 @@ export function estadoFranja(franja, hora) {
   return 'enCurso';
 }
 
-// Replica ParametrosReservaService.AntelacionMinima del backend (hoy fija en 2 h, provisional hasta que
-// Configuración la entregue, GI-226). Solo sirve para el aviso informativo de la pantalla: quien decide
-// si se puede reservar es siempre el servidor.
-const MINUTOS_ANTELACION_WEB = 120;
-
 /**
- * GI-403: true si la franja de HOY solo la puede reservar el personal: ya empezó o empieza en menos de
- * MINUTOS_ANTELACION_WEB (el cliente web ya no puede) y todavía no terminó. Informativa; el servidor decide.
- * `fecha` y `hoy` son "aaaa-mm-dd", `hora` es "HH:mm" en Santo Domingo.
+ * GI-403: true si la franja de HOY solo la puede reservar el personal: ya empezó o empieza en menos de la
+ * antelación mínima (el cliente web ya no puede) y todavía no terminó. Informativa; el servidor decide.
+ * `fecha` y `hoy` son "aaaa-mm-dd", `hora` es "HH:mm" en Santo Domingo. `antelacionMinimaMinutos` sale de
+ * GET /api/configuracion/reservas/parametros (useParametrosOperativos); sin él se usa el valor por defecto.
  */
-export function esFranjaSoloPersonal({ fecha, hoy, hora, franja }) {
+export function esFranjaSoloPersonal({
+  fecha, hoy, hora, franja, antelacionMinimaMinutos = POLITICAS_POR_DEFECTO.antelacionMinimaMinutos,
+}) {
   if (!franja || fecha !== hoy) return false;
   if (estadoFranja(franja, hora) === 'terminada') return false;
-  return minutosDeHora(franja.horaInicio) < minutosDeHora(hora) + MINUTOS_ANTELACION_WEB;
+  return minutosDeHora(franja.horaInicio) < minutosDeHora(hora) + antelacionMinimaMinutos;
 }
 
 function activasPorInicio(franjas) {
@@ -425,14 +427,34 @@ export function inicioPrimeraFranja(franjas) {
 }
 
 /**
- * Franjas activas con su estado hoy para registrar una visita. Solo las que no empezaron son
- * `elegible: false` (el servidor exige que la franja haya empezado, pero no que siga vigente).
+ * Franjas activas con su estado hoy para registrar una visita. El servidor solo acepta la MÁS RECIENTE de las
+ * activas que ya empezaron (la actual o, entre franjas, la última que empezó): es la única `elegible`. Las demás
+ * salen deshabilitadas, con su estado ('terminada' o 'noEmpezo') como motivo.
  */
 export function franjasParaVisita(franjas, hora) {
-  return activasPorInicio(franjas).map((franja) => {
-    const estado = estadoFranja(franja, hora);
-    return { ...franja, estado, elegible: estado !== 'noEmpezo' };
-  });
+  const conEstado = activasPorInicio(franjas).map((franja) => ({ ...franja, estado: estadoFranja(franja, hora) }));
+  const masReciente = [...conEstado].reverse().find((franja) => franja.estado !== 'noEmpezo');
+  return conEstado.map((franja) => ({ ...franja, elegible: franja === masReciente }));
+}
+
+/**
+ * ¿Está abierto el restaurante AHORA? Solo informativa (el servidor decide y su 409 se muestra tal cual). Espejo de
+ * la regla del servidor para registrar visitas: el día de la semana debe estar abierto, la fecha de hoy no debe ser
+ * un día cerrado y la hora debe estar entre la apertura (inclusive) y el cierre (exclusivo).
+ * `horarios` es GET /api/configuracion/reservas/horario ([{ diaSemana, abierto, horaApertura, horaCierre }]),
+ * `diasCerrados` es GET .../dias-cerrados ([{ fecha }]), `hoy` es "aaaa-mm-dd" y `hora` "HH:mm" (Santo Domingo).
+ * Devuelve { estado: 'abierto' | 'cerradoHoy' | 'cerradoAhora', apertura, cierre } con las horas como "HH:mm".
+ */
+export function estadoRestauranteAhora({ horarios, diasCerrados, hoy, hora }) {
+  const diaSemana = new Date(`${hoy}T12:00:00Z`).getUTCDay();
+  const horario = (horarios ?? []).find((fila) => fila.diaSemana === diaSemana);
+  const cerradaLaFecha = (diasCerrados ?? []).some((dia) => String(dia.fecha).slice(0, 10) === hoy);
+  if (!horario || !horario.abierto || cerradaLaFecha) return { estado: 'cerradoHoy', apertura: null, cierre: null };
+  const apertura = String(horario.horaApertura).slice(0, 5);
+  const cierre = String(horario.horaCierre).slice(0, 5);
+  const ahora = minutosDeHora(hora);
+  const abierto = ahora >= minutosDeHora(apertura) && ahora < minutosDeHora(cierre);
+  return { estado: abierto ? 'abierto' : 'cerradoAhora', apertura, cierre };
 }
 
 /**
@@ -454,9 +476,29 @@ export function franjaDefectoVisita(franjasConEstado) {
   return elegibles.find((franja) => franja.estado === 'enCurso') ?? elegibles[elegibles.length - 1] ?? null;
 }
 
-/** El botón «Registrar visita» solo aplica a hoy y a una franja activa que ya empezó. */
-export function puedeRegistrarVisita({ fecha, hoy, franja, hora }) {
-  return Boolean(franja) && fecha === hoy && franja.activa === true && estadoFranja(franja, hora) !== 'noEmpezo';
+/**
+ * ¿Se ofrecen los botones «Registrar visita» del mapa? Es hoy, el restaurante no está cerrado y existe alguna franja
+ * activa que ya empezó (la actual o, entre franjas, la última que empezó: es la que el servidor acepta y la que usa
+ * el formulario). NO depende de la franja que el mapa tenga seleccionada: entre franjas el mapa suele mostrar la
+ * próxima (que no ha empezado) y aun así se puede registrar la visita en la anterior. `restaurante` es
+ * useRestauranteAbierto().restaurante (null si el horario no llegó: no se bloquea, decide el servidor).
+ */
+export function puedeRegistrarVisita({ fecha, hoy, franjas, hora, restaurante = null }) {
+  if (fecha !== hoy) return false;
+  if (restaurante && restaurante.estado !== 'abierto') return false;
+  return franjasParaVisita(franjas, hora).some((franja) => franja.elegible);
+}
+
+/**
+ * GI-404: «Marcar No asistió» solo se ofrece en una reserva Confirmada cuya franja ya empezó (fecha
+ * anterior a hoy, o hoy con hora >= inicio de la franja). Antes del inicio corresponde cancelar. `fecha` y
+ * `hoy` son "aaaa-mm-dd" y `hora` es "HH:mm", los tres en Santo Domingo (contextoSantoDomingo / useAhora),
+ * nunca con la zona del navegador. Informativa: el servidor decide y su 409 se muestra tal cual.
+ */
+export function puedeMarcarNoAsistio({ estado, fecha, hoy, hora, franjaHoraInicio }) {
+  if (estado !== 'Confirmada' || !esFechaIso(fecha) || !franjaHoraInicio) return false;
+  if (fecha < hoy) return true;
+  return fecha === hoy && minutosDeHora(hora) >= minutosDeHora(franjaHoraInicio);
 }
 
 export const MAXIMO_PERSONAS_SIN_MESA = 50;
@@ -478,6 +520,50 @@ export function validarPersonasVisita(texto, capacidadMesa = null) {
 /** Cuerpo del POST /api/visitas: sin teléfono ni datos personales; mesa vacía viaja como null. */
 export function armarCuerpoVisita({ franjaId, mesaId, personas }) {
   return { franjaHorariaId: franjaId, mesaId: mesaId || null, personas: Number(personas) };
+}
+
+/**
+ * Mesas que se pueden usar para registrar una visita sin reserva (decisión del líder: la mesa es
+ * obligatoria y una mesa admite un solo grupo por franja, GI-166): libres (lo que ya implica mesa y zona
+ * activas, ver OcupacionService), sin otra visita en esa fecha y franja, y con capacidad suficiente para
+ * las personas indicadas. Ordenadas por capacidad de menor a mayor (la más ajustada primero). A diferencia
+ * de mesasSeleccionables (que sirve a «Modificar reserva» y sí ofrece mesas con visita), esta función es
+ * específica de Visitas.
+ */
+export function mesasParaVisita(mapa, personas) {
+  const resultado = [];
+  for (const zona of mapa?.zonas ?? []) {
+    for (const mesa of zona.mesas ?? []) {
+      if (mesa.estado !== 'Libre' || mesa.tieneVisita || mesa.capacidad < personas) continue;
+      resultado.push({ mesaId: mesa.mesaId, numero: mesa.numero, capacidad: mesa.capacidad, zonaNombre: zona.nombre });
+    }
+  }
+  return resultado.sort((a, b) => a.capacidad - b.capacidad || a.numero - b.numero);
+}
+
+/** Última franja activa que ya empezó, con el restaurante todavía abierto: ya no se rotula «Ya terminó». */
+export function textoUltimaFranja(horaCierre) {
+  return horaCierre ? `Última franja (el restaurante cierra a las ${horaCierre})` : 'Última franja';
+}
+
+/** «No hay mesas libres para N personas en esta franja»: la lista de mesas de la visita quedó vacía. */
+export function textoSinMesasVisita(personas) {
+  return `No hay mesas libres para ${textoPersonas(personas)} en esta franja`;
+}
+
+/**
+ * Motivo específico por el que una mesa preseleccionada (desde el mapa, o porque cambiaron las personas)
+ * ya no se puede usar para una visita: busca la mesa en el mapa actual y distingue si ya tiene otra visita,
+ * si ya no alcanza para el grupo, o si ya no está libre. Null si la mesa sí sigue siendo válida (no
+ * debería llamarse en ese caso) o si ya no aparece en el mapa (zona o mesa desactivada entretanto).
+ */
+export function motivoMesaNoDisponibleVisita(mapa, mesaId, personas) {
+  const mesa = (mapa?.zonas ?? []).flatMap((zona) => zona.mesas ?? []).find((m) => m.mesaId === mesaId);
+  if (!mesa) return 'La mesa que elegiste ya no está disponible.';
+  if (mesa.tieneVisita) return `La mesa ${mesa.numero} ya tiene una visita en esta franja.`;
+  if (mesa.capacidad < personas) return `La mesa ${mesa.numero} no alcanza para ${textoPersonas(personas)}.`;
+  if (mesa.estado !== 'Libre') return `La mesa ${mesa.numero} ya no está libre en esta franja.`;
+  return null;
 }
 
 /**
@@ -733,4 +819,197 @@ export function esConflictoReasignar(mensaje) {
 /** Reemplaza por id el elemento actualizado dentro de una lista (sin recargarla). */
 export function reemplazarPorId(items, actualizado) {
   return items.map((item) => (item.id === actualizado.id ? actualizado : item));
+}
+
+// --- Configuración de reservas (GI-226, Lote 6) ---
+
+/**
+ * Orden en que se muestran los días del horario: de lunes a domingo. Los valores son el `DayOfWeek` de .NET que
+ * usa el backend (0 = domingo, 1 = lunes … 6 = sábado), no el orden de la pantalla.
+ */
+export const DIAS_HORARIO_ORDEN = Object.freeze([1, 2, 3, 4, 5, 6, 0]);
+
+/** Nombre en español de cada día, por su `DayOfWeek` de .NET. */
+export const NOMBRES_DIA = Object.freeze({
+  0: 'Domingo', 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado',
+});
+
+/**
+ * Las políticas numéricas editables, en el orden en que se muestran. `unidad` se ve junto al campo; `minimo` y
+ * `maximo` espejan los rangos del servidor (ActualizarParametrosRequestValidator) solo para dar feedback antes de
+ * enviar. El teléfono de contacto NO está aquí: es texto y se trata aparte (telefonoContactoAFormulario /
+ * telefonoContactoAApi), porque todo lo de esta lista pasa por Number() y por la validación de enteros.
+ */
+export const CAMPOS_POLITICAS = Object.freeze([
+  { clave: 'antelacionMinimaMinutos', unidad: 'minutos', minimo: 0, legible: 'duracion' },
+  { clave: 'antelacionMaximaDias', unidad: 'días', minimo: 1, maximo: 365, legible: 'dias' },
+  { clave: 'limiteCancelacionMinutos', unidad: 'minutos', minimo: 0, legible: 'duracion' },
+  { clave: 'ventanaCheckInMinutos', unidad: 'minutos', minimo: 0, maximo: 120, legible: 'duracion' },
+  { clave: 'toleranciaNoShowMinutos', unidad: 'minutos', minimo: 0, maximo: 120, legible: 'duracion' },
+  { clave: 'maxReservasVigentesPorTelefono', unidad: 'reservas', minimo: 1, maximo: 10 },
+  { clave: 'maxPersonasPorReserva', unidad: 'personas', minimo: 1, maximo: 50 },
+]);
+
+/** Clave del teléfono de contacto: la misma del DTO y de los errores por campo del servidor. */
+export const CLAVE_TELEFONO_CONTACTO = 'telefonoContacto';
+
+/** Teléfono de contacto del servidor (puede llegar null) -> valor del campo de texto, que siempre es un string. */
+export function telefonoContactoAFormulario(parametros) {
+  return String(parametros?.[CLAVE_TELEFONO_CONTACTO] ?? '');
+}
+
+/** Valor del campo -> lo que viaja en el PUT: recortado, y null cuando queda vacío («sin teléfono configurado»). */
+export function telefonoContactoAApi(texto) {
+  const limpio = String(texto ?? '').trim();
+  return limpio === '' ? null : limpio;
+}
+
+/** true si el teléfono escrito es el mismo que el guardado (ignorando los espacios de los extremos). */
+export function telefonosContactoIguales(a, b) {
+  return String(a ?? '').trim() === String(b ?? '').trim();
+}
+
+export const MAXIMO_TELEFONO_CONTACTO = 30;
+
+// Mismo juego de caracteres que ActualizarParametrosRequestValidator: dígitos, espacios, +, -, paréntesis y punto.
+const FORMATO_TELEFONO_CONTACTO = /^[0-9+\-().\s]*$/;
+
+/**
+ * Teléfono de contacto: opcional (vacío es válido y significa «sin teléfono configurado»), de hasta 30 caracteres
+ * y solo con dígitos, espacios, +, -, ( ) y punto. Mismos rangos y mismos textos que el servidor; se valida el
+ * valor recortado, que es exactamente el que viaja en el PUT. Devuelve '' cuando es válido.
+ */
+export function validarTelefonoContacto(texto) {
+  const limpio = String(texto ?? '').trim();
+  if (limpio.length > MAXIMO_TELEFONO_CONTACTO) {
+    return `El teléfono de contacto no puede superar los ${MAXIMO_TELEFONO_CONTACTO} caracteres.`;
+  }
+  if (!FORMATO_TELEFONO_CONTACTO.test(limpio)) {
+    return 'El teléfono de contacto solo puede tener dígitos, espacios, +, -, ( ) y punto.';
+  }
+  return '';
+}
+
+const MINUTOS_POR_DIA = 24 * 60;
+
+/** Políticas del servidor (números) -> valores de los campos (texto). */
+export function politicasAFormulario(parametros) {
+  return Object.fromEntries(CAMPOS_POLITICAS.map(({ clave }) => [clave, String(parametros?.[clave] ?? '')]));
+}
+
+/** Valores de los campos (texto válido) -> cuerpo del PUT, con números. */
+export function formularioAPoliticas(formulario) {
+  return Object.fromEntries(CAMPOS_POLITICAS.map(({ clave }) => [clave, Number(formulario[clave])]));
+}
+
+export function politicasIguales(a, b) {
+  return CAMPOS_POLITICAS.every(({ clave }) => String(a?.[clave] ?? '').trim() === String(b?.[clave] ?? '').trim());
+}
+
+function entero(texto) {
+  const limpio = String(texto ?? '').trim();
+  return /^\d+$/.test(limpio) ? Number(limpio) : null;
+}
+
+/**
+ * Validación en el cliente de las políticas numéricas: { campo: mensaje } con los mismos textos y rangos que el
+ * servidor. Solo da feedback antes de enviar; el servidor decide y sus errores por campo se muestran igual. El
+ * teléfono de contacto no se valida aquí: es texto libre y opcional, y su formato lo decide el servidor.
+ */
+export function validarPoliticas(formulario) {
+  const errores = {};
+  const valor = Object.fromEntries(CAMPOS_POLITICAS.map(({ clave }) => [clave, entero(formulario[clave])]));
+  for (const { clave } of CAMPOS_POLITICAS) {
+    if (valor[clave] === null) errores[clave] = 'Escribe un número entero (sin signo ni decimales).';
+  }
+
+  const maximaDias = valor.antelacionMaximaDias;
+  if (maximaDias !== null && (maximaDias < 1 || maximaDias > 365)) {
+    errores.antelacionMaximaDias = 'La antelación máxima debe estar entre 1 y 365 días.';
+  }
+  const maximaValida = maximaDias !== null && maximaDias >= 1 && maximaDias <= 365;
+  const maximaMinutos = maximaValida ? maximaDias * MINUTOS_POR_DIA : null;
+
+  if (valor.antelacionMinimaMinutos !== null && maximaMinutos !== null && valor.antelacionMinimaMinutos >= maximaMinutos) {
+    errores.antelacionMinimaMinutos = 'La antelación mínima debe ser menor que la antelación máxima.';
+  }
+  if (valor.limiteCancelacionMinutos !== null && maximaMinutos !== null && valor.limiteCancelacionMinutos > maximaMinutos) {
+    errores.limiteCancelacionMinutos = 'El límite de cancelación no puede superar la antelación máxima.';
+  }
+  if (valor.ventanaCheckInMinutos !== null && valor.ventanaCheckInMinutos > 120) {
+    errores.ventanaCheckInMinutos = 'La ventana de check-in debe estar entre 0 y 120 minutos.';
+  }
+  if (valor.toleranciaNoShowMinutos !== null && valor.toleranciaNoShowMinutos > 120) {
+    errores.toleranciaNoShowMinutos = 'La tolerancia de no-show debe estar entre 0 y 120 minutos.';
+  }
+  if (valor.maxReservasVigentesPorTelefono !== null
+    && (valor.maxReservasVigentesPorTelefono < 1 || valor.maxReservasVigentesPorTelefono > 10)) {
+    errores.maxReservasVigentesPorTelefono = 'El máximo de reservas vigentes por teléfono debe estar entre 1 y 10.';
+  }
+  if (valor.maxPersonasPorReserva !== null && (valor.maxPersonasPorReserva < 1 || valor.maxPersonasPorReserva > 50)) {
+    errores.maxPersonasPorReserva = 'El tamaño máximo de grupo debe estar entre 1 y 50 personas.';
+  }
+  return errores;
+}
+
+/** Texto legible junto al campo: "= 2 horas", "= 90 minutos", "= 30 días"; vacío si el valor no es un entero. */
+export function textoLegiblePolitica(campo, texto) {
+  const n = entero(texto);
+  if (n === null) return '';
+  if (campo.legible === 'duracion') return `= ${formatearDuracionMinutos(n)}`;
+  if (campo.legible === 'dias') return `= ${n} ${n === 1 ? 'día' : 'días'}`;
+  return '';
+}
+
+/** Horario del servidor ("HH:mm:ss") -> valores del formulario ("HH:mm"). */
+export function horarioAFormulario(dto) {
+  return {
+    diaSemana: dto.diaSemana,
+    abierto: Boolean(dto.abierto),
+    apertura: String(dto.horaApertura ?? '').slice(0, 5),
+    cierre: String(dto.horaCierre ?? '').slice(0, 5),
+  };
+}
+
+export function horariosIguales(a, b) {
+  return a.abierto === b.abierto && a.apertura === b.apertura && a.cierre === b.cierre;
+}
+
+/** Si el día está abierto, apertura y cierre son obligatorios y la apertura debe ser anterior al cierre. */
+export function validarHorarioDia(formulario) {
+  if (!formulario.abierto) return {};
+  if (!formulario.apertura) return { horaApertura: 'Indica la hora de apertura.' };
+  if (!formulario.cierre) return { horaCierre: 'Indica la hora de cierre.' };
+  if (formulario.apertura >= formulario.cierre) {
+    return { horaApertura: 'La hora de apertura debe ser anterior a la hora de cierre.' };
+  }
+  return {};
+}
+
+/** Cuerpo del PUT /horario/{dia}: las horas viajan como "HH:mm:ss". */
+export function armarCuerpoHorario(formulario) {
+  return {
+    abierto: formulario.abierto,
+    horaApertura: normalizarHora(formulario.apertura || '00:00'),
+    horaCierre: normalizarHora(formulario.cierre || '00:00'),
+  };
+}
+
+export const MAXIMO_MOTIVO_DIA_CERRADO = 200;
+
+/** Fecha de hoy en adelante y motivo de hasta 200 caracteres (mismos textos que el servidor). */
+export function validarDiaCerrado({ fecha, motivo }, hoy) {
+  const errores = {};
+  if (!fecha) errores.fecha = 'La fecha es obligatoria.';
+  else if (!esFechaIso(fecha)) errores.fecha = 'Escribe una fecha válida.';
+  else if (fecha < hoy) errores.fecha = 'La fecha no puede ser en el pasado.';
+  if (String(motivo ?? '').length > MAXIMO_MOTIVO_DIA_CERRADO) {
+    errores.motivo = `El motivo no puede superar los ${MAXIMO_MOTIVO_DIA_CERRADO} caracteres.`;
+  }
+  return errores;
+}
+
+export function armarCuerpoDiaCerrado({ fecha, motivo }) {
+  const limpio = String(motivo ?? '').trim();
+  return { fecha, motivo: limpio === '' ? null : limpio };
 }

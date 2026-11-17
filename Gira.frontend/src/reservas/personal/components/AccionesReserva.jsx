@@ -5,37 +5,49 @@ import {
   CUERPO_CANCELAR,
   CUERPO_CHECKIN,
   CUERPO_COMPLETAR,
+  CUERPO_NO_ASISTIO,
   ETIQUETA_MOTIVO,
   ETIQUETA_PERSONAS_REALES,
   TEXTO_ACCION_CANCELAR,
   TEXTO_ACCION_CHECKIN,
   TEXTO_ACCION_MODIFICAR,
   TEXTO_ACCION_COMPLETAR,
+  TEXTO_ACCION_NO_ASISTIO,
   TEXTO_CARGANDO_DATOS_MESA,
   TEXTO_CONFIRMAR_CANCELAR,
   TEXTO_CONFIRMAR_CHECKIN,
   TEXTO_CONFIRMAR_COMPLETAR,
+  TEXTO_CONFIRMAR_NO_ASISTIO,
+  TEXTO_FRANJA_EMPEZADA,
   TEXTO_MANTENER_RESERVA,
   TEXTO_VOLVER,
   TITULO_CANCELAR,
   TITULO_CHECKIN,
   TITULO_COMPLETAR,
+  TITULO_NO_ASISTIO,
 } from '../reservasPersonalTextos.js';
 
 // El cliente solo oculta lo obvio por estado; si la acción procede lo decide el servidor
 // (hora, capacidad, concurrencia) y su mensaje se muestra tal cual en el panel.
-function accionesPorEstado(estado) {
-  if (estado === 'Confirmada') return ['checkin', 'modificar', 'cancelar'];
+// «Marcar No asistió» además exige que la franja ya haya empezado (puedeNoAsistio, GI-404).
+function accionesPorEstado(estado, puedeNoAsistio) {
+  if (estado === 'Confirmada') {
+    return puedeNoAsistio
+      ? ['checkin', 'modificar', 'noasistio', 'cancelar']
+      : ['checkin', 'modificar', 'cancelar'];
+  }
   if (estado === 'EnCurso') return ['completar'];
   return [];
 }
 
 /**
- * Acciones de una reserva con confirmación en línea (check-in, completar, cancelar). Lo que el
+ * Acciones de una reserva con confirmación en línea (check-in, completar, marcar No asistió, cancelar). Lo que el
  * usuario escribe vive aquí: no depende de la lista ni se pierde cuando la lista se refresca.
  * `onEjecutar(tipo, datos)` hace la llamada y devuelve true si el servidor la aceptó.
  */
-export default function AccionesReserva({ estado, detalle, personasReserva, enviando, onEjecutar, onModificar }) {
+export default function AccionesReserva({
+  estado, detalle, personasReserva, puedeNoAsistio = false, enviando, onEjecutar, onModificar,
+}) {
   const [modo, setModo] = useState(null);
   const [personasTexto, setPersonasTexto] = useState(() => String(personasReserva ?? ''));
   const [motivoTexto, setMotivoTexto] = useState('');
@@ -45,12 +57,19 @@ export default function AccionesReserva({ estado, detalle, personasReserva, envi
   const volverRef = useRef(null);
   const botonCheckInRef = useRef(null);
   const botonCompletarRef = useRef(null);
+  const botonNoAsistioRef = useRef(null);
   const botonCancelarRef = useRef(null);
   const devolverFocoARef = useRef(null);
 
-  const disponibles = accionesPorEstado(estado);
+  const disponibles = accionesPorEstado(estado, puedeNoAsistio);
   // Si el estado cambió (por ejemplo tras un 409) y la acción abierta ya no aplica, se cierra sola.
   const modoActivo = disponibles.includes(modo) ? modo : null;
+
+  // C2 (RN-RES-04): lo decide el backend con su propio reloj (detalle.puedeModificar/puedeCancelar),
+  // nunca la hora del navegador. El servidor sigue rechazando la operación igual si de todos modos se envía.
+  const modificarBloqueada = Boolean(detalle) && detalle.puedeModificar === false;
+  const cancelarBloqueada = Boolean(detalle) && detalle.puedeCancelar === false;
+  const mostrarAvisoFranjaEmpezada = modificarBloqueada || cancelarBloqueada;
 
   const capacidad = detalle?.mesaCapacidad ?? null;
   const validacionPersonas = validarPersonasReales(personasTexto, capacidad);
@@ -59,9 +78,11 @@ export default function AccionesReserva({ estado, detalle, personasReserva, envi
   useEffect(() => {
     if (modoActivo === 'checkin') personasRef.current?.focus();
     else if (modoActivo === 'cancelar') motivoRef.current?.focus();
-    else if (modoActivo === 'completar') volverRef.current?.focus();
+    else if (modoActivo === 'completar' || modoActivo === 'noasistio') volverRef.current?.focus();
     else if (devolverFocoARef.current) {
-      const botones = { checkin: botonCheckInRef, cancelar: botonCancelarRef, completar: botonCompletarRef };
+      const botones = {
+        checkin: botonCheckInRef, cancelar: botonCancelarRef, completar: botonCompletarRef, noasistio: botonNoAsistioRef,
+      };
       botones[devolverFocoARef.current]?.current?.focus();
       devolverFocoARef.current = null;
     }
@@ -158,6 +179,30 @@ export default function AccionesReserva({ estado, detalle, personasReserva, envi
     );
   }
 
+  if (modoActivo === 'noasistio') {
+    return (
+      <section className="reservas-personal-confirmacion reservas-personal-confirmacion--peligro" aria-labelledby="accion-titulo">
+        <h3 id="accion-titulo" className="reservas-personal-confirmacion-titulo">{TITULO_NO_ASISTIO}</h3>
+        <p className="reservas-personal-confirmacion-texto">{CUERPO_NO_ASISTIO}</p>
+        <div className="reservas-personal-confirmacion-botones">
+          <button
+            type="button"
+            className="reservas-boton reservas-boton--chico reservas-boton--peligro reservas-personal-boton-auto"
+            onClick={() => confirmar('noasistio')}
+            disabled={enviando}
+          >{enviando ? 'Marcando…' : TEXTO_CONFIRMAR_NO_ASISTIO}</button>
+          <button
+            type="button"
+            ref={volverRef}
+            className="reservas-boton reservas-boton--chico reservas-boton--secundario reservas-personal-boton-auto"
+            onClick={() => cerrar('noasistio')}
+            disabled={enviando}
+          >{TEXTO_VOLVER}</button>
+        </div>
+      </section>
+    );
+  }
+
   if (modoActivo === 'cancelar') {
     const longitud = motivoTexto.trim().length;
     const excede = longitud > MAXIMO_MOTIVO;
@@ -219,7 +264,8 @@ export default function AccionesReserva({ estado, detalle, personasReserva, envi
           type="button"
           className="reservas-boton reservas-boton--chico reservas-boton--secundario reservas-personal-boton-auto"
           onClick={onModificar}
-          disabled={!detalle}
+          disabled={!detalle || modificarBloqueada}
+          aria-describedby={modificarBloqueada ? 'accion-franja-empezada' : undefined}
         >{TEXTO_ACCION_MODIFICAR}</button>
       )}
       {disponibles.includes('completar') && (
@@ -230,13 +276,28 @@ export default function AccionesReserva({ estado, detalle, personasReserva, envi
           onClick={() => setModo('completar')}
         >{TEXTO_ACCION_COMPLETAR}</button>
       )}
+      {disponibles.includes('noasistio') && (
+        <button
+          type="button"
+          ref={botonNoAsistioRef}
+          className="reservas-boton reservas-boton--chico reservas-boton--secundario reservas-personal-boton-auto"
+          onClick={() => setModo('noasistio')}
+        >{TEXTO_ACCION_NO_ASISTIO}</button>
+      )}
       {disponibles.includes('cancelar') && (
         <button
           type="button"
           ref={botonCancelarRef}
           className="reservas-boton reservas-boton--chico reservas-boton--fantasma-error reservas-personal-boton-auto"
           onClick={() => setModo('cancelar')}
+          disabled={!detalle || cancelarBloqueada}
+          aria-describedby={cancelarBloqueada ? 'accion-franja-empezada' : undefined}
         >{TEXTO_ACCION_CANCELAR}</button>
+      )}
+      {mostrarAvisoFranjaEmpezada && (
+        <p id="accion-franja-empezada" className="reservas-campo-ayuda reservas-personal-acciones-aviso">
+          {TEXTO_FRANJA_EMPEZADA}
+        </p>
       )}
     </div>
   );

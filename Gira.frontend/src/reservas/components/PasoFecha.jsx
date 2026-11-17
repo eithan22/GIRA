@@ -1,26 +1,49 @@
 import { useEffect, useRef, useState } from 'react';
-import { reservasService, esPeticionCancelada, extraerMensajeError } from '../reservasService.js';
-import { generarDiasChip, obtenerLimiteFechas } from '../reservasFormato.js';
+import { reservasService, esPeticionCancelada, extraerMensajeError, codigoDeError, CODIGOS_ERROR } from '../reservasService.js';
 import {
-  TELEFONO_RESTAURANTE,
-  TEXTO_VENTANA_RESERVA,
-  TEXTO_MAS_DE_8,
+  cantidadChipsPersonas,
+  diaCerradoEnFranjas,
+  estadoFranjaCliente,
+  franjaSigueDisponible,
+  generarDiasChip,
+  obtenerLimiteFechas,
+  usaCampoNumericoPersonas,
+  validarPersonasCliente,
+} from '../reservasFormato.js';
+import { usePoliticasReserva } from '../hooks/usePoliticasReserva.js';
+import {
+  AVISO_DIA_CERRADO,
+  BADGE_FRANJA_DISPONIBLE,
+  BADGE_FRANJA_NO_DISPONIBLE,
+  ERROR_PERSONAS_FORMATO,
+  ERROR_PERSONAS_MINIMO,
+  ETIQUETA_PERSONAS_NUMERO,
   TEXTO_CARGANDO_DISPONIBILIDAD,
-  TEXTO_SIN_DISPONIBILIDAD,
   MENSAJE_ERROR_GENERICO,
+  textoAyudaPersonas,
+  textoGrupoGrande,
+  textoMasDePersonas,
+  textoMensajeConTelefono,
+  textoSinDisponibilidad,
+  textoVentanaReserva,
 } from '../reservasTextos.js';
+import { zonaSigueDisponible } from '../zonasReserva.js';
 import Aviso from './Aviso.jsx';
+import SelectorZona from './SelectorZona.jsx';
 
-// El tope real de personas lo decide el servidor según la mesa más grande
-// (ver "Para grupos de más de N personas..." en ReservaService.cs); esta
-// constante solo fija cuántos chips se dibujan, no una regla de negocio.
-const MAX_PERSONAS_CHIPS = 8;
+// El tamaño máximo de grupo, la ventana de fechas y los textos salen de las políticas del servidor
+// (usePoliticasReserva); el servidor sigue decidiendo cada reserva.
 const DEMORA_DEBOUNCE_MS = 350;
 const VIGENCIA_CACHE_MS = 30_000;
 const DURACION_BLOQUEO_429_MS = 10_000;
 // "Noche" por horario, no por nombre: una franja que arranca a las 17:00 o
 // después usa el icono de luna, sin depender de que se llame "Cena".
 const HORA_INICIO_NOCHE = '17:00';
+
+// Códigos de error cuyo mensaje invita a llamar al restaurante: se les agrega el teléfono de
+// contacto si está configurado. Por ahora solo CONTACTAR_RESTAURANTE (Fase 1); la Fase 4 agrega
+// LIMITE_IP_DIARIO y TELEFONO_BLOQUEADO_NOSHOW a este mismo conjunto, sin tocar la lógica de abajo.
+const CODIGOS_CON_TELEFONO_DE_CONTACTO = new Set([CODIGOS_ERROR.CONTACTAR_RESTAURANTE]);
 
 function IconoFranja({ nocturna }) {
   if (nocturna) {
@@ -40,10 +63,14 @@ function IconoFranja({ nocturna }) {
 }
 
 /** Paso 1 del wizard de /reservar: fecha, personas y franja horaria. */
-export default function PasoFecha({ valor, onCambiar, onContinuar }) {
-  const { fecha, personas, franja } = valor;
-  const dias = generarDiasChip();
-  const limites = obtenerLimiteFechas();
+export default function PasoFecha({ valor, aviso, onCambiar, onContinuar }) {
+  const { fecha, personas, franja, zonaId } = valor;
+  const { politicas } = usePoliticasReserva();
+  const dias = generarDiasChip(5, politicas);
+  const limites = obtenerLimiteFechas(politicas);
+  const campoNumerico = usaCampoNumericoPersonas(politicas);
+  const [personasTexto, setPersonasTexto] = useState(String(personas));
+  const validacionPersonas = validarPersonasCliente(personasTexto, politicas.maxPersonas);
 
   const [franjas, setFranjas] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -84,6 +111,23 @@ export default function PasoFecha({ valor, onCambiar, onContinuar }) {
   useEffect(() => () => {
     if (bloqueoTimerRef.current) clearTimeout(bloqueoTimerRef.current);
   }, []);
+
+  // Si las políticas llegan con un grupo máximo menor que las personas elegidas, se baja al máximo.
+  useEffect(() => {
+    if (personas > politicas.maxPersonas) onCambiar({ personas: politicas.maxPersonas });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personas, politicas.maxPersonas]);
+
+  // El campo numérico sigue a las personas cuando cambian por otro lado (por ejemplo, el ajuste de arriba).
+  useEffect(() => {
+    setPersonasTexto(String(personas));
+  }, [personas]);
+
+  function cambiarPersonasTexto(texto) {
+    setPersonasTexto(texto);
+    const validacion = validarPersonasCliente(texto, politicas.maxPersonas);
+    if (validacion.valido) onCambiar({ personas: validacion.valor });
+  }
 
   async function consultar() {
     const clave = `${fecha}|${personas}`;
@@ -129,8 +173,9 @@ export default function PasoFecha({ valor, onCambiar, onContinuar }) {
       }
 
       let mensaje = extraerMensajeError(err, MENSAJE_ERROR_GENERICO);
-      if (mensaje.toLowerCase().includes('llama al restaurante')) {
-        mensaje = `${mensaje} ${TELEFONO_RESTAURANTE}`;
+      if (CODIGOS_CON_TELEFONO_DE_CONTACTO.has(codigoDeError(err))) {
+        // Solo se agrega el número si el restaurante lo configuró; si no, el mensaje del servidor va tal cual.
+        mensaje = textoMensajeConTelefono(mensaje, politicas);
       }
       setError({ tipo: 'otro', mensaje });
     }
@@ -139,12 +184,23 @@ export default function PasoFecha({ valor, onCambiar, onContinuar }) {
   function aplicarFranjas(lista) {
     setFranjas(lista);
     setCargando(false);
-    if (franja && !lista.some((f) => f.id === franja.id)) {
-      onCambiar({ franja: null });
+    // La franja elegida debe seguir existiendo y poder elegirse en la lista nueva.
+    if (franja && !franjaSigueDisponible(franja, lista)) {
+      onCambiar({ franja: null, zonaId: null });
+      return;
+    }
+    // Sigue disponible: se toma la versión nueva (sus zonas con mesa libre pudieron cambiar) y, si la zona
+    // elegida ya no se ofrece en ella, se vuelve a "sin preferencia".
+    const nueva = franja && lista.find((f) => f.id === franja.id);
+    if (nueva) {
+      onCambiar({ franja: nueva, ...(zonaSigueDisponible(zonaId, nueva) ? {} : { zonaId: null }) });
     }
   }
 
   const sinResultados = !cargando && !error && franjas.length === 0;
+  const diaCerrado = diaCerradoEnFranjas(franjas);
+  // Con el campo numérico, un valor inválido no cambia `personas`: se bloquea Continuar para no avanzar con el anterior.
+  const personasValidas = !campoNumerico || validacionPersonas.valido;
 
   return (
     <section>
@@ -204,8 +260,37 @@ export default function PasoFecha({ valor, onCambiar, onContinuar }) {
       </div>
 
       <h2 id="reservas-h-pers" className="reservas-seccion-titulo">¿Cuántos son?</h2>
+      {campoNumerico ? (
+        <div className="reservas-campo reservas-campo--personas">
+          <label className="reservas-campo-etiqueta" htmlFor="reservas-personas-numero">{ETIQUETA_PERSONAS_NUMERO}</label>
+          <input
+            id="reservas-personas-numero"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={politicas.maxPersonas}
+            step={1}
+            autoComplete="off"
+            className="reservas-input reservas-input--personas"
+            value={personasTexto}
+            onChange={(evento) => cambiarPersonasTexto(evento.target.value)}
+            aria-invalid={validacionPersonas.valido ? undefined : 'true'}
+            aria-describedby="reservas-personas-ayuda"
+          />
+          <span
+            id="reservas-personas-ayuda"
+            role={validacionPersonas.valido ? undefined : 'alert'}
+            className={`reservas-campo-ayuda${validacionPersonas.valido ? '' : ' reservas-campo-ayuda--error'}`}
+          >
+            {validacionPersonas.error === 'maximo' && textoGrupoGrande(politicas)}
+            {validacionPersonas.error === 'minimo' && ERROR_PERSONAS_MINIMO}
+            {validacionPersonas.error === 'formato' && ERROR_PERSONAS_FORMATO}
+            {validacionPersonas.valido && textoAyudaPersonas(politicas)}
+          </span>
+        </div>
+      ) : (
       <div className="reservas-chips-persona" role="group" aria-labelledby="reservas-h-pers">
-        {Array.from({ length: MAX_PERSONAS_CHIPS }, (_valorIgnorado, indice) => indice + 1).map((n) => (
+        {Array.from({ length: cantidadChipsPersonas(politicas) }, (_valorIgnorado, indice) => indice + 1).map((n) => (
           <button
             key={n}
             type="button"
@@ -218,7 +303,11 @@ export default function PasoFecha({ valor, onCambiar, onContinuar }) {
           </button>
         ))}
       </div>
-      <p className="reservas-nota">{TEXTO_VENTANA_RESERVA} {TEXTO_MAS_DE_8}</p>
+      )}
+      <p className="reservas-nota">
+        {textoVentanaReserva(politicas)}
+        {!campoNumerico && ` ${textoMasDePersonas(politicas)}`}
+      </p>
 
       <h2 id="reservas-h-franja" className="reservas-seccion-titulo">Elige tu franja</h2>
 
@@ -239,26 +328,41 @@ export default function PasoFecha({ valor, onCambiar, onContinuar }) {
         </Aviso>
       )}
 
-      {sinResultados && <Aviso tipo="neutro">{TEXTO_SIN_DISPONIBILIDAD}</Aviso>}
+      {aviso && <Aviso tipo="advertencia" rol="alert">{aviso}</Aviso>}
+
+      {sinResultados && <Aviso tipo="neutro">{textoSinDisponibilidad(politicas)}</Aviso>}
+
+      {!cargando && !error && diaCerrado && <Aviso tipo="neutro">{AVISO_DIA_CERRADO}</Aviso>}
 
       {!cargando && !error && franjas.length > 0 && (
         <div className="reservas-franjas" role="group" aria-labelledby="reservas-h-franja">
           {franjas.map((f) => {
             const nocturna = f.horaInicio >= HORA_INICIO_NOCHE;
-            const activa = franja?.id === f.id;
+            const { seleccionable, motivo } = estadoFranjaCliente(f);
+            const activa = seleccionable && franja?.id === f.id;
+            const idMotivo = `reservas-franja-motivo-${f.id}`;
+            // No seleccionable: aria-disabled (no disabled) para que siga en el orden de tabulación y el lector
+            // pueda leer el motivo; el clic se ignora.
             return (
               <button
                 key={f.id}
                 type="button"
                 aria-pressed={activa}
-                className={`reservas-franja${activa ? ' reservas-franja--activa' : ''}`}
-                onClick={() => onCambiar({ franja: f })}
+                aria-disabled={seleccionable ? undefined : 'true'}
+                aria-describedby={seleccionable ? undefined : idMotivo}
+                className={`reservas-franja${activa ? ' reservas-franja--activa' : ''}${seleccionable ? '' : ' reservas-franja--deshabilitada'}`}
+                onClick={() => {
+                  // Al cambiar de franja la zona elegida se conserva solo si también tiene mesa libre en la nueva.
+                  if (seleccionable) onCambiar({ franja: f, zonaId: zonaSigueDisponible(zonaId, f) ? zonaId : null });
+                }}
               >
                 <span className="reservas-franja-encabezado">
                   <span className={`reservas-franja-icono${nocturna ? ' reservas-franja-icono--noche' : ' reservas-franja-icono--dia'}`}>
                     <IconoFranja nocturna={nocturna} />
                   </span>
-                  <span className="reservas-franja-badge">Disponible</span>
+                  <span className={`reservas-franja-badge${seleccionable ? '' : ' reservas-franja-badge--no-disponible'}`}>
+                    {seleccionable ? BADGE_FRANJA_DISPONIBLE : BADGE_FRANJA_NO_DISPONIBLE}
+                  </span>
                 </span>
                 <span>
                   <strong className="reservas-franja-nombre">{f.nombre}</strong>
@@ -266,6 +370,7 @@ export default function PasoFecha({ valor, onCambiar, onContinuar }) {
                     {f.horaInicio.slice(0, 5)} – {f.horaFin.slice(0, 5)}
                   </span>
                 </span>
+                {!seleccionable && <span id={idMotivo} className="reservas-franja-motivo">{motivo}</span>}
                 {activa && (
                   <span className="reservas-franja-check" aria-hidden="true">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
@@ -279,12 +384,16 @@ export default function PasoFecha({ valor, onCambiar, onContinuar }) {
         </div>
       )}
 
+      {!cargando && !error && franja && (
+        <SelectorZona franja={franja} zonaId={zonaId} onElegir={(id) => onCambiar({ zonaId: id })} />
+      )}
+
       <div className="reservas-acciones-paso">
         <span className="reservas-paso-contador">Paso 1 de 2</span>
         <button
           type="button"
           className="reservas-boton reservas-boton--primario"
-          disabled={cargando || !franja}
+          disabled={cargando || !franja || !personasValidas}
           onClick={onContinuar}
         >
           Continuar

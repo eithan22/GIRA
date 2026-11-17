@@ -11,6 +11,9 @@ public sealed class RegistroEventos
     /// <summary>Eventos recibidos, en orden.</summary>
     public ConcurrentQueue<VisitaCompletadaEvent> Visitas { get; } = new();
 
+    /// <summary>Reservas no asistidas recibidas, en orden.</summary>
+    public ConcurrentQueue<ReservaNoAsistidaEvent> NoAsistidas { get; } = new();
+
     /// <summary>Cancelaciones recibidas, en orden.</summary>
     public ConcurrentQueue<ReservaCanceladaEvent> Cancelaciones { get; } = new();
 
@@ -39,6 +42,30 @@ public sealed class HandlerQueFalla : INotificationHandler<VisitaCompletadaEvent
 {
     /// <inheritdoc />
     public Task Handle(VisitaCompletadaEvent notification, CancellationToken cancellationToken) =>
+        throw new InvalidOperationException("Fallo simulado de un handler.");
+}
+
+/// <summary>Handler de prueba que anota cada <see cref="ReservaNoAsistidaEvent"/> recibido.</summary>
+public sealed class HandlerNoAsistidaRegistrador : INotificationHandler<ReservaNoAsistidaEvent>
+{
+    private readonly RegistroEventos _registro;
+
+    /// <summary>Crea el handler con el registro compartido.</summary>
+    public HandlerNoAsistidaRegistrador(RegistroEventos registro) => _registro = registro;
+
+    /// <inheritdoc />
+    public Task Handle(ReservaNoAsistidaEvent notification, CancellationToken cancellationToken)
+    {
+        _registro.NoAsistidas.Enqueue(notification);
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Handler de prueba para la reserva no asistida que siempre falla.</summary>
+public sealed class HandlerNoAsistidaQueFalla : INotificationHandler<ReservaNoAsistidaEvent>
+{
+    /// <inheritdoc />
+    public Task Handle(ReservaNoAsistidaEvent notification, CancellationToken cancellationToken) =>
         throw new InvalidOperationException("Fallo simulado de un handler.");
 }
 

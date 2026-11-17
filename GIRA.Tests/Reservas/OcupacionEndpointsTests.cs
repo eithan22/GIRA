@@ -8,6 +8,7 @@ using GIRA.Domain.Entities.Reservas;
 using GIRA.Domain.Enums.Reservas;
 using GIRA.Infrastructure.Persistence.Context;
 using GIRA.Tests.Api;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GIRA.Tests.Reservas;
@@ -178,6 +179,45 @@ public class OcupacionEndpointsTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.NotFound, respuesta.StatusCode);
         Assert.Contains("No encontramos esa franja.", await respuesta.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task ProximaReserva_De_Una_Franja_Posterior_Aparece_Solo_En_Su_Mesa()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var contexto = scope.ServiceProvider.GetRequiredService<GiraDbContext>();
+            var cena = new FranjaHoraria
+            {
+                Id = Guid.NewGuid(), Nombre = "Cena Mapa", HoraInicio = new TimeOnly(18, 0), HoraFin = new TimeOnly(22, 30)
+            };
+            var cliente = new Cliente { Id = Guid.NewGuid(), Nombre = "Cliente Próx.", Telefono = "8095550909" };
+            var mesaLibre = await contexto.Mesas.FirstAsync(m => m.Numero == 9801);
+            var reservaCena = new Reserva
+            {
+                Id = Guid.NewGuid(), Codigo = "90909090", ClienteId = cliente.Id, MesaId = mesaLibre.Id,
+                FranjaHorariaId = cena.Id, Fecha = Hoy, Personas = 6, Origen = OrigenReserva.Telefono
+            };
+            contexto.FranjasHorarias.Add(cena);
+            contexto.Clientes.Add(cliente);
+            contexto.Reservas.Add(reservaCena);
+            await contexto.SaveChangesAsync();
+        }
+        _cliente.UsarToken(GenerarToken(Roles.Mesero));
+
+        var respuesta = await _cliente.GetAsync(UrlMapa($"fecha=2026-12-01&franjaId={_franjaId}")); // Franja Mapa: 12:00-15:00
+
+        var mapa = JsonSerializer.Deserialize<MapaOcupacionDto>(
+            await respuesta.Content.ReadAsStringAsync(), new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        var mesas = mapa.Zonas.SelectMany(z => z.Mesas).Where(m => m.Numero >= 9800).ToDictionary(m => m.Numero);
+
+        // 9801 (Libre en esta franja) tiene reserva de Cena, posterior: debe mostrar "Próx.".
+        Assert.Equal(new TimeOnly(18, 0), mesas[9801].ProximaReservaHoraInicio);
+        Assert.Equal(6, mesas[9801].ProximaReservaPersonas);
+        // 9802 (Reservada en ESTA franja) no tiene ninguna reserva posterior: sin "Próx.".
+        Assert.Null(mesas[9802].ProximaReservaHoraInicio);
+        Assert.Null(mesas[9802].ProximaReservaPersonas);
+        Assert.DoesNotContain("Cliente Próx.", await respuesta.Content.ReadAsStringAsync());
     }
 
     [Fact]

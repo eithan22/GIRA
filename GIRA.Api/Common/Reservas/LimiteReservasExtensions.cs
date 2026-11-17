@@ -12,6 +12,9 @@ public static class LimiteReservasExtensions
     /// <summary>Nombre de la política de consulta (disponibilidad) para <c>[EnableRateLimiting]</c>.</summary>
     public const string PoliticaConsulta = "reservas-consulta";
 
+    /// <summary>Nombre de la política de consulta de políticas públicas (GET /api/reservas/politicas) para <c>[EnableRateLimiting]</c>.</summary>
+    public const string PoliticaConsultaPoliticas = "reservas-consulta-politicas";
+
     /// <summary>Nombre de la política de creación (POST /api/reservas) para <c>[EnableRateLimiting]</c>.</summary>
     public const string PoliticaCreacion = "reservas-creacion";
 
@@ -36,6 +39,7 @@ public static class LimiteReservasExtensions
         services.AddRateLimiter(options =>
         {
             options.AddPolicy<string, LimiteReservasConsultaPolicy>(PoliticaConsulta);
+            options.AddPolicy<string, LimiteReservasConsultaPoliticasPolicy>(PoliticaConsultaPoliticas);
             options.AddPolicy<string, LimiteReservasCreacionPolicy>(PoliticaCreacion);
             options.AddPolicy<string, LimiteReservasConsultaCodigoPolicy>(PoliticaConsultaCodigo);
             options.AddPolicy<string, LimiteReservasCancelacionPolicy>(PoliticaCancelacion);
@@ -51,6 +55,32 @@ public static class LimiteReservasExtensions
 /// mensaje de rechazo (igual patrón que <c>LimiteOlvidePasswordPolicy</c> de Seguridad).
 /// </summary>
 public sealed class LimiteReservasConsultaPolicy : IRateLimiterPolicy<string>
+{
+    /// <summary>Responde 429 con un ProblemDetails y el mensaje neutro compartido.</summary>
+    public Func<OnRejectedContext, CancellationToken, ValueTask>? OnRejected =>
+        (context, _) => new ValueTask(Results.Problem(
+            statusCode: StatusCodes.Status429TooManyRequests,
+            detail: MensajesRateLimiting.Neutro)
+            .ExecuteAsync(context.HttpContext));
+
+    /// <summary>Agrupa por IP de origen; 20 solicitudes por minuto, sin cola.</summary>
+    public RateLimitPartition<string> GetPartition(HttpContext httpContext) =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "desconocida",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            });
+}
+
+/// <summary>
+/// Política de ventana fija por IP para <c>GET /api/reservas/politicas</c>, independiente de la de
+/// disponibilidad (cupo propio) para que consultar las políticas en /reservar no consuma el
+/// presupuesto de 20/min de la disponibilidad.
+/// </summary>
+public sealed class LimiteReservasConsultaPoliticasPolicy : IRateLimiterPolicy<string>
 {
     /// <summary>Responde 429 con un ProblemDetails y el mensaje neutro compartido.</summary>
     public Func<OnRejectedContext, CancellationToken, ValueTask>? OnRejected =>

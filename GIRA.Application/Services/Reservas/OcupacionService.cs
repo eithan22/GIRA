@@ -12,14 +12,17 @@ namespace GIRA.Application.Services.Reservas;
 public class OcupacionService : IOcupacionService
 {
     private readonly IOcupacionRepository _ocupacion;
+    private readonly IVisitaRepository _visitas;
     private readonly IValidator<ConsultarOcupacionRequest> _validador;
     private readonly TimeProvider _reloj;
 
-    /// <summary>Crea el servicio con el repositorio de lectura, el validador y el reloj.</summary>
+    /// <summary>Crea el servicio con los repositorios de lectura, el validador y el reloj.</summary>
     public OcupacionService(
-        IOcupacionRepository ocupacion, IValidator<ConsultarOcupacionRequest> validador, TimeProvider reloj)
+        IOcupacionRepository ocupacion, IVisitaRepository visitas,
+        IValidator<ConsultarOcupacionRequest> validador, TimeProvider reloj)
     {
         _ocupacion = ocupacion;
+        _visitas = visitas;
         _validador = validador;
         _reloj = reloj;
     }
@@ -49,6 +52,10 @@ public class OcupacionService : IOcupacionService
         var zonas = await _ocupacion.ListarZonasAsync(cancellationToken);
         var mesas = await _ocupacion.ListarMesasAsync(cancellationToken);
         var vigentes = await _ocupacion.ListarReservasVigentesAsync(fecha, franja.Id, cancellationToken);
+        var proximas = await _ocupacion.ListarProximasReservasAsync(fecha, franja.HoraInicio, cancellationToken);
+        // Solo informativo: no cambia Estado ni el Resumen. Reutiliza la misma consulta que Disponibilidad
+        // y ReservaService usan para bloquear la mesa; no se duplica lógica.
+        var mesasConVisita = await _visitas.ListarMesasConVisitaAsync(fecha, franja.Id, cancellationToken);
 
         // Si hubiera más de una reserva vigente en la misma mesa, gana EnCurso y, a igualdad, la de menor id:
         // el resultado no depende del orden en que la base devuelva las filas.
@@ -57,6 +64,16 @@ public class OcupacionService : IOcupacionService
             .ToDictionary(
                 g => g.Key,
                 g => g.OrderByDescending(r => r.Estado == EstadoReserva.EnCurso).ThenBy(r => r.ReservaId).First());
+
+        // "Próx. HH:mm": solo franjas posteriores a la del mapa (ya filtrado en el repositorio) que todavía no
+        // han terminado (si el mapa es de hoy; cualquier franja de otro día cuenta como "no terminada"), la más
+        // cercana por mesa. La visita sin reserva no cuenta aquí tampoco: no tiene hora de salida (GI-166).
+        var esHoy = fecha == _reloj.HoyLocal();
+        var ahoraLocal = _reloj.AhoraLocal();
+        var proximaPorMesa = proximas
+            .Where(p => !esHoy || fecha.ToDateTime(p.FranjaHoraFin) > ahoraLocal)
+            .GroupBy(p => p.MesaId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(p => p.FranjaHoraInicio).First());
 
         var mesasPorZona = mesas.ToLookup(m => m.ZonaId);
         var zonasDto = new List<ZonaOcupacionDto>();
@@ -68,6 +85,7 @@ public class OcupacionService : IOcupacionService
             foreach (var mesa in mesasPorZona[zona.Id].OrderBy(m => m.Numero).ThenBy(m => m.Id))
             {
                 reservaPorMesa.TryGetValue(mesa.Id, out var reserva);
+                proximaPorMesa.TryGetValue(mesa.Id, out var proxima);
 
                 // La inactividad (de la mesa o de su zona) gana sobre la reserva; aun así se muestra la reserva.
                 var estado = !mesa.Activa || !zona.Activa
@@ -86,7 +104,8 @@ public class OcupacionService : IOcupacionService
 
                 mesasDto.Add(new MesaOcupacionDto(
                     mesa.Id, mesa.Numero, mesa.Capacidad, estado,
-                    reserva?.ReservaId, reserva?.ClienteNombre, reserva?.Personas, reserva?.PersonasReales));
+                    reserva?.ReservaId, reserva?.ClienteNombre, reserva?.Personas, reserva?.PersonasReales,
+                    proxima?.FranjaHoraInicio, proxima?.Personas, mesasConVisita.Contains(mesa.Id)));
             }
 
             zonasDto.Add(new ZonaOcupacionDto(zona.Id, zona.Nombre, zona.Activa, mesasDto));

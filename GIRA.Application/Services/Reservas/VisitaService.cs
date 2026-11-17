@@ -20,6 +20,7 @@ public class VisitaService : IVisitaService
     private readonly IMesaGestionRepository _mesas;
     private readonly IZonaRepository _zonas;
     private readonly IReservaRepository _reservas;
+    private readonly IParametrosReservaService _parametros;
     private readonly IValidator<RegistrarVisitaRequest> _validador;
     private readonly IValidator<ListarVisitasRequest> _validadorListado;
     private readonly IPublicadorEventosSeguro _publicador;
@@ -32,11 +33,13 @@ public class VisitaService : IVisitaService
         IMesaGestionRepository mesas,
         IZonaRepository zonas,
         IReservaRepository reservas,
+        IParametrosReservaService parametros,
         IValidator<RegistrarVisitaRequest> validador,
         IValidator<ListarVisitasRequest> validadorListado,
         IPublicadorEventosSeguro publicador,
         TimeProvider reloj)
     {
+        _parametros = parametros;
         _visitas = visitas;
         _franjas = franjas;
         _mesas = mesas;
@@ -91,6 +94,28 @@ public class VisitaService : IVisitaService
             return OperationResult.Failure<VisitaDto>(ErrorType.Validation, validacion.ToString());
         }
 
+        // Solo hoy (hora del servidor, America/Santo_Domingo).
+        var ahoraLocal = _reloj.AhoraLocal();
+        var hoy = DateOnly.FromDateTime(ahoraLocal);
+        var horaActual = TimeOnly.FromDateTime(ahoraLocal);
+
+        // Regla 1: el restaurante debe estar abierto AHORA. Una visita es un grupo que llega y se sienta de
+        // inmediato, así que fuera del horario de operación (día o fecha cerrados, antes de abrir o después de
+        // cerrar) no se registra. La apertura es inclusiva y el cierre exclusivo, igual que el fin de una franja
+        // (el fin exacto cuenta como terminada).
+        var parametros = await _parametros.ObtenerAsync(cancellationToken);
+        if (parametros.HorarioDelDia(hoy) is not { } horario)
+        {
+            return OperationResult.Failure<VisitaDto>(ErrorType.Conflict, MensajesReservas.VisitaRestauranteCerradoHoy);
+        }
+
+        if (horaActual < horario.HoraApertura || horaActual >= horario.HoraCierre)
+        {
+            return OperationResult.Failure<VisitaDto>(
+                ErrorType.Conflict,
+                MensajesReservas.VisitaRestauranteCerradoAhora(horario.HoraApertura, horario.HoraCierre));
+        }
+
         var franja = await _franjas.BuscarPorIdAsync(request.FranjaHorariaId, cancellationToken);
         if (franja is null)
         {
@@ -102,11 +127,8 @@ public class VisitaService : IVisitaService
             return OperationResult.Failure<VisitaDto>(ErrorType.Conflict, "La franja indicada no está activa.");
         }
 
-        // Solo hoy (hora del servidor). La franja debe haber empezado; no se exige que siga vigente:
-        // un cliente sin reserva puede llegar entre franjas (por ejemplo, a las 16:00).
-        var ahoraLocal = _reloj.AhoraLocal();
-        var hoy = DateOnly.FromDateTime(ahoraLocal);
-        if (TimeOnly.FromDateTime(ahoraLocal) < franja.HoraInicio)
+        // La franja debe haber empezado.
+        if (horaActual < franja.HoraInicio)
         {
             var inicio = franja.HoraInicio.ToString("HH:mm", CultureInfo.InvariantCulture);
             return OperationResult.Failure<VisitaDto>(
@@ -114,42 +136,67 @@ public class VisitaService : IVisitaService
                 $"La franja {franja.Nombre} empieza a las {inicio}; todavía no se puede registrar una visita en ella.");
         }
 
-        Mesa? mesa = null;
-        if (request.MesaId is { } mesaId)
+        // Regla 2: la visita se registra en la franja MÁS RECIENTE de las activas que ya empezaron: la actual o,
+        // si el cliente llega entre franjas (por ejemplo, a las 16:30), la que ya terminó pero fue la última en
+        // empezar. Se registra contra esa franja anterior, no contra la próxima: el grupo ya está sentado ahora,
+        // no cuando empiece la siguiente franja.
+        var activas = (await _franjas.ListarTodasAsync(cancellationToken)).Where(f => f.Activa);
+        var masReciente = activas
+            .Where(f => f.HoraInicio <= horaActual)
+            .OrderByDescending(f => f.HoraInicio)
+            .FirstOrDefault();
+        if (masReciente is not null && masReciente.Id != franja.Id)
         {
-            mesa = await _mesas.BuscarPorIdAsync(mesaId, cancellationToken);
-            if (mesa is null)
-            {
-                return OperationResult.Failure<VisitaDto>(ErrorType.Validation, "La mesa indicada no existe.");
-            }
+            return OperationResult.Failure<VisitaDto>(
+                ErrorType.Conflict,
+                MensajesReservas.VisitaFranjaNoVigente(masReciente.Nombre, masReciente.HoraInicio, masReciente.HoraFin));
+        }
 
-            if (!mesa.Activa)
-            {
-                return OperationResult.Failure<VisitaDto>(ErrorType.Conflict, $"La mesa {mesa.Numero} no está activa.");
-            }
+        // La mesa es obligatoria (decisión del líder): el validador ya rechazó MesaId null o vacío, así que
+        // aquí siempre hay un id que resolver. Ya no hay rama "sin mesa".
+        var mesa = await _mesas.BuscarPorIdAsync(request.MesaId!.Value, cancellationToken);
+        if (mesa is null)
+        {
+            return OperationResult.Failure<VisitaDto>(ErrorType.Validation, "La mesa indicada no existe.");
+        }
 
-            // Si esto fuera null sería una violación de integridad: una mesa siempre tiene zona.
-            var zona = await _zonas.BuscarPorIdAsync(mesa.ZonaId, cancellationToken)
-                ?? throw new InvalidOperationException($"La mesa {mesa.Numero} referencia una zona que no existe.");
-            if (!zona.Activa)
-            {
-                return OperationResult.Failure<VisitaDto>(
-                    ErrorType.Conflict, $"La zona de la mesa {mesa.Numero} no está activa.");
-            }
+        if (!mesa.Activa)
+        {
+            return OperationResult.Failure<VisitaDto>(ErrorType.Conflict, $"La mesa {mesa.Numero} no está activa.");
+        }
 
-            // Solo se compara con reservas vigentes: las visitas sin reserva no tienen hora de salida,
-            // así que no se sabe si la mesa ya se liberó.
-            if (await _reservas.ExisteVigenteAsync(mesa.Id, hoy, franja.Id, cancellationToken))
-            {
-                return OperationResult.Failure<VisitaDto>(
-                    ErrorType.Conflict, $"La mesa {mesa.Numero} tiene una reserva en esta franja.");
-            }
+        // Si esto fuera null sería una violación de integridad: una mesa siempre tiene zona.
+        var zona = await _zonas.BuscarPorIdAsync(mesa.ZonaId, cancellationToken)
+            ?? throw new InvalidOperationException($"La mesa {mesa.Numero} referencia una zona que no existe.");
+        if (!zona.Activa)
+        {
+            return OperationResult.Failure<VisitaDto>(
+                ErrorType.Conflict, $"La zona de la mesa {mesa.Numero} no está activa.");
+        }
 
-            if (request.Personas > mesa.Capacidad)
-            {
-                return OperationResult.Failure<VisitaDto>(
-                    ErrorType.Validation, $"La mesa {mesa.Numero} admite como máximo {mesa.Capacidad} personas.");
-            }
+        // Solo se compara con reservas vigentes: las visitas sin reserva no tienen hora de salida,
+        // así que no se sabe si la mesa ya se liberó.
+        if (await _reservas.ExisteVigenteAsync(mesa.Id, hoy, franja.Id, cancellationToken))
+        {
+            return OperationResult.Failure<VisitaDto>(
+                ErrorType.Conflict, $"La mesa {mesa.Numero} tiene una reserva en esta franja.");
+        }
+
+        // Decisión del líder: una mesa admite un solo grupo por fecha y franja, con o sin reserva. Reutiliza
+        // la misma consulta que ya usan el mapa (OcupacionService) y ReservaService; no se duplica lógica.
+        // Sin índice único en BD: dos registros simultáneos en la misma mesa y franja podrían pasar esta
+        // comprobación a la vez (carrera aceptada; es una acción manual del personal, no un flujo automático
+        // de alto volumen).
+        var mesasConVisita = await _visitas.ListarMesasConVisitaAsync(hoy, franja.Id, cancellationToken);
+        if (mesasConVisita.Contains(mesa.Id))
+        {
+            return OperationResult.Failure<VisitaDto>(ErrorType.Conflict, MensajesReservas.MesaYaTieneVisita(mesa.Numero));
+        }
+
+        if (request.Personas > mesa.Capacidad)
+        {
+            return OperationResult.Failure<VisitaDto>(
+                ErrorType.Validation, $"La mesa {mesa.Numero} admite como máximo {mesa.Capacidad} personas.");
         }
 
         var visita = new VisitaSinReserva
@@ -157,7 +204,7 @@ public class VisitaService : IVisitaService
             Id = Guid.NewGuid(),
             Fecha = hoy,
             FranjaHorariaId = franja.Id,
-            MesaId = mesa?.Id,
+            MesaId = mesa.Id,
             PersonasReales = request.Personas
         };
         _visitas.Agregar(visita);
@@ -170,6 +217,6 @@ public class VisitaService : IVisitaService
             cancellationToken);
 
         return OperationResult.Success(new VisitaDto(
-            visita.Id, visita.Fecha, franja.Id, franja.Nombre, visita.MesaId, mesa?.Numero, visita.PersonasReales));
+            visita.Id, visita.Fecha, franja.Id, franja.Nombre, visita.MesaId, mesa.Numero, visita.PersonasReales));
     }
 }

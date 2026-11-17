@@ -72,6 +72,8 @@ public class ModificarReservaServicioTests
                 reservas,
                 new ClienteRepository(Contexto),
                 new MesaGestionRepository(Contexto),
+                new VisitaRepository(Contexto),
+                new ZonaRepository(Contexto),
                 Parametros,
                 new CrearReservaRequestValidator(Parametros, reloj),
                 new ListarReservasRequestValidator(),
@@ -79,7 +81,6 @@ public class ModificarReservaServicioTests
                 new CancelarPorPersonalRequestValidator(),
                 new ModificarReservaRequestValidator(),
                 new GeneradorCodigoReserva(),
-                publisher,
                 new PublicadorEventosSeguro(publisher, logger ?? NullLogger<PublicadorEventosSeguro>.Instance),
                 reloj);
         }
@@ -523,6 +524,64 @@ public class ModificarReservaServicioTests
         EsFallo(resultado, ErrorType.Conflict, "Esa mesa ya fue tomada, intenta otra franja.");
         Assert.Empty(e.Publisher.Publicados);
     }
+
+    // --- PuedeModificar / PuedeCancelar (C2, RN-RES-04) ---
+    // El detalle que devuelve ObtenerAsync trae ambos indicadores calculados por el backend con su propio
+    // reloj; hoy comparten la misma regla (Confirmada y franja todavía no empezada), así que se verifican
+    // juntos.
+
+    [Fact]
+    public async Task Detalle_Con_Franja_Futura_Trae_PuedeModificarYCancelar_En_True()
+    {
+        using var e = new Entorno(Utc(1, 10, 0));
+        await e.SembrarAsync();
+
+        var detalle = (await e.Servicio.ObtenerAsync(e.Reserva.Id, default)).Value!;
+
+        Assert.True(detalle.PuedeModificar);
+        Assert.True(detalle.PuedeCancelar);
+    }
+
+    [Fact]
+    public async Task Detalle_Con_Franja_Ya_Empezada_Trae_PuedeModificarYCancelar_En_False()
+    {
+        using var e = new Entorno(Utc(5, 12, 0)); // exactamente el inicio de Almuerzo
+        await e.SembrarAsync();
+
+        var detalle = (await e.Servicio.ObtenerAsync(e.Reserva.Id, default)).Value!;
+
+        Assert.False(detalle.PuedeModificar);
+        Assert.False(detalle.PuedeCancelar);
+    }
+
+    [Fact]
+    public async Task Detalle_Con_Franja_Ya_Terminada_Trae_PuedeModificarYCancelar_En_False()
+    {
+        using var e = new Entorno(Utc(5, 16, 0)); // Almuerzo (12:00-15:00) ya terminó
+        await e.SembrarAsync();
+
+        var detalle = (await e.Servicio.ObtenerAsync(e.Reserva.Id, default)).Value!;
+
+        Assert.False(detalle.PuedeModificar);
+        Assert.False(detalle.PuedeCancelar);
+    }
+
+    [Theory]
+    [InlineData(EstadoReserva.EnCurso)]
+    [InlineData(EstadoReserva.Cancelada)]
+    [InlineData(EstadoReserva.NoAsistio)]
+    [InlineData(EstadoReserva.Completada)]
+    public async Task Detalle_En_Estado_Terminal_Trae_PuedeModificarYCancelar_En_False_Aunque_La_Franja_Sea_Futura(
+        EstadoReserva estado)
+    {
+        using var e = new Entorno(Utc(1, 10, 0)); // muy antes del inicio de la franja
+        await e.SembrarAsync(estado);
+
+        var detalle = (await e.Servicio.ObtenerAsync(e.Reserva.Id, default)).Value!;
+
+        Assert.False(detalle.PuedeModificar);
+        Assert.False(detalle.PuedeCancelar);
+    }
 }
 
 /// <summary>Repositorio de reservas que simula que el índice único rechaza el guardado (RN-RES-01).</summary>
@@ -536,6 +595,8 @@ class ReservaRepositoryConDuplicado : IReservaRepository
 
     public Task<IReadOnlyList<Reserva>> ListarVigentesPorFechaAsync(DateOnly fecha, CancellationToken cancellationToken) =>
         _real.ListarVigentesPorFechaAsync(fecha, cancellationToken);
+    public Task<IReadOnlyList<Reserva>> ListarVigentesDeMesaAsync(Guid mesaId, DateOnly fecha, CancellationToken cancellationToken) =>
+        _real.ListarVigentesDeMesaAsync(mesaId, fecha, cancellationToken);
     public Task<int> ContarVigentesPorTelefonoAsync(string telefono, CancellationToken cancellationToken) =>
         _real.ContarVigentesPorTelefonoAsync(telefono, cancellationToken);
     public Task<Reserva?> BuscarPorCodigoYTelefonoAsync(string codigo, string telefono, CancellationToken cancellationToken) =>

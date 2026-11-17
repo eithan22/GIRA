@@ -55,7 +55,7 @@
    pero con su propio padding (Confirmación lo hereda de su wrapper). */
 .reservas-detalle-grid--acolchada { padding: 28px 32px; }
 
-/* Nota "cancelación gratis..." + botón Cancelar, junto al grid de datos. */
+/* Nota "puedes cancelar hasta..." + botón Cancelar, junto al grid de datos. */
 .reservas-detalle-nota-cancelar {
   margin: 0 32px 32px;
   padding: 18px 20px;

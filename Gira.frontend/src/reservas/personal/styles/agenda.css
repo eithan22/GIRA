@@ -189,6 +189,7 @@
 .reservas-personal-dato--ancho { grid-column: 1 / -1; }
 
 .reservas-personal-acciones { display: flex; flex-wrap: wrap; gap: 10px; }
+.reservas-personal-acciones-aviso { flex-basis: 100%; margin: 0; }
 
 /* --- Confirmaciones en línea --- */
 .reservas-personal-confirmacion {

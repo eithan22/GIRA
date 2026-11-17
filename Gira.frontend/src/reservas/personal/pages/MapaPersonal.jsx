@@ -9,6 +9,7 @@ import ZonaMapa from '../components/ZonaMapa.jsx';
 import { useAhora } from '../hooks/useAhora.js';
 import { useFranjas } from '../hooks/useFranjas.js';
 import { useMesasLibres } from '../hooks/useMesasLibres.js';
+import { useRestauranteAbierto } from '../hooks/useRestauranteAbierto.js';
 import {
   agruparMesasPorZona,
   esFechaIso,
@@ -64,12 +65,13 @@ export default function MapaPersonal() {
   }, [franjasApi.estado, franjas, fecha, hoy, hora]);
 
   const mesas = useMesasLibres({ fecha, franjaId, autoRefresco: auto, pausado: Boolean(panel) });
-  const franjaSeleccionada = franjas.find((franja) => franja.id === franjaId) ?? null;
 
   // Un mapa de otra fecha o franja (mientras llega el nuevo) no se ofrece como actual.
   const mapa = mesas.mapa && mesas.mapa.franjaId === franjaId && mesas.mapa.fecha === fecha ? mesas.mapa : null;
   const zonas = agruparMesasPorZona(mapa);
-  const puedeVisita = puedeRegistrarVisita({ fecha, hoy, franja: franjaSeleccionada, hora });
+  // No depende de la franja seleccionada en el mapa (ver puedeRegistrarVisita): entre franjas se puede registrar en la anterior.
+  const { restaurante } = useRestauranteAbierto({ hoy, hora });
+  const puedeVisita = puedeRegistrarVisita({ fecha, hoy, franjas, hora, restaurante });
 
   const alActualizarReserva = useCallback(() => mesas.reintentar(), [mesas]);
 
@@ -85,7 +87,8 @@ export default function MapaPersonal() {
 
   // GI-402: botón general «Visita sin reserva» (el mismo PanelVisita que la Agenda), sin mesa elegida: el formulario
   // pide franja y personas, y la mesa es opcional. No depende de la fecha ni de la franja del mapa; el formulario
-  // explica si todavía no hay una franja que haya empezado. La visita no marca la mesa, así que no hay que recargar el mapa.
+  // explica si todavía no hay una franja que haya empezado. Si el personal elige una mesa en el formulario, esa
+  // mesa pasa a mostrar «Con visita»; por eso ambas entradas a PanelVisita recargan el mapa al registrar.
   function abrirVisitaSinMesa(evento) {
     origenRef.current = evento.currentTarget;
     setPanel({ tipo: 'visita', mesaId: '' });
@@ -232,6 +235,7 @@ export default function MapaPersonal() {
           origenRef={origenRef}
           fallbackFocoRef={tituloRef}
           onCerrar={() => setPanel(null)}
+          onRegistrada={alActualizarReserva}
         />
       )}
     </PaginaPersonal>
