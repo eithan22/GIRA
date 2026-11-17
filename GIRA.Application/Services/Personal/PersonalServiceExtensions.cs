@@ -1,3 +1,4 @@
+using GIRA.Application.Interfaces.Services.Personal;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GIRA.Application.Services.Personal;
@@ -11,6 +12,9 @@ public static class PersonalServiceExtensions
     /// </summary>
     public static IServiceCollection AddPersonal(this IServiceCollection services)
     {
+        // Cargos (GI-296).
+        services.AddScoped<ICargoService, CargoService>();
+
         return services;
     }
 }

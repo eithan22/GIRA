@@ -1,5 +1,6 @@
 using GIRA.Domain.Base;
 using GIRA.Domain.Entities.Configuracion;
+using GIRA.Domain.Entities.Personal;
 using GIRA.Domain.Entities.Reservas;
 using GIRA.Domain.Entities.Seguridad;
 using GIRA.Infrastructure.Identity;
@@ -27,6 +28,9 @@ public class GiraDbContext : IdentityDbContext<Usuario, Rol, Guid>
 
     /// <summary>Historial de intentos de inicio de sesión, exitosos o no.</summary>
     public DbSet<RegistroAcceso> RegistrosAcceso => Set<RegistroAcceso>();
+
+    /// <summary>Cargos del personal (mesero, cocinero, etc.), módulo Personal y Turnos (GI-309).</summary>
+    public DbSet<Cargo> Cargos => Set<Cargo>();
 
     /// <summary>Solicitudes de recuperación de contraseña pendientes de atender por un Administrador.</summary>
     public DbSet<SolicitudRecuperacionPassword> SolicitudesRecuperacionPassword => Set<SolicitudRecuperacionPassword>();
