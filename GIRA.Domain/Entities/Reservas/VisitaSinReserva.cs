@@ -22,7 +22,11 @@ public class VisitaSinReserva : BaseEntity
     /// <summary>Franja horaria en la que ocurrió la visita.</summary>
     public Guid FranjaHorariaId { get; set; }
 
-    /// <summary>Mesa ocupada por la visita; null si no se le asignó mesa (SRS 5.2: MesaId opcional).</summary>
+    /// <summary>
+    /// Mesa ocupada por la visita. Obligatoria al registrar una visita nueva (decisión del líder, GI-166);
+    /// la columna sigue NULLABLE solo por las visitas históricas registradas sin mesa antes de esa regla,
+    /// sin migración ni índice único.
+    /// </summary>
     public Guid? MesaId { get; set; }
 
     /// <summary>Cantidad real de personas atendidas.</summary>

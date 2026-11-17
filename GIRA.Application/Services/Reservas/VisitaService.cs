@@ -152,42 +152,51 @@ public class VisitaService : IVisitaService
                 MensajesReservas.VisitaFranjaNoVigente(masReciente.Nombre, masReciente.HoraInicio, masReciente.HoraFin));
         }
 
-        Mesa? mesa = null;
-        if (request.MesaId is { } mesaId)
+        // La mesa es obligatoria (decisión del líder): el validador ya rechazó MesaId null o vacío, así que
+        // aquí siempre hay un id que resolver. Ya no hay rama "sin mesa".
+        var mesa = await _mesas.BuscarPorIdAsync(request.MesaId!.Value, cancellationToken);
+        if (mesa is null)
         {
-            mesa = await _mesas.BuscarPorIdAsync(mesaId, cancellationToken);
-            if (mesa is null)
-            {
-                return OperationResult.Failure<VisitaDto>(ErrorType.Validation, "La mesa indicada no existe.");
-            }
+            return OperationResult.Failure<VisitaDto>(ErrorType.Validation, "La mesa indicada no existe.");
+        }
 
-            if (!mesa.Activa)
-            {
-                return OperationResult.Failure<VisitaDto>(ErrorType.Conflict, $"La mesa {mesa.Numero} no está activa.");
-            }
+        if (!mesa.Activa)
+        {
+            return OperationResult.Failure<VisitaDto>(ErrorType.Conflict, $"La mesa {mesa.Numero} no está activa.");
+        }
 
-            // Si esto fuera null sería una violación de integridad: una mesa siempre tiene zona.
-            var zona = await _zonas.BuscarPorIdAsync(mesa.ZonaId, cancellationToken)
-                ?? throw new InvalidOperationException($"La mesa {mesa.Numero} referencia una zona que no existe.");
-            if (!zona.Activa)
-            {
-                return OperationResult.Failure<VisitaDto>(
-                    ErrorType.Conflict, $"La zona de la mesa {mesa.Numero} no está activa.");
-            }
+        // Si esto fuera null sería una violación de integridad: una mesa siempre tiene zona.
+        var zona = await _zonas.BuscarPorIdAsync(mesa.ZonaId, cancellationToken)
+            ?? throw new InvalidOperationException($"La mesa {mesa.Numero} referencia una zona que no existe.");
+        if (!zona.Activa)
+        {
+            return OperationResult.Failure<VisitaDto>(
+                ErrorType.Conflict, $"La zona de la mesa {mesa.Numero} no está activa.");
+        }
 
-            // Solo se compara con reservas vigentes: las visitas sin reserva no tienen hora de salida,
-            // así que no se sabe si la mesa ya se liberó.
-            if (await _reservas.ExisteVigenteAsync(mesa.Id, hoy, franja.Id, cancellationToken))
-            {
-                return OperationResult.Failure<VisitaDto>(
-                    ErrorType.Conflict, $"La mesa {mesa.Numero} tiene una reserva en esta franja.");
-            }
+        // Solo se compara con reservas vigentes: las visitas sin reserva no tienen hora de salida,
+        // así que no se sabe si la mesa ya se liberó.
+        if (await _reservas.ExisteVigenteAsync(mesa.Id, hoy, franja.Id, cancellationToken))
+        {
+            return OperationResult.Failure<VisitaDto>(
+                ErrorType.Conflict, $"La mesa {mesa.Numero} tiene una reserva en esta franja.");
+        }
 
-            if (request.Personas > mesa.Capacidad)
-            {
-                return OperationResult.Failure<VisitaDto>(
-                    ErrorType.Validation, $"La mesa {mesa.Numero} admite como máximo {mesa.Capacidad} personas.");
-            }
+        // Decisión del líder: una mesa admite un solo grupo por fecha y franja, con o sin reserva. Reutiliza
+        // la misma consulta que ya usan el mapa (OcupacionService) y ReservaService; no se duplica lógica.
+        // Sin índice único en BD: dos registros simultáneos en la misma mesa y franja podrían pasar esta
+        // comprobación a la vez (carrera aceptada; es una acción manual del personal, no un flujo automático
+        // de alto volumen).
+        var mesasConVisita = await _visitas.ListarMesasConVisitaAsync(hoy, franja.Id, cancellationToken);
+        if (mesasConVisita.Contains(mesa.Id))
+        {
+            return OperationResult.Failure<VisitaDto>(ErrorType.Conflict, MensajesReservas.MesaYaTieneVisita(mesa.Numero));
+        }
+
+        if (request.Personas > mesa.Capacidad)
+        {
+            return OperationResult.Failure<VisitaDto>(
+                ErrorType.Validation, $"La mesa {mesa.Numero} admite como máximo {mesa.Capacidad} personas.");
         }
 
         var visita = new VisitaSinReserva
@@ -195,7 +204,7 @@ public class VisitaService : IVisitaService
             Id = Guid.NewGuid(),
             Fecha = hoy,
             FranjaHorariaId = franja.Id,
-            MesaId = mesa?.Id,
+            MesaId = mesa.Id,
             PersonasReales = request.Personas
         };
         _visitas.Agregar(visita);
@@ -208,6 +217,6 @@ public class VisitaService : IVisitaService
             cancellationToken);
 
         return OperationResult.Success(new VisitaDto(
-            visita.Id, visita.Fecha, franja.Id, franja.Nombre, visita.MesaId, mesa?.Numero, visita.PersonasReales));
+            visita.Id, visita.Fecha, franja.Id, franja.Nombre, visita.MesaId, mesa.Numero, visita.PersonasReales));
     }
 }

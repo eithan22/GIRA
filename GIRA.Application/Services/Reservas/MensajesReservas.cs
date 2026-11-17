@@ -151,4 +151,13 @@ internal static class MensajesReservas
 
     /// <summary>El canal del personal envió ZonaId (C3): ese canal no usa zona, la mesa la asigna el sistema.</summary>
     public const string ZonaNoAplicaPersonal = "El canal del personal no usa zona; la mesa la asigna el sistema.";
+
+    /// <summary>Falta la mesa al registrar una visita sin reserva (GI-166): es obligatoria, decisión del líder.</summary>
+    public const string VisitaMesaObligatoria = "Elige la mesa donde se sentó el grupo.";
+
+    /// <summary>
+    /// La mesa elegida para una visita sin reserva (GI-166) ya tiene otra visita en esa misma fecha y franja:
+    /// una mesa admite un solo grupo por franja, con o sin reserva (decisión del líder).
+    /// </summary>
+    public static string MesaYaTieneVisita(int numeroMesa) => $"La mesa {numeroMesa} ya tiene una visita en esta franja.";
 }

@@ -10,25 +10,25 @@ import {
   franjaDefectoVisita,
   franjasParaVisita,
   inicioPrimeraFranja,
-  mesasSeleccionables,
+  mesasParaVisita,
+  motivoMesaNoDisponibleVisita,
+  textoSinMesasVisita,
+  textoUltimaFranja,
   validarPersonasVisita,
 } from '../reservasPersonalFormato.js';
 import { mensajeDeError, reservasPersonalService } from '../reservasPersonalService.js';
 import {
   AVISO_MESA_VISITA_SIN_MARCA,
   AVISO_VISITA_DEFINITIVA,
-  AYUDA_MESA_VISITA,
   ETIQUETA_MESA_VISITA,
   ETIQUETA_PERSONAS_VISITA,
-  OPCION_SIN_MESA,
+  MENSAJE_MESA_OBLIGATORIA,
   TEXTO_ACTUALIZAR_MESAS,
   TEXTO_CARGANDO_MESAS,
   TEXTO_CONFIRMAR_VISITA,
   TEXTO_CARGANDO_FRANJAS,
   TEXTO_ERROR_FRANJAS,
   TEXTO_FRANJA_EN_CURSO,
-  TEXTO_FRANJA_TERMINADA,
-  TEXTO_FRANJA_NO_EMPEZO,
   TEXTO_RESTAURANTE_CERRADO_HOY,
   textoRestauranteCerradoAhora,
   TEXTO_REGISTRANDO_VISITA,
@@ -77,10 +77,10 @@ export default function FormularioVisita({
   const franjasVisita = franjasParaVisita(franjas, hora);
   const defecto = franjaDefectoVisita(franjasVisita);
 
-  const [franjaElegida, setFranjaElegida] = useState('');
   const [personas, setPersonas] = useState(PERSONAS_INICIALES);
   const [mesaId, setMesaId] = useState(mesaInicialId);
   const [mesaPerdida, setMesaPerdida] = useState(false);
+  const [motivoMesaPerdida, setMotivoMesaPerdida] = useState('');
   const [fase, setFase] = useState('editar'); // 'editar' | 'confirmar' | 'hecho'
   const [aviso, setAviso] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -90,17 +90,14 @@ export default function FormularioVisita({
   const volverRef = useRef(null);
   const exitoRef = useRef(null);
 
-  // La franja elegida por el usuario manda mientras siga siendo elegible; si no, la actual o la última empezada.
-  const franjaId = franjasVisita.some((franja) => franja.id === franjaElegida && franja.elegible)
-    ? franjaElegida
-    : (defecto?.id ?? '');
+  // Ya no hay elección del usuario: siempre la franja vigente (la actual o, entre franjas, la última que empezó).
+  const franjaId = defecto?.id ?? '';
 
   const mesas = useMesasLibres({ fecha: hoy, franjaId });
 
   const personasSinMesa = validarPersonasVisita(personas);
-  const opciones = mesas.mapa
-    ? mesasSeleccionables(mesas.mapa, personasSinMesa.valido ? personasSinMesa.valor : 1, null)
-    : [];
+  const personasParaFiltrar = personasSinMesa.valido ? personasSinMesa.valor : 1;
+  const opciones = mesas.mapa ? mesasParaVisita(mesas.mapa, personasParaFiltrar) : [];
   const mesaElegida = opciones.find((opcion) => opcion.mesaId === mesaId) ?? null;
   const validacionPersonas = validarPersonasVisita(personas, mesaElegida?.capacidad ?? null);
 
@@ -108,9 +105,12 @@ export default function FormularioVisita({
   const advertenciaMesa = useAdvertenciaMesa({ mesaId: mesaElegida?.mesaId ?? '', franjaId, fecha: hoy });
   const hayAvisoMesa = advertenciaMesa.estado === 'listo' && Boolean(advertenciaMesa.advertencia?.hayAviso);
 
-  // Si la mesa preseleccionada deja de estar libre, se quita y se avisa: nunca se registra «sin mesa» por sorpresa.
+  // Si la mesa preseleccionada (desde el mapa, o porque cambiaron las personas) deja de ser elegible, se
+  // quita y se avisa con el motivo específico: la mesa es obligatoria, así que nunca se registra sin ella
+  // por sorpresa ni con un aviso genérico cuando se sabe la causa real.
   useEffect(() => {
     if (mesaId && mesas.estado === 'listo' && !opciones.some((opcion) => opcion.mesaId === mesaId)) {
+      setMotivoMesaPerdida(motivoMesaNoDisponibleVisita(mesas.mapa, mesaId, personasParaFiltrar));
       setMesaId('');
       setMesaPerdida(true);
     }
@@ -122,7 +122,8 @@ export default function FormularioVisita({
   }, [fase]);
 
   const esperandoMesa = Boolean(mesaId) && mesas.estado !== 'listo';
-  const puedeRevisar = Boolean(franjaId) && validacionPersonas.valido && !esperandoMesa && !enviando && !restauranteCerrado;
+  const puedeRevisar = Boolean(franjaId) && Boolean(mesaElegida) && validacionPersonas.valido
+    && !esperandoMesa && !enviando && !restauranteCerrado;
 
   async function registrar() {
     if (envioEnCursoRef.current) return;
@@ -152,6 +153,7 @@ export default function FormularioVisita({
     setPersonas(PERSONAS_INICIALES);
     setMesaId('');
     setMesaPerdida(false);
+    setMotivoMesaPerdida('');
     setAviso('');
     setFase('editar');
   }
@@ -200,10 +202,10 @@ export default function FormularioVisita({
         <div ref={exitoRef} tabIndex={-1} className="reservas-personal-bloque">
           {/* El contenedor recibe el foco: el Aviso va sin rol de región en vivo para no leerlo dos veces. */}
           <Aviso tipo="exito" rol="none" titulo={`${TITULO_VISITA_REGISTRADA}.`}>
-            {textoPersonas(registrada.personas)} · {registrada.franjaNombre} · {registrada.mesaNumero ? `Mesa ${registrada.mesaNumero}` : OPCION_SIN_MESA.toLowerCase()}
+            {textoPersonas(registrada.personas)} · {registrada.franjaNombre} · Mesa {registrada.mesaNumero}
           </Aviso>
         </div>
-        {registrada.mesaNumero && <Aviso tipo="info">{AVISO_MESA_VISITA_SIN_MARCA}</Aviso>}
+        <Aviso tipo="info">{AVISO_MESA_VISITA_SIN_MARCA}</Aviso>
         <div className="reservas-personal-confirmacion-botones">
           <button
             type="button"
@@ -263,31 +265,21 @@ export default function FormularioVisita({
       {avisoCerrado}
 
       <fieldset className="reservas-personal-grupo">
-        <legend className="reservas-campo-etiqueta">Franja *</legend>
+        <legend className="reservas-campo-etiqueta">Franja</legend>
         <div className="reservas-personal-opciones">
-          {franjasVisita.map((franja) => (
-            <label
-              key={franja.id}
-              className={`reservas-personal-opcion${franja.elegible ? '' : ' reservas-personal-opcion--deshabilitada'}`}
-            >
-              <input
-                type="radio"
-                name="franja-visita"
-                value={franja.id}
-                checked={franjaId === franja.id}
-                disabled={!franja.elegible}
-                onChange={() => { setFranjaElegida(franja.id); setMesaId(''); setMesaPerdida(false); }}
-              />
-              <span>
-                <strong>{franja.nombre} · {formatearHora(franja.horaInicio)}–{formatearHora(franja.horaFin)}</strong>
-                <small>
-                  {franja.estado === 'enCurso' && TEXTO_FRANJA_EN_CURSO}
-                  {franja.estado === 'terminada' && TEXTO_FRANJA_TERMINADA}
-                  {franja.estado === 'noEmpezo' && TEXTO_FRANJA_NO_EMPEZO}
-                </small>
-              </span>
-            </label>
-          ))}
+          {/* Solo la franja vigente, ya seleccionada: ya no hay lista de 4 ni nada que elegir aquí. readOnly
+              (no disabled) para que el lector de pantalla la anuncie como un radio marcado, no como uno
+              deshabilitado/no disponible; sigue teniendo el input checked para no perder el borde morado
+              de :has(input:checked) del CSS actual. */}
+          <label className="reservas-personal-opcion">
+            <input type="radio" checked readOnly />
+            <span>
+              <strong>{defecto.nombre} · {formatearHora(defecto.horaInicio)}–{formatearHora(defecto.horaFin)}</strong>
+              <small>
+                {defecto.estado === 'enCurso' ? TEXTO_FRANJA_EN_CURSO : textoUltimaFranja(restaurante?.cierre)}
+              </small>
+            </span>
+          </label>
         </div>
       </fieldset>
 
@@ -314,16 +306,17 @@ export default function FormularioVisita({
       </div>
 
       <div className="reservas-campo">
-        <label className="reservas-campo-etiqueta" htmlFor="visita-mesa">{ETIQUETA_MESA_VISITA}</label>
+        <label className="reservas-campo-etiqueta" htmlFor="visita-mesa">{ETIQUETA_MESA_VISITA} *</label>
         <select
           id="visita-mesa"
           className="reservas-input"
           value={mesaElegida?.mesaId ?? ''}
-          onChange={(evento) => { setMesaId(evento.target.value); setMesaPerdida(false); }}
+          onChange={(evento) => { setMesaId(evento.target.value); setMesaPerdida(false); setMotivoMesaPerdida(''); }}
           disabled={mesas.estado === 'cargando' && !mesas.mapa}
+          aria-invalid={!mesaElegida ? 'true' : undefined}
           aria-describedby="visita-mesa-estado"
         >
-          <option value="">{OPCION_SIN_MESA}</option>
+          <option value="" disabled>Elige una mesa</option>
           {opciones.map((opcion) => (
             <option key={opcion.mesaId} value={opcion.mesaId}>
               {`Mesa ${opcion.numero} · ${opcion.zonaNombre} · capacidad ${opcion.capacidad}`}
@@ -332,11 +325,13 @@ export default function FormularioVisita({
         </select>
         <p id="visita-mesa-estado" className="reservas-campo-ayuda" role="status" aria-live="polite">
           {mesas.estado === 'cargando' && TEXTO_CARGANDO_MESAS}
-          {mesas.estado === 'listo' && textoMesasLibres(opciones.length)}
+          {mesas.estado === 'listo' && (opciones.length > 0 ? textoMesasLibres(opciones.length) : textoSinMesasVisita(personasParaFiltrar))}
         </p>
-        <span className="reservas-campo-ayuda">{AYUDA_MESA_VISITA}</span>
+        {mesas.estado === 'listo' && opciones.length > 0 && !mesaElegida && (
+          <span className="reservas-campo-ayuda" role="alert">{MENSAJE_MESA_OBLIGATORIA}</span>
+        )}
         {mesaPerdida && (
-          <Aviso tipo="advertencia">La mesa que elegiste ya no está disponible para este grupo. Elige otra o registra la visita sin mesa.</Aviso>
+          <Aviso tipo="advertencia">{motivoMesaPerdida || 'La mesa que elegiste ya no está disponible para este grupo. Elige otra mesa.'}</Aviso>
         )}
         {mesas.estado === 'error' && <Aviso tipo="error">{mesas.error}</Aviso>}
         {(mesas.estado === 'listo' || mesas.estado === 'error') && (

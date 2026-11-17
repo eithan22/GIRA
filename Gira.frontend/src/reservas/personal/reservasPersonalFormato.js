@@ -523,6 +523,50 @@ export function armarCuerpoVisita({ franjaId, mesaId, personas }) {
 }
 
 /**
+ * Mesas que se pueden usar para registrar una visita sin reserva (decisión del líder: la mesa es
+ * obligatoria y una mesa admite un solo grupo por franja, GI-166): libres (lo que ya implica mesa y zona
+ * activas, ver OcupacionService), sin otra visita en esa fecha y franja, y con capacidad suficiente para
+ * las personas indicadas. Ordenadas por capacidad de menor a mayor (la más ajustada primero). A diferencia
+ * de mesasSeleccionables (que sirve a «Modificar reserva» y sí ofrece mesas con visita), esta función es
+ * específica de Visitas.
+ */
+export function mesasParaVisita(mapa, personas) {
+  const resultado = [];
+  for (const zona of mapa?.zonas ?? []) {
+    for (const mesa of zona.mesas ?? []) {
+      if (mesa.estado !== 'Libre' || mesa.tieneVisita || mesa.capacidad < personas) continue;
+      resultado.push({ mesaId: mesa.mesaId, numero: mesa.numero, capacidad: mesa.capacidad, zonaNombre: zona.nombre });
+    }
+  }
+  return resultado.sort((a, b) => a.capacidad - b.capacidad || a.numero - b.numero);
+}
+
+/** Última franja activa que ya empezó, con el restaurante todavía abierto: ya no se rotula «Ya terminó». */
+export function textoUltimaFranja(horaCierre) {
+  return horaCierre ? `Última franja (el restaurante cierra a las ${horaCierre})` : 'Última franja';
+}
+
+/** «No hay mesas libres para N personas en esta franja»: la lista de mesas de la visita quedó vacía. */
+export function textoSinMesasVisita(personas) {
+  return `No hay mesas libres para ${textoPersonas(personas)} en esta franja`;
+}
+
+/**
+ * Motivo específico por el que una mesa preseleccionada (desde el mapa, o porque cambiaron las personas)
+ * ya no se puede usar para una visita: busca la mesa en el mapa actual y distingue si ya tiene otra visita,
+ * si ya no alcanza para el grupo, o si ya no está libre. Null si la mesa sí sigue siendo válida (no
+ * debería llamarse en ese caso) o si ya no aparece en el mapa (zona o mesa desactivada entretanto).
+ */
+export function motivoMesaNoDisponibleVisita(mapa, mesaId, personas) {
+  const mesa = (mapa?.zonas ?? []).flatMap((zona) => zona.mesas ?? []).find((m) => m.mesaId === mesaId);
+  if (!mesa) return 'La mesa que elegiste ya no está disponible.';
+  if (mesa.tieneVisita) return `La mesa ${mesa.numero} ya tiene una visita en esta franja.`;
+  if (mesa.capacidad < personas) return `La mesa ${mesa.numero} no alcanza para ${textoPersonas(personas)}.`;
+  if (mesa.estado !== 'Libre') return `La mesa ${mesa.numero} ya no está libre en esta franja.`;
+  return null;
+}
+
+/**
  * GI-402: resumen de las visitas sin reserva del día, con singular y plural: «1 visita · 1 persona»,
  * «3 visitas · 11 personas». Los totales vienen del servidor y cuentan todo el día.
  */

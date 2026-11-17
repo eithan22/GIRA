@@ -143,14 +143,41 @@ public class VisitaEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Sin_Mesa_Responde_200_Con_MesaId_Nulo()
+    public async Task MesaId_Null_En_El_Body_Responde_400_Con_El_Mismo_Mensaje_Que_Sin_Mesa()
     {
         _cliente.UsarToken(GenerarToken(Guid.NewGuid(), Roles.Mesero));
 
         var respuesta = await Registrar(_almuerzoId, null, 8);
 
-        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
-        Assert.Null(Assert.Single(await LeerVisitasAsync()).MesaId);
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+        Assert.Contains("Elige la mesa donde se sentó el grupo.", await respuesta.Content.ReadAsStringAsync());
+        Assert.Empty(await LeerVisitasAsync());
+    }
+
+    [Fact]
+    public async Task MesaId_Omitida_Del_Body_Responde_400_Con_El_Mismo_Mensaje_Que_Mesaid_Null()
+    {
+        _cliente.UsarToken(GenerarToken(Guid.NewGuid(), Roles.Mesero));
+
+        // Cuerpo sin la clave "mesaId" en absoluto (a diferencia de Registrar(), que siempre la serializa,
+        // aunque sea null): un objeto anónimo sin esa propiedad no la incluye en el JSON.
+        var respuesta = await _cliente.PostAsJsonAsync("/api/visitas", new { franjaHorariaId = _almuerzoId, personas = 8 });
+
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+        var detalle = await respuesta.Content.ReadAsStringAsync();
+        Assert.Contains("Elige la mesa donde se sentó el grupo.", detalle);
+        Assert.Empty(await LeerVisitasAsync());
+    }
+
+    [Fact]
+    public async Task MesaId_Vacia_Responde_400_Con_El_Mismo_Mensaje()
+    {
+        _cliente.UsarToken(GenerarToken(Guid.NewGuid(), Roles.Mesero));
+
+        var respuesta = await Registrar(_almuerzoId, Guid.Empty, 8);
+
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+        Assert.Contains("Elige la mesa donde se sentó el grupo.", await respuesta.Content.ReadAsStringAsync());
     }
 
     [Theory]
@@ -172,7 +199,7 @@ public class VisitaEndpointsTests : IAsyncLifetime
     {
         _cliente.UsarToken(GenerarToken(Guid.NewGuid(), Roles.Mesero));
 
-        var respuesta = await Registrar(Guid.NewGuid(), null, 2);
+        var respuesta = await Registrar(Guid.NewGuid(), _mesaLibreId, 2);
 
         Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
         Assert.Contains("La franja indicada no existe.", await respuesta.Content.ReadAsStringAsync());
@@ -193,7 +220,7 @@ public class VisitaEndpointsTests : IAsyncLifetime
         }
 
         var respuesta = await clienteCerrado.PostAsJsonAsync(
-            "/api/visitas", new RegistrarVisitaRequest(Guid.NewGuid(), null, 2));
+            "/api/visitas", new RegistrarVisitaRequest(Guid.NewGuid(), Guid.NewGuid(), 2));
 
         Assert.Equal(HttpStatusCode.Conflict, respuesta.StatusCode);
         Assert.Contains("El restaurante está cerrado ahora; el horario de hoy es de 12:00 a 22:30", await respuesta.Content.ReadAsStringAsync());
@@ -204,7 +231,7 @@ public class VisitaEndpointsTests : IAsyncLifetime
     {
         _cliente.UsarToken(GenerarToken(Guid.NewGuid(), Roles.Mesero));
 
-        var respuesta = await Registrar(_cenaId, null, 2);
+        var respuesta = await Registrar(_cenaId, _mesaLibreId, 2);
 
         Assert.Equal(HttpStatusCode.Conflict, respuesta.StatusCode);
         Assert.Contains("La franja Cena Visitas empieza a las 18:00", await respuesta.Content.ReadAsStringAsync());

@@ -22,7 +22,7 @@ existentes conservan las suyas hasta que el Gerente las edite.
 - **En persona.** El personal registra la reserva con el cliente presente en el restaurante, con las mismas
   reglas que por llamada. Origen: `Presencial`.
 - **Sin reserva (visita).** Un grupo que llega y se sienta de inmediato. No es una reserva: no tiene código
-  ni cliente. Se registra la franja, las personas y, opcionalmente, la mesa; no se guardan datos personales.
+  ni cliente. Se registra la franja, las personas y la **mesa (obligatoria)**; no se guardan datos personales.
   **No marca la mesa como ocupada en el mapa**, porque no tiene hora de salida y no se sabe cuándo se libera; sí
   ocupa esa mesa en esa franja para las reservas y la disponibilidad (ver «Reglas comunes»).
   Las visitas del día se consultan en la sección «Visitas sin reserva de hoy» de la Agenda (total de visitas y
@@ -33,12 +33,22 @@ existentes conservan las suyas hasta que el Gerente las edite.
      cierre exclusivo, como el fin de una franja). Responde 409 con el horario del día.
   2. **Solo en la franja más reciente de las activas que ya empezaron:** la actual o, si el grupo llega entre
      franjas (por ejemplo a las 16:30), la última que empezó. Una franja anterior responde 409 y el mensaje nombra la
-     franja correcta; una que todavía no empieza también responde 409. En la pantalla solo esa franja es elegible y
-     las demás salen deshabilitadas («Ya terminó», «Todavía no empieza»); con el restaurante cerrado se avisa y el
-     botón «Registrar visita» queda deshabilitado. En el **mapa de mesas**, los botones «Registrar visita» de cada mesa
-     libre dependen de lo mismo (es hoy, el restaurante no está cerrado y ya empezó alguna franja activa), **no** de la
-     franja seleccionada en el mapa: entre franjas el mapa suele mostrar la próxima, y aun así se puede registrar en la
-     última que empezó; el formulario usa esa franja y pide el mapa de mesas libres para ella.
+     franja correcta; una que todavía no empieza también responde 409. En la pantalla solo se muestra esa franja, ya
+     seleccionada (si ya terminó pero el restaurante sigue abierto, se rotula «Última franja», no «Ya terminó»); con
+     el restaurante cerrado se avisa y el botón «Registrar visita» queda deshabilitado. En el **mapa de mesas**, los
+     botones «Registrar visita» de cada mesa libre dependen de lo mismo (es hoy, el restaurante no está cerrado y ya
+     empezó alguna franja activa), **no** de la franja seleccionada en el mapa: entre franjas el mapa suele mostrar la
+     próxima, y aun así se puede registrar en la última que empezó; el formulario usa esa franja y pide el mapa de
+     mesas libres para ella.
+  3. **Una mesa por franja (decisión del líder).** La mesa es obligatoria —null, vacía u omitida responde 400
+     («Elige la mesa donde se sentó el grupo.»)— y admite un solo grupo por fecha y franja, con o sin reserva: si ya
+     tiene otra visita en esa franja, responde 409 («La mesa N ya tiene una visita en esta franja.»). **Cambio
+     incompatible:** antes `mesaId` era opcional; un cliente que la omitiera ahora recibe 400. La pantalla solo
+     ofrece mesas utilizables (activas, de zona activa, libres, sin otra visita en esa franja y con capacidad
+     suficiente para las personas indicadas), ordenadas por capacidad de menor a mayor; sin ninguna, lo dice («No hay
+     mesas libres para N personas en esta franja») y el botón queda deshabilitado. Sin índice único en BD: dos
+     registros simultáneos en la misma mesa y franja podrían pasar la comprobación a la vez (carrera aceptada, es
+     una acción manual del personal).
   El aviso de próxima reserva (`GET /api/visitas/advertencia-mesa`) no cambia: no consulta el horario, porque con el
   restaurante cerrado la visita no llega a registrarse.
 

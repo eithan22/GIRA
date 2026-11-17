@@ -22,6 +22,8 @@ import {
   estadoFranjasVisita,
   listaIncompleta,
   mesaConZonaInactiva,
+  mesasParaVisita,
+  motivoMesaNoDisponibleVisita,
   normalizarHora,
   reemplazarPorId,
   textoImpactoZona,
@@ -68,6 +70,8 @@ import {
   resumenPorZona,
   soloDigitos,
   sumarDias,
+  textoSinMesasVisita,
+  textoUltimaFranja,
   validarMotivo,
   validarNombreCliente,
   validarPersonas,
@@ -359,6 +363,60 @@ test('mesasSeleccionables: sin reserva actual solo devuelve libres, y con grupo 
   assert.deepEqual(mesasSeleccionables(MAPA, 1).map((m) => m.numero), [5, 7]);
   assert.deepEqual(mesasSeleccionables(MAPA, 20, 'r1'), []);
   assert.deepEqual(mesasSeleccionables(null, 2), []);
+});
+
+// Mapa específico de Visitas: a diferencia de MAPA (que usan mesasSeleccionables/Modificar), aquí algunas
+// mesas Libres ya tienen una visita en esta franja (tieneVisita), que mesasParaVisita debe excluir.
+const MAPA_VISITA = {
+  zonas: [
+    {
+      nombre: 'Patio',
+      mesas: [
+        { mesaId: 'v1', numero: 1, capacidad: 2, estado: 'Libre', tieneVisita: false },
+        { mesaId: 'v2', numero: 2, capacidad: 6, estado: 'Libre', tieneVisita: true },
+        { mesaId: 'v3', numero: 3, capacidad: 4, estado: 'Reservada', tieneVisita: false },
+      ],
+    },
+    {
+      nombre: 'Salón',
+      mesas: [
+        { mesaId: 'v4', numero: 4, capacidad: 8, estado: 'Libre', tieneVisita: false },
+        { mesaId: 'v5', numero: 5, capacidad: 4, estado: 'Libre', tieneVisita: false },
+      ],
+    },
+  ],
+};
+
+test('mesasParaVisita: libres, sin otra visita en esa franja y con capacidad suficiente, por capacidad ascendente', () => {
+  const r = mesasParaVisita(MAPA_VISITA, 2);
+  assert.deepEqual(r.map((m) => m.numero), [1, 5, 4]); // 2, 4 y 8: no la 2 (tieneVisita) ni la 3 (Reservada)
+});
+
+test('mesasParaVisita: descarta las que ya tienen visita, aunque estén Libres', () => {
+  assert.ok(!mesasParaVisita(MAPA_VISITA, 2).some((m) => m.numero === 2));
+});
+
+test('mesasParaVisita: grupo grande puede dejar la lista vacía; sin mapa, vacía', () => {
+  assert.deepEqual(mesasParaVisita(MAPA_VISITA, 20), []);
+  assert.deepEqual(mesasParaVisita(null, 2), []);
+});
+
+test('motivoMesaNoDisponibleVisita: distingue visita, capacidad y mesa que ya no está libre', () => {
+  assert.equal(motivoMesaNoDisponibleVisita(MAPA_VISITA, 'v2', 2), 'La mesa 2 ya tiene una visita en esta franja.');
+  assert.equal(motivoMesaNoDisponibleVisita(MAPA_VISITA, 'v5', 6), 'La mesa 5 no alcanza para 6 personas.');
+  assert.equal(motivoMesaNoDisponibleVisita(MAPA_VISITA, 'v3', 2), 'La mesa 3 ya no está libre en esta franja.');
+  assert.equal(motivoMesaNoDisponibleVisita(MAPA_VISITA, 'inexistente', 2), 'La mesa que elegiste ya no está disponible.');
+  assert.equal(motivoMesaNoDisponibleVisita(MAPA_VISITA, 'v1', 2), null); // sigue siendo válida
+});
+
+test('textoUltimaFranja: con hora de cierre la incluye; sin ella, texto genérico', () => {
+  assert.equal(textoUltimaFranja('22:30'), 'Última franja (el restaurante cierra a las 22:30)');
+  assert.equal(textoUltimaFranja(null), 'Última franja');
+});
+
+test('textoSinMesasVisita: singular y plural', () => {
+  assert.equal(textoSinMesasVisita(1), 'No hay mesas libres para 1 persona en esta franja');
+  assert.equal(textoSinMesasVisita(4), 'No hay mesas libres para 4 personas en esta franja');
 });
 
 const ANTES = {

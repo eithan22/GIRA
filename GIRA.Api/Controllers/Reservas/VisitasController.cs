@@ -27,7 +27,9 @@ public class VisitasController : ControllerBase
 
     /// <summary>
     /// Registra una visita sin reserva de hoy (la fecha la pone el servidor). La franja debe estar
-    /// activa y haber empezado; la mesa, si se envía, debe estar activa y libre en esa franja.
+    /// activa y haber empezado; la mesa es obligatoria (una mesa admite un solo grupo por franja, con o
+    /// sin reserva) y debe estar activa, de zona activa y libre en esa franja. Cambio incompatible
+    /// (GI-166): antes <c>mesaId</c> era opcional; un cliente que no la enviara ahora recibe 400.
     /// Publica <c>VisitaCompletadaEvent</c> con <c>ConReserva = false</c>. Devuelve 200, como el
     /// resto del proyecto.
     /// </summary>

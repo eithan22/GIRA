@@ -308,9 +308,11 @@ export const TEXTO_SIN_FRANJAS_VISITA = 'No hay franjas activas configuradas.';
 export const TEXTO_CARGANDO_FRANJAS = 'Cargando las franjas…';
 export const TEXTO_ERROR_FRANJAS = 'No pudimos cargar las franjas.';
 export const ETIQUETA_PERSONAS_VISITA = 'Personas';
-export const ETIQUETA_MESA_VISITA = 'Mesa (opcional)';
+export const ETIQUETA_MESA_VISITA = 'Mesa';
+export const MENSAJE_MESA_OBLIGATORIA = 'Elige la mesa donde se sentó el grupo.';
+// "Sin mesa" ya no es una opción al registrar (la mesa es obligatoria): se queda solo para el listado de
+// visitas históricas de hoy (descripcionVisita), que puede traer una visita sin mesa de antes de esta regla.
 export const OPCION_SIN_MESA = 'Sin mesa';
-export const AYUDA_MESA_VISITA = 'La lista puede incluir mesas con una visita ya sentada: el sistema no las marca como ocupadas.';
 export const AVISO_VISITA_DEFINITIVA = 'Estas visitas no se pueden editar ni borrar después.';
 export const TEXTO_REGISTRAR_VISITA = 'Registrar visita';
 export const TEXTO_REGISTRANDO_VISITA = 'Registrando…';
@@ -405,7 +407,7 @@ export function textoEstadoCambiado(singular, activa) {
 }
 
 export function textoConfirmarVisita(cantidad, mesa) {
-  return `¿Registrar visita de ${textoPersonas(cantidad)} en ${mesa ? `Mesa ${mesa}` : 'sin mesa'}? No se podrá editar ni borrar.`;
+  return `¿Registrar visita de ${textoPersonas(cantidad)} en Mesa ${mesa}? No se podrá editar ni borrar.`;
 }
 
 // --- Configuración de reservas: Políticas, Horario y Días cerrados (GI-226, Lote 6) ---
