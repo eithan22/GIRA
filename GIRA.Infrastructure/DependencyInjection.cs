@@ -1,6 +1,7 @@
 using GIRA.Infrastructure.Persistence.Context;
 using GIRA.Infrastructure.Persistence.Interceptors;
 using GIRA.Infrastructure.Persistence.Repositories.Configuracion;
+using GIRA.Infrastructure.Persistence.Repositories.Personal;
 using GIRA.Infrastructure.Persistence.Repositories.Reservas;
 using GIRA.Infrastructure.Services.Reservas;
 using GIRA.Infrastructure.Services.Seguridad;
@@ -40,6 +41,7 @@ public static class DependencyInjection
         services.AddMemoryCache();
         services.AddConfiguracionRepositories();
         services.AddReservasRepositories();
+        services.AddPersonalRepositories();
         services.AddReservasServicios(configuration);
 
         return services;
