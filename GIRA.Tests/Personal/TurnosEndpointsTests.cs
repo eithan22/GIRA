@@ -68,7 +68,7 @@ public class TurnosEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Cancelar_DejaEstadoCancelado_YSoloAceptaCancelarPorAhora()
+    public async Task Cancelar_DejaEstadoCancelado_Y_NoMarcaCompletadoUnTurnoFuturo()
     {
         var empleadoId = await PrepararEmpleadoAsync();
         Como(Roles.Supervisor);
@@ -78,7 +78,7 @@ public class TurnosEndpointsTests : IAsyncLifetime
         var completado = await _cliente.PatchAsJsonAsync($"{Ruta}/{creado!.Id}/estado", new CambiarEstadoTurnoRequest(EstadoTurno.Completado));
         var cancelado = await _cliente.PatchAsJsonAsync($"{Ruta}/{creado.Id}/estado", new CambiarEstadoTurnoRequest(EstadoTurno.Cancelado));
 
-        Assert.Equal(HttpStatusCode.BadRequest, completado.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, completado.StatusCode);
         Assert.Equal(HttpStatusCode.OK, cancelado.StatusCode);
     }
 

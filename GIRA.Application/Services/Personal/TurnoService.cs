@@ -23,7 +23,9 @@ public class TurnoService : ITurnoService
     private const string TurnoNoNoModificable = "Un turno pasado o cancelado no se puede modificar.";
     private const string NoEncontrado = "El turno no existe.";
     private const string SuperaHoras = "El turno supera las horas máximas de la semana del empleado.";
-    private const string EstadoNoPermitido = "Por ahora solo se puede cancelar un turno. Completado y Ausente se marcan en GI-307.";
+    private const string EstadoNoPermitido = "Solo se puede cambiar el estado a Cancelado, Completado o Ausente.";
+    private const string TurnoCancelado = "Un turno cancelado no se puede marcar como completado o ausente.";
+    private const string SoloTurnosPasados = "Solo se marcan como completados o ausentes los turnos que ya pasaron.";
 
     private readonly ITurnoRepository _turnos;
     private readonly IAusenciaRepository _ausencias;
@@ -110,7 +112,7 @@ public class TurnoService : ITurnoService
     /// <inheritdoc />
     public async Task<OperationResult<TurnoDto>> CambiarEstadoAsync(Guid id, EstadoTurno estado, CancellationToken cancellationToken)
     {
-        if (estado != EstadoTurno.Cancelado)
+        if (estado is not (EstadoTurno.Cancelado or EstadoTurno.Completado or EstadoTurno.Ausente))
         {
             return OperationResult.Failure<TurnoDto>(ErrorType.Validation, EstadoNoPermitido);
         }
@@ -121,12 +123,28 @@ public class TurnoService : ITurnoService
             return OperationResult.Failure<TurnoDto>(ErrorType.NotFound, NoEncontrado);
         }
 
-        if (!EsModificable(turno))
+        if (estado == EstadoTurno.Cancelado)
         {
-            return OperationResult.Failure<TurnoDto>(ErrorType.Conflict, TurnoNoNoModificable);
+            if (!EsModificable(turno))
+            {
+                return OperationResult.Failure<TurnoDto>(ErrorType.Conflict, TurnoNoNoModificable);
+            }
+        }
+        else
+        {
+            // GI-307 y RN-PER-10: solo los turnos que ya pasaron se marcan como Completado o Ausente.
+            if (turno.Estado == EstadoTurno.Cancelado)
+            {
+                return OperationResult.Failure<TurnoDto>(ErrorType.Conflict, TurnoCancelado);
+            }
+
+            if (turno.Fecha >= _reloj.HoyLocal())
+            {
+                return OperationResult.Failure<TurnoDto>(ErrorType.Conflict, SoloTurnosPasados);
+            }
         }
 
-        turno.Estado = EstadoTurno.Cancelado;
+        turno.Estado = estado;
         await _turnos.GuardarCambiosAsync(cancellationToken);
 
         return OperationResult.Success(ToDto(turno));

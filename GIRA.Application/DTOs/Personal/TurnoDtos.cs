@@ -23,5 +23,5 @@ public sealed record TurnoRequest(
     string? Notas);
 
 /// <summary>Cambio de estado de un turno.</summary>
-/// <param name="Estado">Nuevo estado. Por ahora solo se acepta Cancelado (GI-307 agrega Completado y Ausente).</param>
+/// <param name="Estado">Nuevo estado: Cancelado (turnos vigentes) o Completado y Ausente (turnos ya pasados).</param>
 public sealed record CambiarEstadoTurnoRequest(EstadoTurno Estado);
