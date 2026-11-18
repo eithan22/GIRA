@@ -22,6 +22,7 @@ public class TurnoService : ITurnoService
     private const string AusenciaAprobada = "El empleado tiene una ausencia aprobada en esa fecha.";
     private const string TurnoNoNoModificable = "Un turno pasado o cancelado no se puede modificar.";
     private const string NoEncontrado = "El turno no existe.";
+    private const string SuperaHoras = "El turno supera las horas máximas de la semana del empleado.";
     private const string EstadoNoPermitido = "Por ahora solo se puede cancelar un turno. Completado y Ausente se marcan en GI-307.";
 
     private readonly ITurnoRepository _turnos;
@@ -193,6 +194,21 @@ public class TurnoService : ITurnoService
         if (solapa)
         {
             return OperationResult.Failure<TurnoDto>(ErrorType.Conflict, Solapado);
+        }
+
+        // RN-PER-04 (GI-299): las horas de la semana no pueden superar HorasMaximasSemana.
+        // Semana de lunes a domingo; el SRS no dice qué día empieza la semana (pendiente con el equipo).
+        var lunes = request.Fecha.AddDays(-(((int)request.Fecha.DayOfWeek + 6) % 7));
+        var domingo = lunes.AddDays(6);
+        var semana = await _turnos.ListarPorEmpleadoEntreAsync(request.EmpleadoId, lunes, domingo, cancellationToken);
+        var acumuladas = semana
+            .Where(t => t.Id != excluirId && t.Estado != EstadoTurno.Cancelado)
+            .Sum(t => (t.HoraFin - t.HoraInicio).TotalHours);
+        var nuevas = (request.HoraFin - request.HoraInicio).TotalHours;
+        if (acumuladas + nuevas > empleado.HorasMaximasSemana)
+        {
+            var mensaje = $"{SuperaHoras} Horas acumuladas en la semana: {acumuladas:0.##} de {empleado.HorasMaximasSemana}; este turno suma {nuevas:0.##}.";
+            return OperationResult.Failure<TurnoDto>(ErrorType.Validation, mensaje);
         }
 
         return null;

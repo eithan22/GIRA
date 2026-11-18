@@ -11,6 +11,9 @@ public interface ITurnoRepository
     /// <summary>Lista los turnos de un empleado en una fecha, sin seguimiento de cambios.</summary>
     Task<IReadOnlyList<Turno>> ListarPorEmpleadoYFechaAsync(Guid empleadoId, DateOnly fecha, CancellationToken cancellationToken);
 
+    /// <summary>Lista los turnos de un empleado entre dos fechas (inclusive), sin seguimiento de cambios.</summary>
+    Task<IReadOnlyList<Turno>> ListarPorEmpleadoEntreAsync(Guid empleadoId, DateOnly desde, DateOnly hasta, CancellationToken cancellationToken);
+
     /// <summary>Agrega un turno nuevo al contexto; se guarda con <see cref="GuardarCambiosAsync"/>.</summary>
     void Agregar(Turno turno);
 

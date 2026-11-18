@@ -30,6 +30,13 @@ public class TurnoRepository : ITurnoRepository, IAusenciaRepository
             .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Turno>> ListarPorEmpleadoEntreAsync(Guid empleadoId, DateOnly desde, DateOnly hasta, CancellationToken cancellationToken) =>
+        await _contexto.Turnos
+            .AsNoTracking()
+            .Where(t => t.EmpleadoId == empleadoId && t.Fecha >= desde && t.Fecha <= hasta)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public void Agregar(Turno turno) => _contexto.Turnos.Add(turno);
 
     /// <inheritdoc />

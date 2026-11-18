@@ -129,6 +129,56 @@ public class TurnoServiceTests
     }
 
     [Fact]
+    public async Task Crear_SuperaLasHorasDeLaSemana_DevuelveValidacion()
+    {
+        var turnos = new RepositorioTurnosEnMemoria();
+        // Lunes, miércoles y jueves de 12 horas cada uno: 36 horas acumuladas en la semana.
+        turnos.Turnos.Add(Turno(Lunes, "06:00", "18:00"));
+        turnos.Turnos.Add(Turno(Lunes.AddDays(2), "06:00", "18:00"));
+        turnos.Turnos.Add(Turno(Lunes.AddDays(3), "06:00", "18:00"));
+        var servicio = Crear(turnos);
+
+        // Viernes: 5 horas más sumarían 41, por encima de 40.
+        var resultado = await servicio.CrearAsync(Solicitud(Lunes.AddDays(4), "09:00", "14:00"), default);
+
+        Assert.Equal(ErrorType.Validation, resultado.Type);
+        Assert.Contains("Horas acumuladas en la semana: 36 de 40", resultado.Error);
+    }
+
+    [Fact]
+    public async Task Crear_LlegaJustoAlLimite_SeAsigna()
+    {
+        var turnos = new RepositorioTurnosEnMemoria();
+        turnos.Turnos.Add(Turno(Lunes, "06:00", "18:00"));
+        turnos.Turnos.Add(Turno(Lunes.AddDays(2), "06:00", "18:00"));
+        turnos.Turnos.Add(Turno(Lunes.AddDays(3), "06:00", "18:00"));
+        var servicio = Crear(turnos);
+
+        // 36 horas acumuladas; 4 más llegan justo a 40.
+        var resultado = await servicio.CrearAsync(Solicitud(Lunes.AddDays(4), "06:00", "10:00"), default);
+
+        Assert.True(resultado.IsSuccess);
+    }
+
+    [Fact]
+    public async Task Crear_TurnosCancelados_NoCuentanParaLasHoras()
+    {
+        var turnos = new RepositorioTurnosEnMemoria();
+        // Tres turnos cancelados de 12 horas: si contaran, el nuevo superaría 40.
+        foreach (var dia in new[] { Lunes, Lunes.AddDays(2), Lunes.AddDays(3) })
+        {
+            var cancelado = Turno(dia, "06:00", "18:00");
+            cancelado.Estado = EstadoTurno.Cancelado;
+            turnos.Turnos.Add(cancelado);
+        }
+        var servicio = Crear(turnos);
+
+        var resultado = await servicio.CrearAsync(Solicitud(Lunes.AddDays(4), "06:00", "12:00"), default);
+
+        Assert.True(resultado.IsSuccess);
+    }
+
+    [Fact]
     public async Task Cancelar_TurnoVigente_LoMarcaCancelado()
     {
         var turnos = new RepositorioTurnosEnMemoria();
@@ -185,14 +235,15 @@ public class TurnoServiceTests
         public override DateTimeOffset GetUtcNow() => ahora;
     }
 
-    /// <summary>Disponibilidad falsa: lunes de 08:00 a 18:00 para cualquier empleado.</summary>
+    /// <summary>Disponibilidad falsa: de 06:00 a 18:00 todos los días menos el martes, para cualquier empleado.</summary>
     private sealed class RepositorioDisponibilidadFalso : IDisponibilidadRepository
     {
         public Task<IReadOnlyList<Disponibilidad>> ListarPorEmpleadoAsync(Guid empleadoId, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<Disponibilidad>>(
-            [
-                new Disponibilidad { EmpleadoId = empleadoId, DiaSemana = DayOfWeek.Monday, HoraInicio = new TimeOnly(8, 0), HoraFin = new TimeOnly(18, 0) },
-            ]);
+                Enum.GetValues<DayOfWeek>()
+                    .Where(d => d != DayOfWeek.Tuesday)
+                    .Select(d => new Disponibilidad { EmpleadoId = empleadoId, DiaSemana = d, HoraInicio = new TimeOnly(6, 0), HoraFin = new TimeOnly(18, 0) })
+                    .ToList());
 
         public Task<Disponibilidad?> BuscarAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult<Disponibilidad?>(null);
         public void Agregar(Disponibilidad disponibilidad) { }
@@ -206,7 +257,7 @@ public class TurnoServiceTests
             Task.FromResult<IReadOnlyList<Empleado>>([]);
 
         public Task<Empleado?> BuscarAsync(Guid id, CancellationToken cancellationToken) =>
-            Task.FromResult<Empleado?>(new Empleado { Id = id, Activo = activo });
+            Task.FromResult<Empleado?>(new Empleado { Id = id, Activo = activo, HorasMaximasSemana = 40 });
 
         public Task<bool> ExisteCedulaAsync(string cedula, Guid? excluirId, CancellationToken cancellationToken) => Task.FromResult(false);
         public void Agregar(Empleado empleado) { }
@@ -238,6 +289,9 @@ public class TurnoServiceTests
 
         public Task<IReadOnlyList<Turno>> ListarPorEmpleadoYFechaAsync(Guid empleadoId, DateOnly fecha, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<Turno>>(Turnos.Where(t => t.EmpleadoId == empleadoId && t.Fecha == fecha).ToList());
+
+        public Task<IReadOnlyList<Turno>> ListarPorEmpleadoEntreAsync(Guid empleadoId, DateOnly desde, DateOnly hasta, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Turno>>(Turnos.Where(t => t.EmpleadoId == empleadoId && t.Fecha >= desde && t.Fecha <= hasta).ToList());
 
         public void Agregar(Turno turno)
         {
