@@ -24,6 +24,9 @@ public static class PersonalServiceExtensions
         // Turnos (GI-298).
         services.AddScoped<ITurnoService, TurnoService>();
 
+        // Requerimiento de personal por cargo (GI-302).
+        services.AddScoped<IRequerimientoPersonalService, RequerimientoPersonalService>();
+
         return services;
     }
 }
