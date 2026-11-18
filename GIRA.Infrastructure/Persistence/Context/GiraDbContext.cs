@@ -35,6 +35,9 @@ public class GiraDbContext : IdentityDbContext<Usuario, Rol, Guid>
     /// <summary>Empleados del restaurante, módulo Personal y Turnos (GI-295).</summary>
     public DbSet<Empleado> Empleados => Set<Empleado>();
 
+    /// <summary>Bloques de disponibilidad semanal de los empleados (GI-297).</summary>
+    public DbSet<Disponibilidad> Disponibilidades => Set<Disponibilidad>();
+
     /// <summary>Solicitudes de recuperación de contraseña pendientes de atender por un Administrador.</summary>
     public DbSet<SolicitudRecuperacionPassword> SolicitudesRecuperacionPassword => Set<SolicitudRecuperacionPassword>();
 

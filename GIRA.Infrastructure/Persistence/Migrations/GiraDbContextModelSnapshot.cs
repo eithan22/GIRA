@@ -258,6 +258,58 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.ToTable("Cargo", "personal");
                 });
 
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.Disponibilidad", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DiaSemana")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("EmpleadoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<TimeOnly>("HoraFin")
+                        .HasColumnType("time");
+
+                    b.Property<TimeOnly>("HoraInicio")
+                        .HasColumnType("time");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpleadoId", "DiaSemana")
+                        .HasDatabaseName("IX_Disponibilidad_EmpleadoId_DiaSemana");
+
+                    b.ToTable("Disponibilidad", "personal");
+                });
+
             modelBuilder.Entity("GIRA.Domain.Entities.Personal.Empleado", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1009,6 +1061,15 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("UsuarioToken", "seguridad");
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.Disponibilidad", b =>
+                {
+                    b.HasOne("GIRA.Domain.Entities.Personal.Empleado", null)
+                        .WithMany()
+                        .HasForeignKey("EmpleadoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("GIRA.Domain.Entities.Personal.Empleado", b =>

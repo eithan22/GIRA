@@ -18,6 +18,9 @@ public static class PersonalServiceExtensions
         // Empleados (GI-295).
         services.AddScoped<IEmpleadoService, EmpleadoService>();
 
+        // Disponibilidad semanal (GI-297).
+        services.AddScoped<IDisponibilidadService, DisponibilidadService>();
+
         return services;
     }
 }
