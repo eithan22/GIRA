@@ -320,6 +320,13 @@ public class TurnoServiceTests
 
     private sealed class RepositorioAusenciasFalso(DateOnly? aprobadaEn = null) : IAusenciaRepository
     {
+        public Task<IReadOnlyList<Ausencia>> ListarAsync(Guid? empleadoId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Ausencia>>([]);
+
+        public Task<Ausencia?> BuscarAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult<Ausencia?>(null);
+        public void Agregar(Ausencia ausencia) { }
+        public Task GuardarCambiosAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
         public Task<bool> TieneAprobadaEnFechaAsync(Guid empleadoId, DateOnly fecha, CancellationToken cancellationToken) =>
             Task.FromResult(aprobadaEn == fecha);
     }
