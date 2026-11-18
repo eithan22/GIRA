@@ -44,6 +44,9 @@ public class GiraDbContext : IdentityDbContext<Usuario, Rol, Guid>
     /// <summary>Solicitudes de ausencia de los empleados (GI-298, RN-PER-03).</summary>
     public DbSet<Ausencia> Ausencias => Set<Ausencia>();
 
+    /// <summary>Requerimiento de personal por cargo: comensales por empleado y mínimo por franja (GI-302).</summary>
+    public DbSet<RequerimientoPersonal> RequerimientosPersonal => Set<RequerimientoPersonal>();
+
     /// <summary>Solicitudes de recuperación de contraseña pendientes de atender por un Administrador.</summary>
     public DbSet<SolicitudRecuperacionPassword> SolicitudesRecuperacionPassword => Set<SolicitudRecuperacionPassword>();
 

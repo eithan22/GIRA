@@ -454,6 +454,57 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.ToTable("Empleado", "personal");
                 });
 
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.RequerimientoPersonal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CargoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ComensalesPorEmpleado")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MinimoPorFranja")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CargoId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_RequerimientoPersonal_CargoId")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("RequerimientoPersonal", "personal");
+                });
+
             modelBuilder.Entity("GIRA.Domain.Entities.Personal.Turno", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1213,6 +1264,15 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("GIRA.Domain.Entities.Personal.Empleado", b =>
+                {
+                    b.HasOne("GIRA.Domain.Entities.Personal.Cargo", null)
+                        .WithMany()
+                        .HasForeignKey("CargoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.RequerimientoPersonal", b =>
                 {
                     b.HasOne("GIRA.Domain.Entities.Personal.Cargo", null)
                         .WithMany()
