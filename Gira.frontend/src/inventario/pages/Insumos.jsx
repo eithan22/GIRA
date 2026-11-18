@@ -5,6 +5,7 @@ import Modal from '../../security/components/Modal.jsx';
 import PaginaInventario, { AvisoError, FilaEstado, Paginacion } from '../components/PaginaInventario.jsx';
 import { NIVELES, ROLES_GESTIONAR, aNumero, dinero, mensajeError, numero, tieneRol } from '../inventarioFormato.js';
 import { inventarioService } from '../inventarioService.js';
+import { useCarga } from '../useCarga.js';
 
 const PAGE_SIZE = 20;
 const VACIO = { nombre: '', categoriaInsumoId: '', unidadMedidaId: '', puntoReorden: '', costoUnitario: '', perecedero: false, proveedorId: '' };
@@ -26,6 +27,7 @@ export default function Insumos() {
   const [cambiarEstado, setCambiarEstado] = useState(null);
   const [ocupado, setOcupado] = useState(false);
   const [errorModal, setErrorModal] = useState('');
+  const { errorCarga, setErrorCarga, reintento, reintentar } = useCarga();
 
   useEffect(() => {
     let activo = true;
@@ -35,9 +37,9 @@ export default function Insumos() {
       puedeGestionar ? inventarioService.listarCatalogo('proveedores') : Promise.resolve([]),
     ]).then(([categorias, unidades, proveedores]) => {
       if (activo) setCatalogos({ categorias, unidades, proveedores });
-    }).catch((e) => { if (activo) setError(mensajeError(e, 'No se pudieron cargar las categorías y unidades.')); });
+    }).catch((e) => { if (activo) setErrorCarga(mensajeError(e, 'No se pudieron cargar las categorías y unidades.')); });
     return () => { activo = false; };
-  }, [puedeGestionar]);
+  }, [puedeGestionar, reintento, setErrorCarga]);
 
   useEffect(() => {
     let activo = true;
@@ -49,10 +51,10 @@ export default function Insumos() {
       if (!activo) return;
       setPagina(lista);
       setResumen(totales);
-    }).catch((e) => { if (activo) setError(mensajeError(e, 'No se pudo cargar el inventario.')); })
+    }).catch((e) => { if (activo) setErrorCarga(mensajeError(e, 'No se pudo cargar el inventario.')); })
       .finally(() => { if (activo) setCargando(false); });
     return () => { activo = false; };
-  }, [filtros, page, recarga]);
+  }, [filtros, page, recarga, reintento, setErrorCarga]);
 
   function filtrar(cambio) { setFiltros({ ...filtros, ...cambio }); setPage(1); }
 
@@ -108,6 +110,7 @@ export default function Insumos() {
       accion={puedeGestionar && <button type="button" className="button button-primary" onClick={() => abrir(null)}><Icon name="plus" size={17} /> Nuevo insumo</button>}
     >
       <AvisoError mensaje={error} onCerrar={() => setError('')} />
+      <AvisoError mensaje={errorCarga} onReintentar={reintentar} />
       <div className="stats-strip">
         <div className="stat-card"><span className="stat-symbol violet"><Icon name="box" size={18} /></span><div><span className="stat-label">INSUMOS ACTIVOS</span><strong>{resumen?.activos ?? '—'}</strong></div></div>
         <button type="button" className="stat-card inv-stat-boton" onClick={() => filtrar({ nivel: 'Bajo' })}><span className="stat-symbol amber"><Icon name="alert" size={18} /></span><div><span className="stat-label">EN NIVEL BAJO</span><strong>{resumen?.bajos ?? '—'}</strong></div></button>

@@ -18,5 +18,6 @@ public class AlertaInventarioConfiguration : IEntityTypeConfiguration<AlertaInve
         builder.HasIndex(a => new { a.Estado, a.InsumoId });
 
         builder.HasOne(a => a.Insumo).WithMany().HasForeignKey(a => a.InsumoId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<LoteInsumo>().WithMany().HasForeignKey(a => a.LoteInsumoId).OnDelete(DeleteBehavior.Restrict);
     }
 }

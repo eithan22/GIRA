@@ -46,6 +46,12 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("DiasAvisoVencimientoInventario")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DiasProyeccionInventario")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -86,6 +92,10 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("CK_ConfiguracionRestaurante_AntelacionMaxima", "[AntelacionMaximaDias] BETWEEN 1 AND 365");
 
                             t.HasCheckConstraint("CK_ConfiguracionRestaurante_AntelacionMinima", "[AntelacionMinimaMinutos] >= 0");
+
+                            t.HasCheckConstraint("CK_ConfiguracionRestaurante_DiasAvisoVencimiento", "[DiasAvisoVencimientoInventario] BETWEEN 1 AND 30");
+
+                            t.HasCheckConstraint("CK_ConfiguracionRestaurante_DiasProyeccionInventario", "[DiasProyeccionInventario] BETWEEN 1 AND 14");
 
                             t.HasCheckConstraint("CK_ConfiguracionRestaurante_FilaUnica", "[Id] = '00000000-0000-0000-0000-0000000000c1'");
 
@@ -207,6 +217,60 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("GIRA.Domain.Entities.Inventario.AfluenciaPredicha", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Comensales")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("FechaRecepcion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Fecha")
+                        .IsUnique()
+                        .HasDatabaseName("IX_AfluenciaPredicha_Fecha")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("AfluenciaPredicha", "inventario", t =>
+                        {
+                            t.HasCheckConstraint("CK_AfluenciaPredicha_Comensales", "[Comensales] >= 0");
+                        });
+                });
+
             modelBuilder.Entity("GIRA.Domain.Entities.Inventario.AlertaInventario", b =>
                 {
                     b.Property<Guid>("Id")
@@ -250,6 +314,9 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<Guid?>("LoteInsumoId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -275,6 +342,8 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("InsumoId");
+
+                    b.HasIndex("LoteInsumoId");
 
                     b.HasIndex("Estado", "InsumoId");
 
@@ -634,9 +703,17 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("UsuarioId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("VisitaId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("InsumoId", "Fecha");
+
+                    b.HasIndex("VisitaId", "InsumoId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_MovimientoInventario_VisitaId_InsumoId")
+                        .HasFilter("[VisitaId] IS NOT NULL AND [IsDeleted] = 0");
 
                     b.ToTable("MovimientoInventario", "inventario");
                 });
@@ -1603,6 +1680,11 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         .HasForeignKey("InsumoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("GIRA.Domain.Entities.Inventario.LoteInsumo", null)
+                        .WithMany()
+                        .HasForeignKey("LoteInsumoId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Insumo");
                 });

@@ -28,6 +28,17 @@ public class AlertaInventarioRepository : IAlertaInventarioRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> ListarLotesConAlertaAsync(IReadOnlyCollection<Guid> loteIds, CancellationToken cancellationToken)
+    {
+        var lista = loteIds.Distinct().ToList();
+        return await _contexto.AlertasInventario.AsNoTracking()
+            .Where(a => a.LoteInsumoId != null && lista.Contains(a.LoteInsumoId.Value))
+            .Select(a => a.LoteInsumoId!.Value)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async Task<PagedResult<AlertaLectura>> ListarAsync(EstadoAlertaInventario? estado, int page, int pageSize, CancellationToken cancellationToken)
     {
         var consulta = _contexto.AlertasInventario.AsNoTracking();

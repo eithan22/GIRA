@@ -69,7 +69,7 @@ public class CierreVisitasServicioTests
 
         Assert.Equal(1, resultado.Completadas);
         var evento = Assert.IsType<VisitaCompletadaEvent>(Assert.Single(e.Publisher.Publicados));
-        Assert.Equal(new VisitaCompletadaEvent(Hoy.AddDays(-3), antigua.FranjaHorariaId, 5, ConReserva: true), evento);
+        Assert.Equal(new VisitaCompletadaEvent(Hoy.AddDays(-3), antigua.FranjaHorariaId, 5, ConReserva: true, VisitaId: antigua.Id), evento);
     }
 
     // --- Evento ---
@@ -84,7 +84,7 @@ public class CierreVisitasServicioTests
 
         // PersonasReales del check-in (6), no las reservadas (2); con reserva.
         var evento = Assert.IsType<VisitaCompletadaEvent>(Assert.Single(e.Publisher.Publicados));
-        Assert.Equal(new VisitaCompletadaEvent(Hoy, reserva.FranjaHorariaId, 6, ConReserva: true), evento);
+        Assert.Equal(new VisitaCompletadaEvent(Hoy, reserva.FranjaHorariaId, 6, ConReserva: true, VisitaId: reserva.Id), evento);
     }
 
     [Fact]
@@ -310,7 +310,7 @@ public class CierreVisitasServicioTests
         Assert.Equal(EstadoReserva.Completada, await e.EstadoDeAsync(enMesa.Id));
         Assert.Single(e.Publisher.Publicados.OfType<ReservaNoAsistidaEvent>());
         var visita = Assert.Single(e.Publisher.Publicados.OfType<VisitaCompletadaEvent>());
-        Assert.Equal(new VisitaCompletadaEvent(Hoy, enMesa.FranjaHorariaId, 4, ConReserva: true), visita);
+        Assert.Equal(new VisitaCompletadaEvent(Hoy, enMesa.FranjaHorariaId, 4, ConReserva: true, VisitaId: enMesa.Id), visita);
     }
 
     [Fact]

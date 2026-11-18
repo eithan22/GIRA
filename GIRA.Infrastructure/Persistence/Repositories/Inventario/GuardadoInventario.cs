@@ -22,7 +22,9 @@ internal static class GuardadoInventario
         PlatoConfiguration.IndiceNombre,
         RecetaConfiguration.IndicePlato,
         RecetaDetalleConfiguration.IndiceRecetaInsumo,
-        ConsumoProyectadoConfiguration.IndiceFechaInsumo
+        ConsumoProyectadoConfiguration.IndiceFechaInsumo,
+        AfluenciaPredichaConfiguration.IndiceFecha,
+        MovimientoInventarioConfiguration.IndiceVisitaInsumo
     ];
 
     /// <summary>Guarda y traduce los choques de concurrencia y de índice único a excepciones del dominio.</summary>

@@ -125,3 +125,8 @@
   .inv-linea { grid-template-columns: minmax(0, 1fr) 76px 26px 29px; gap: 6px; }
   .inventario .form-grid { grid-template-columns: 1fr; }
 }
+
+/* Reintentar una carga y ajustes de días (GI-489, GI-468) */
+.inv-reintentar { margin-left: auto; flex: none; }
+.inv-ajustes { margin: 0; padding: 0 19px 14px; }
+.inv-ajustes .text-link { margin-left: 6px; padding: 0; background: transparent; border: 0; color: var(--purple); font: inherit; font-weight: 700; cursor: pointer; }

@@ -26,5 +26,14 @@ public class ConsumoProyectadoRepository : IConsumoProyectadoRepository
     public void Agregar(ConsumoProyectado consumo) => _contexto.ConsumosProyectados.Add(consumo);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<AfluenciaPredicha>> ListarPrediccionesAsync(DateOnly desde, DateOnly hasta, CancellationToken cancellationToken) =>
+        await _contexto.AfluenciasPredichas
+            .Where(a => a.Fecha >= desde && a.Fecha <= hasta)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public void AgregarPrediccion(AfluenciaPredicha prediccion) => _contexto.AfluenciasPredichas.Add(prediccion);
+
+    /// <inheritdoc />
     public Task GuardarCambiosAsync(CancellationToken cancellationToken) => GuardadoInventario.GuardarAsync(_contexto, cancellationToken);
 }

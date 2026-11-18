@@ -24,6 +24,8 @@ export const inventarioService = {
   listarAlertas: (filtros) => datos(api.get('/api/inventario/alertas', { params: limpiar(filtros) })),
   cambiarEstadoAlerta: (id, estado) => datos(api.patch(`/api/inventario/alertas/${id}`, { estado })),
   proyeccion: (filtros) => datos(api.get('/api/inventario/consumo-proyectado', { params: limpiar(filtros) })),
+  parametros: () => datos(api.get('/api/configuracion/inventario')),
+  guardarParametros: (cuerpo) => datos(api.put('/api/configuracion/inventario', cuerpo)),
 
   // Catálogos: `recurso` es 'unidades-medida', 'categorias-insumo', 'categorias-plato' o 'proveedores'.
   listarCatalogo: (recurso) => datos(api.get(`/api/${recurso}`)),

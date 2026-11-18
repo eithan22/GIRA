@@ -22,6 +22,10 @@ public class MovimientoInventarioRepository : IMovimientoInventarioRepository
     public void Agregar(MovimientoInventario movimiento) => _contexto.MovimientosInventario.Add(movimiento);
 
     /// <inheritdoc />
+    public Task<bool> ExisteDeVisitaAsync(Guid visitaId, CancellationToken cancellationToken) =>
+        _contexto.MovimientosInventario.AnyAsync(m => m.VisitaId == visitaId, cancellationToken);
+
+    /// <inheritdoc />
     public async Task<decimal> SaldoAntesDeAsync(Guid insumoId, DateTime desdeUtc, CancellationToken cancellationToken) =>
         await _contexto.MovimientosInventario
             .Where(m => m.InsumoId == insumoId && m.Fecha < desdeUtc)

@@ -1,6 +1,7 @@
 using GIRA.Application.Common;
 using GIRA.Application.Common.Inventario;
 using GIRA.Application.DTOs.Inventario;
+using GIRA.Application.Events.Analitica;
 using GIRA.Application.Interfaces.Repository.Inventario;
 using GIRA.Application.Interfaces.Services.Inventario;
 using GIRA.Domain.Entities.Inventario;
@@ -93,6 +94,36 @@ public class ProyeccionConsumoService : IProyeccionConsumoService
         }
 
         await RecalcularInternoAsync(inicio, fin, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task AplicarPrediccionAsync(PrediccionAfluenciaGeneradaEvent prediccion, CancellationToken cancellationToken)
+    {
+        if (prediccion.Hasta < prediccion.Desde)
+        {
+            return;
+        }
+
+        var porFecha = prediccion.Predicciones
+            .Where(p => p.Fecha >= prediccion.Desde && p.Fecha <= prediccion.Hasta)
+            .GroupBy(p => p.Fecha)
+            .ToDictionary(g => g.Key, g => g.Sum(p => Math.Max(0, p.AfluenciaEstimada)));
+        var ahora = _reloj.GetUtcNow().UtcDateTime;
+
+        // La predicción nueva reemplaza la anterior en todo el rango (RN-ANA-03): una fecha sin franjas queda en 0.
+        foreach (var fila in await _consumos.ListarPrediccionesAsync(prediccion.Desde, prediccion.Hasta, cancellationToken))
+        {
+            fila.Comensales = porFecha.Remove(fila.Fecha, out var comensales) ? comensales : 0;
+            fila.FechaRecepcion = ahora;
+        }
+
+        foreach (var (fecha, comensales) in porFecha)
+        {
+            _consumos.AgregarPrediccion(new AfluenciaPredicha { Id = Guid.NewGuid(), Fecha = fecha, Comensales = comensales, FechaRecepcion = ahora });
+        }
+
+        await _consumos.GuardarCambiosAsync(cancellationToken);
+        await RecalcularAsync(prediccion.Desde, prediccion.Hasta, cancellationToken);
     }
 
     private async Task<(BaseProyeccion Proyeccion, IReadOnlyList<Insumo> Activos)> RecalcularInternoAsync(

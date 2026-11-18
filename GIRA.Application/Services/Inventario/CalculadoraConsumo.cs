@@ -52,12 +52,14 @@ public class CalculadoraConsumo
 {
     private readonly IPlatoRepository _platos;
     private readonly IConsultaReservasInventario _reservas;
+    private readonly IConsumoProyectadoRepository _consumos;
 
-    /// <summary>Crea la calculadora con los platos y el puerto hacia Reservas.</summary>
-    public CalculadoraConsumo(IPlatoRepository platos, IConsultaReservasInventario reservas)
+    /// <summary>Crea la calculadora con los platos, el puerto hacia Reservas y las predicciones guardadas.</summary>
+    public CalculadoraConsumo(IPlatoRepository platos, IConsultaReservasInventario reservas, IConsumoProyectadoRepository consumos)
     {
         _platos = platos;
         _reservas = reservas;
+        _consumos = consumos;
     }
 
     /// <summary>
@@ -84,12 +86,14 @@ public class CalculadoraConsumo
     {
         var platos = await _platos.ListarActivosConRecetaAsync(cancellationToken);
         var personas = await _reservas.PersonasConReservaPorFechaAsync(desde, hasta, cancellationToken);
+        // Sin predicción guardada (Analítica todavía no la publicó) el día usa solo las reservas.
+        var predicciones = (await _consumos.ListarPrediccionesAsync(desde, hasta, cancellationToken))
+            .ToDictionary(p => p.Fecha, p => p.Comensales);
 
-        // shortcut: sin predicción hasta que Analítica publique PrediccionAfluenciaGeneradaEvent; al llegar, pasarla
-        // aquí como Prediccion y ComensalesDia ya toma el mayor de los dos.
         var dias = Enumerable.Range(0, hasta.DayNumber - desde.DayNumber + 1)
             .Select(desde.AddDays)
-            .Select(fecha => new ComensalesDia(fecha, personas.GetValueOrDefault(fecha), null))
+            .Select(fecha => new ComensalesDia(
+                fecha, personas.GetValueOrDefault(fecha), predicciones.TryGetValue(fecha, out var p) ? p : null))
             .ToList();
 
         return new BaseProyeccion(Factores(platos), dias);

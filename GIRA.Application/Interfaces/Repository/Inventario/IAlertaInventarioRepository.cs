@@ -12,6 +12,8 @@ public interface IAlertaInventarioRepository
 {
     /// <summary>Alertas abiertas de esos insumos (con seguimiento, para poder cerrarlas).</summary>
     Task<IReadOnlyList<AlertaInventario>> ListarAbiertasAsync(IReadOnlyCollection<Guid> insumoIds, CancellationToken cancellationToken);
+    /// <summary>De esos lotes, los que ya tuvieron una alerta de vencimiento (abierta, atendida o descartada).</summary>
+    Task<IReadOnlyList<Guid>> ListarLotesConAlertaAsync(IReadOnlyCollection<Guid> loteIds, CancellationToken cancellationToken);
     /// <summary>Alertas por estado (null = todas), de la más nueva a la más vieja.</summary>
     Task<PagedResult<AlertaLectura>> ListarAsync(EstadoAlertaInventario? estado, int page, int pageSize, CancellationToken cancellationToken);
     /// <summary>Alerta por id; null si no existe.</summary>

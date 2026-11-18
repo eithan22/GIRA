@@ -7,9 +7,14 @@ namespace GIRA.Infrastructure.Persistence.Configurations.Inventario;
 /// <summary>Configuración Fluent API de <see cref="MovimientoInventario"/> (el kardex).</summary>
 public class MovimientoInventarioConfiguration : IEntityTypeConfiguration<MovimientoInventario>
 {
-    /// <summary>Configura la tabla, las cantidades y el índice para leer el kardex por insumo y fecha.</summary>
+    /// <summary>Índice único de visita e insumo: una visita descuenta cada insumo una sola vez.</summary>
+    public const string IndiceVisitaInsumo = "IX_MovimientoInventario_VisitaId_InsumoId";
+
+    /// <summary>Configura la tabla, las cantidades y los índices del kardex y de las salidas por visita.</summary>
     public void Configure(EntityTypeBuilder<MovimientoInventario> builder)
     {
+        builder.HasIndex(m => new { m.VisitaId, m.InsumoId }).IsUnique()
+            .HasFilter("[VisitaId] IS NOT NULL AND [IsDeleted] = 0").HasDatabaseName(IndiceVisitaInsumo);
         builder.ToTable("MovimientoInventario", "inventario");
         builder.HasKey(m => m.Id);
         builder.Property(m => m.Cantidad).HasPrecision(18, 3);

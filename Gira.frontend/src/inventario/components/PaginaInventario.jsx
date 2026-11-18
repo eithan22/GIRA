@@ -38,12 +38,13 @@ export default function PaginaInventario({ titulo, descripcion, accion, children
   );
 }
 
-/** Aviso de error que se puede cerrar. */
-export function AvisoError({ mensaje, onCerrar }) {
+/** Aviso de error que se puede cerrar o, si falló una carga, reintentar. */
+export function AvisoError({ mensaje, onCerrar, onReintentar }) {
   if (!mensaje) return null;
   return (
     <div className="notice-error" role="alert">
       <span>!</span>{mensaje}
+      {onReintentar && <button type="button" className="button button-secondary button-small inv-reintentar" onClick={onReintentar}>Reintentar</button>}
       {onCerrar && <button type="button" className="notice-dismiss" onClick={onCerrar} aria-label="Cerrar aviso"><Icon name="close" size={16} /></button>}
     </div>
   );

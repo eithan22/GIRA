@@ -23,8 +23,8 @@ public class MovimientosController : ControllerBase
     }
 
     /// <summary>
-    /// Registra una entrada, merma o ajuste. 404 si el insumo no existe; 409 si está inactivo o si el stock
-    /// quedaría negativo (RN-INV-02).
+    /// Registra una entrada, merma o ajuste. 400 si faltan datos o si el stock quedaría negativo (RN-INV-02);
+    /// 404 si el insumo no existe; 409 si está inactivo o si otro movimiento lo cambió al mismo tiempo.
     /// </summary>
     [HttpPost]
     [Authorize(Policy = Politicas.RegistrarMovimientos)]

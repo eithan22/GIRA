@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import PaginaInventario, { AvisoError, FilaEstado, Paginacion } from '../components/PaginaInventario.jsx';
 import { TIPOS_MOVIMIENTO, fecha, fechaHora, hoyLocal, mensajeError, numero, sumarDias } from '../inventarioFormato.js';
 import { inventarioService, todosLosInsumos } from '../inventarioService.js';
+import { useCarga } from '../useCarga.js';
 
 const PAGE_SIZE = 50;
 
@@ -13,25 +14,26 @@ export default function Kardex() {
   const [kardex, setKardex] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
+  const { errorCarga, setErrorCarga, reintento, reintentar } = useCarga();
 
   useEffect(() => {
     let activo = true;
     todosLosInsumos()
       .then((lista) => { if (!activo) return; setInsumos(lista); setFiltros((f) => ({ ...f, insumoId: f.insumoId || lista[0]?.id || '' })); })
-      .catch((e) => { if (activo) setError(mensajeError(e, 'No se pudieron cargar los insumos.')); });
+      .catch((e) => { if (activo) setErrorCarga(mensajeError(e, 'No se pudieron cargar los insumos.')); });
     return () => { activo = false; };
-  }, []);
+  }, [reintento, setErrorCarga]);
 
   useEffect(() => {
     if (!filtros.insumoId) return undefined;
     let activo = true;
     setCargando(true);
     inventarioService.kardex({ ...filtros, page, pageSize: PAGE_SIZE })
-      .then((r) => { if (activo) { setKardex(r); setError(''); } })
-      .catch((e) => { if (activo) { setKardex(null); setError(mensajeError(e, 'No se pudo cargar el kardex.')); } })
+      .then((r) => { if (activo) { setKardex(r); setErrorCarga(''); } })
+      .catch((e) => { if (activo) { setKardex(null); setErrorCarga(mensajeError(e, 'No se pudo cargar el kardex.')); } })
       .finally(() => { if (activo) setCargando(false); });
     return () => { activo = false; };
-  }, [filtros, page]);
+  }, [filtros, page, reintento, setErrorCarga]);
 
   function filtrar(cambio) { setFiltros({ ...filtros, ...cambio }); setPage(1); }
   const u = kardex?.unidad ?? '';
@@ -39,6 +41,7 @@ export default function Kardex() {
   return (
     <PaginaInventario titulo="Kardex" descripcion="Cada entrada y salida de un insumo, en orden, con el stock que quedó.">
       <AvisoError mensaje={error} onCerrar={() => setError('')} />
+      <AvisoError mensaje={errorCarga} onReintentar={reintentar} />
       <div className="panel">
         <div className="filter-row inv-filtros inv-filtros-arriba">
           <label className="select-wrap inv-ancho"><span className="sr-only">Insumo</span><select value={filtros.insumoId} onChange={(e) => filtrar({ insumoId: e.target.value })}>{insumos.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}</select></label>

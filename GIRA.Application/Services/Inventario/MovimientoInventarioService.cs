@@ -80,7 +80,7 @@ public class MovimientoInventarioService : IMovimientoInventarioService
         if (insumo.CantidadStock + variacion < 0)
         {
             return OperationResult.Failure<MovimientoDto>(
-                ErrorType.Conflict,
+                ErrorType.Validation,
                 $"El stock quedaría en {ReglasInventario.Texto(insumo.CantidadStock + variacion)} {insumo.UnidadMedida?.Abreviatura}. No puede quedar por debajo de cero.");
         }
 
@@ -214,17 +214,22 @@ public class MovimientoInventarioService : IMovimientoInventarioService
     }
 
     /// <inheritdoc />
-    public async Task RegistrarSalidasTeoricasAsync(DateOnly fecha, int personas, bool conReserva, CancellationToken cancellationToken)
+    public async Task<bool> RegistrarSalidasTeoricasAsync(DateOnly fecha, int personas, bool conReserva, Guid visitaId, CancellationToken cancellationToken)
     {
+        if (await _movimientos.ExisteDeVisitaAsync(visitaId, cancellationToken))
+        {
+            return false;
+        }
+
         if (personas <= 0)
         {
-            return;
+            return true;
         }
 
         var factores = CalculadoraConsumo.Factores(await _platos.ListarActivosConRecetaAsync(cancellationToken));
         if (factores.Count == 0)
         {
-            return;
+            return true;
         }
 
         var referencia = $"Visita {(conReserva ? "con" : "sin")} reserva del {ReglasInventario.Texto(fecha)}, {personas} personas";
@@ -243,7 +248,8 @@ public class MovimientoInventarioService : IMovimientoInventarioService
             var aplicado = Math.Min(pedido, insumo.CantidadStock);
             if (aplicado > 0)
             {
-                await AplicarAsync(insumo, TipoMovimientoInventario.Salida, -aplicado, null, referencia, null, teorico: true, usuarioId: null, cancellationToken);
+                var salida = await AplicarAsync(insumo, TipoMovimientoInventario.Salida, -aplicado, null, referencia, null, teorico: true, usuarioId: null, cancellationToken);
+                salida.VisitaId = visitaId;
                 afectados.Add(insumo);
             }
 
@@ -265,9 +271,19 @@ public class MovimientoInventarioService : IMovimientoInventarioService
         }
 
         nuevas.AddRange(await _evaluador.EvaluarAsync(afectados, cancellationToken));
-        // Si falla, la excepción sube al publicador de Reservas, que la registra en el log (no se pierde en silencio).
-        await _insumos.GuardarCambiosAsync(cancellationToken);
+        try
+        {
+            // Otro fallo sube al publicador de Reservas, que lo registra en el log (no se pierde en silencio).
+            await _insumos.GuardarCambiosAsync(cancellationToken);
+        }
+        catch (InventarioDuplicadoException)
+        {
+            // La misma visita se procesó al mismo tiempo en otro lado y guardó primero (índice único de VisitaId).
+            return false;
+        }
+
         await _evaluador.PublicarAsync(nuevas, cancellationToken);
+        return true;
     }
 
     private async Task<MovimientoInventario> AplicarAsync(

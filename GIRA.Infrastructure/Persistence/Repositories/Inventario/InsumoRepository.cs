@@ -118,7 +118,7 @@ public class InsumoRepository : IInsumoRepository
                join i in _contexto.Insumos on l.InsumoId equals i.Id
                where i.Activo && l.Cantidad > 0 && l.FechaVencimiento <= hasta
                orderby l.FechaVencimiento
-               select new LotePorVencer(l.InsumoId, l.Cantidad, l.FechaVencimiento, i.UnidadMedida!.Abreviatura, i.CantidadStock))
+               select new LotePorVencer(l.Id, l.InsumoId, l.Cantidad, l.FechaVencimiento, i.UnidadMedida!.Abreviatura, i.CantidadStock))
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 

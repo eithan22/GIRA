@@ -7,6 +7,7 @@ using GIRA.Application.Interfaces.Services.Inventario;
 using GIRA.Application.Interfaces.Services.Seguridad.Auth;
 using GIRA.Domain.Constants;
 using GIRA.Tests.Api;
+using static GIRA.Tests.Inventario.ApiInventario;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -81,7 +82,7 @@ public class InventarioEndpointsTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, (await Movimiento(_cliente, arroz.Id, "Entrada", 10)).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await Movimiento(_cliente, arroz.Id, "Merma", 3)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await Movimiento(_cliente, arroz.Id, "Merma", 3, motivo: "Se mojó")).StatusCode);
-        Assert.Equal(HttpStatusCode.Conflict, (await Movimiento(_cliente, arroz.Id, "Merma", 100, motivo: "No alcanza")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await Movimiento(_cliente, arroz.Id, "Merma", 100, motivo: "No alcanza")).StatusCode);
 
         var insumo = await _cliente.GetFromJsonAsync<InsumoDto>($"/api/insumos/{arroz.Id}");
         Assert.Equal(7, insumo!.CantidadStock);
@@ -99,7 +100,7 @@ public class InventarioEndpointsTests : IAsyncLifetime
     {
         _cliente.UsarToken(Token(_factory, Roles.Gerente));
         var pollo = await CrearInsumoAsync(_cliente, "Pollo", reorden: 1);
-        var plato = await CrearPlatoAsync(_cliente, "Pollo guisado", demanda: 100);
+        var plato = (await CrearPlatoAsync(_cliente, "Pollo guisado", demanda: 100)).Plato;
 
         var cero = await _cliente.PutAsJsonAsync($"/api/platos/{plato.Id}/receta",
             new GuardarRecetaRequest(4, null, [new LineaRecetaRequest(pollo.Id, 0)]));
@@ -121,7 +122,7 @@ public class InventarioEndpointsTests : IAsyncLifetime
         _cliente.UsarToken(Token(_factory, Roles.Gerente));
         var arroz = await CrearInsumoAsync(_cliente, "Arroz", reorden: 1);
         var aceite = await CrearInsumoAsync(_cliente, "Aceite", reorden: 1);
-        var plato = await CrearPlatoAsync(_cliente, "Arroz blanco", demanda: 100);
+        var plato = (await CrearPlatoAsync(_cliente, "Arroz blanco", demanda: 100)).Plato;
 
         (await _cliente.PutAsJsonAsync($"/api/platos/{plato.Id}/receta",
             new GuardarRecetaRequest(2, null, [new LineaRecetaRequest(arroz.Id, 1), new LineaRecetaRequest(aceite.Id, 0.1m)]))).EnsureSuccessStatusCode();
@@ -194,18 +195,18 @@ public class InventarioEndpointsTests : IAsyncLifetime
     {
         _cliente.UsarToken(Token(_factory, Roles.Gerente));
         var pollo = await CrearInsumoAsync(_cliente, "Pollo", reorden: 0);
-        var plato = await CrearPlatoAsync(_cliente, "Pollo asado", demanda: 100);
+        var plato = (await CrearPlatoAsync(_cliente, "Pollo asado", demanda: 100)).Plato;
         (await _cliente.PutAsJsonAsync($"/api/platos/{plato.Id}/receta",
             new GuardarRecetaRequest(1, null, [new LineaRecetaRequest(pollo.Id, 0.5m)]))).EnsureSuccessStatusCode();
         await Movimiento(_cliente, pollo.Id, "Entrada", 3);
         var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
 
         // 4 personas × 0.5 kg = 2 kg: alcanza.
-        await PublicarAsync(new VisitaCompletadaEvent(hoy, Guid.NewGuid(), 4, ConReserva: true));
+        await PublicarAsync(new VisitaCompletadaEvent(hoy, Guid.NewGuid(), 4, ConReserva: true, VisitaId: Guid.NewGuid()));
         Assert.Equal(1, (await _cliente.GetFromJsonAsync<InsumoDto>($"/api/insumos/{pollo.Id}"))!.CantidadStock);
 
         // 4 personas más piden 2 kg y queda 1: el stock queda en 0 y se avisa (RN-INV-02).
-        await PublicarAsync(new VisitaCompletadaEvent(hoy, Guid.NewGuid(), 4, ConReserva: false));
+        await PublicarAsync(new VisitaCompletadaEvent(hoy, Guid.NewGuid(), 4, ConReserva: false, VisitaId: Guid.NewGuid()));
         Assert.Equal(0, (await _cliente.GetFromJsonAsync<InsumoDto>($"/api/insumos/{pollo.Id}"))!.CantidadStock);
 
         var kardex = await _cliente.GetFromJsonAsync<KardexDto>($"/api/movimientos?insumoId={pollo.Id}");
@@ -225,13 +226,15 @@ public class InventarioEndpointsTests : IAsyncLifetime
         await using var factory = new GiraApiFactoryConReloj(ahora, services =>
         {
             services.RemoveAll<IConsultaReservasInventario>();
-            services.AddScoped<IConsultaReservasInventario>(_ => new ReservasFalsas(new Dictionary<DateOnly, int> { [hoy.AddDays(1)] = 4 }));
+            var reservas = new ReservasFalsas();
+            reservas.Personas[hoy.AddDays(1)] = 4;
+            services.AddSingleton<IConsultaReservasInventario>(reservas);
         });
         using var cliente = factory.CreateClient();
         cliente.UsarToken(Token(factory, Roles.Gerente));
 
         var arroz = await CrearInsumoAsync(cliente, "Arroz", reorden: 5);
-        var plato = await CrearPlatoAsync(cliente, "Arroz blanco", demanda: 100);
+        var plato = (await CrearPlatoAsync(cliente, "Arroz blanco", demanda: 100)).Plato;
         (await cliente.PutAsJsonAsync($"/api/platos/{plato.Id}/receta",
             new GuardarRecetaRequest(2, null, [new LineaRecetaRequest(arroz.Id, 1)]))).EnsureSuccessStatusCode();
         await Movimiento(cliente, arroz.Id, "Entrada", 6);
@@ -263,60 +266,7 @@ public class InventarioEndpointsTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
     }
 
-    private async Task PublicarAsync(INotification evento)
-    {
-        using var scope = _factory.Services.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<IPublisher>().Publish(evento);
-    }
+    private Task PublicarAsync(INotification evento) => ApiInventario.PublicarAsync(_factory, evento);
 
-    private static string Token(GiraApiFactory factory, string rol, Guid? usuarioId = null)
-    {
-        using var scope = factory.Services.CreateScope();
-        return scope.ServiceProvider.GetRequiredService<ITokenService>()
-            .GenerarAccessToken(usuarioId ?? Guid.NewGuid(), "personal@gira.local", "Personal de Prueba", [rol]).Token;
-    }
-
-    // Usuario real en la base, para que el kardex y las alertas muestren su nombre ("Ana Pérez").
-    private async Task<string> TokenDeUsuarioRealAsync(string rol)
-    {
-        var id = await _factory.CrearUsuarioAsync($"{Guid.NewGuid():N}@gira.local", "Clave#Segura1", true, rol);
-        return Token(_factory, rol, id);
-    }
-
-    private static Task<HttpResponseMessage> Movimiento(HttpClient cliente, Guid insumoId, string tipo, decimal cantidad, string? motivo = null) =>
-        cliente.PostAsJsonAsync("/api/movimientos", new RegistrarMovimientoRequest(insumoId, tipo, cantidad, null, motivo, null, null));
-
-    private static async Task<InsumoDto> CrearInsumoAsync(HttpClient cliente, string nombre, decimal reorden)
-    {
-        var unidades = await cliente.GetFromJsonAsync<List<UnidadMedidaDto>>("/api/unidades-medida");
-        var unidad = unidades!.FirstOrDefault() ?? await LeerAsync<UnidadMedidaDto>(
-            await cliente.PostAsJsonAsync("/api/unidades-medida", new GuardarUnidadMedidaRequest("Kilogramo", "kg")));
-        var categorias = await cliente.GetFromJsonAsync<List<CategoriaDto>>("/api/categorias-insumo");
-        var categoria = categorias!.FirstOrDefault() ?? await LeerAsync<CategoriaDto>(
-            await cliente.PostAsJsonAsync("/api/categorias-insumo", new GuardarCategoriaRequest("General")));
-
-        return await LeerAsync<InsumoDto>(await cliente.PostAsJsonAsync("/api/insumos",
-            new GuardarInsumoRequest(nombre, categoria.Id, unidad.Id, reorden, 10, false, null)));
-    }
-
-    private static async Task<PlatoDto> CrearPlatoAsync(HttpClient cliente, string nombre, decimal demanda)
-    {
-        var categoria = await LeerAsync<CategoriaDto>(
-            await cliente.PostAsJsonAsync("/api/categorias-plato", new GuardarCategoriaRequest($"Categoría de {nombre}")));
-        var guardado = await LeerAsync<PlatoGuardadoDto>(
-            await cliente.PostAsJsonAsync("/api/platos", new GuardarPlatoRequest(nombre, categoria.Id, 300, demanda, true)));
-        return guardado.Plato;
-    }
-
-    private static async Task<T> LeerAsync<T>(HttpResponseMessage respuesta)
-    {
-        Assert.True(respuesta.IsSuccessStatusCode, await respuesta.Content.ReadAsStringAsync());
-        return (await respuesta.Content.ReadFromJsonAsync<T>())!;
-    }
-
-    private sealed class ReservasFalsas(IReadOnlyDictionary<DateOnly, int> personas) : IConsultaReservasInventario
-    {
-        public Task<IReadOnlyDictionary<DateOnly, int>> PersonasConReservaPorFechaAsync(DateOnly desde, DateOnly hasta, CancellationToken cancellationToken) =>
-            Task.FromResult(personas);
-    }
+    private async Task<string> TokenDeUsuarioRealAsync(string rol) => (await ApiInventario.TokenDeUsuarioRealAsync(_factory, rol)).Token;
 }

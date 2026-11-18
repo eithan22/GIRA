@@ -12,6 +12,8 @@ public interface IMovimientoInventarioRepository
 {
     /// <summary>Agrega un movimiento.</summary>
     void Agregar(MovimientoInventario movimiento);
+    /// <summary>True si la visita ya generó salidas teóricas.</summary>
+    Task<bool> ExisteDeVisitaAsync(Guid visitaId, CancellationToken cancellationToken);
     /// <summary>Saldo del insumo justo antes de <paramref name="desdeUtc"/> (0 si no había movimientos).</summary>
     Task<decimal> SaldoAntesDeAsync(Guid insumoId, DateTime desdeUtc, CancellationToken cancellationToken);
     /// <summary>Movimientos del insumo en [desdeUtc, hastaUtc), del más viejo al más nuevo.</summary>

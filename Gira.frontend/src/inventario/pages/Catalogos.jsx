@@ -4,6 +4,7 @@ import Modal from '../../security/components/Modal.jsx';
 import PaginaInventario, { AvisoError, FilaEstado } from '../components/PaginaInventario.jsx';
 import { mensajeError } from '../inventarioFormato.js';
 import { inventarioService } from '../inventarioService.js';
+import { useCarga } from '../useCarga.js';
 
 // Cada catálogo: su ruta en la API, sus columnas y los campos del formulario.
 const CATALOGOS = {
@@ -23,6 +24,7 @@ export default function Catalogos() {
   const [editando, setEditando] = useState(null);
   const [ocupado, setOcupado] = useState(false);
   const [errorModal, setErrorModal] = useState('');
+  const { errorCarga, setErrorCarga, reintento, reintentar } = useCarga();
   const def = CATALOGOS[recurso];
 
   useEffect(() => {
@@ -30,10 +32,10 @@ export default function Catalogos() {
     setCargando(true);
     inventarioService.listarCatalogo(recurso)
       .then((r) => { if (activo) setFilas(r); })
-      .catch((e) => { if (activo) setError(mensajeError(e, 'No se pudo cargar el catálogo.')); })
+      .catch((e) => { if (activo) setErrorCarga(mensajeError(e, 'No se pudo cargar el catálogo.')); })
       .finally(() => { if (activo) setCargando(false); });
     return () => { activo = false; };
-  }, [recurso, recarga]);
+  }, [recurso, recarga, reintento, setErrorCarga]);
 
   function abrir(fila) {
     setErrorModal('');
@@ -65,6 +67,7 @@ export default function Catalogos() {
       accion={<button type="button" className="button button-primary" onClick={() => abrir(null)}><Icon name="plus" size={17} /> Agregar</button>}
     >
       <AvisoError mensaje={error} onCerrar={() => setError('')} />
+      <AvisoError mensaje={errorCarga} onReintentar={reintentar} />
       <div className="inv-segmentado" role="group" aria-label="Catálogo">
         {Object.entries(CATALOGOS).map(([clave, c]) => (
           <button key={clave} type="button" className={recurso === clave ? 'active' : ''} aria-pressed={recurso === clave} onClick={() => setRecurso(clave)}>{c.titulo}</button>

@@ -1,5 +1,6 @@
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Inventario;
+using GIRA.Application.Events.Analitica;
 
 namespace GIRA.Application.Interfaces.Services.Inventario;
 
@@ -81,9 +82,10 @@ public interface IMovimientoInventarioService
     Task<OperationResult<ConteoFisicoResultadoDto>> ConteoFisicoAsync(ConteoFisicoRequest request, Guid? usuarioId, CancellationToken cancellationToken);
     /// <summary>
     /// Registra las salidas teóricas de una visita completada (RF-INV-08). Si una salida pide más de lo que hay,
-    /// el stock queda en cero y se abre una alerta de inconsistencia (RN-INV-02).
+    /// el stock queda en cero y se abre una alerta de inconsistencia (RN-INV-02). Devuelve false, sin cambiar
+    /// nada, si esa visita ya se había descontado (GI-462).
     /// </summary>
-    Task RegistrarSalidasTeoricasAsync(DateOnly fecha, int personas, bool conReserva, CancellationToken cancellationToken);
+    Task<bool> RegistrarSalidasTeoricasAsync(DateOnly fecha, int personas, bool conReserva, Guid visitaId, CancellationToken cancellationToken);
 }
 
 /// <summary>Alertas de reabastecimiento (RF-INV-09, RF-INV-10, RF-INV-14).</summary>
@@ -93,6 +95,11 @@ public interface IAlertaInventarioService
     Task<OperationResult<PagedResult<AlertaInventarioDto>>> ListarAsync(ListarAlertasRequest request, CancellationToken cancellationToken);
     /// <summary>Atiende o descarta. 404 si no existe; 409 si ya no está abierta.</summary>
     Task<OperationResult<AlertaInventarioDto>> CambiarEstadoAsync(Guid id, CambiarEstadoAlertaRequest request, Guid? usuarioId, CancellationToken cancellationToken);
+    /// <summary>
+    /// Abre una alerta de Vencimiento por insumo con lotes que vencen dentro de los días configurados (RN-INV-11),
+    /// sin duplicar una abierta, y publica el evento después de guardar. Devuelve cuántas abrió.
+    /// </summary>
+    Task<int> RevisarVencimientosAsync(CancellationToken cancellationToken);
 }
 
 /// <summary>Proyección de consumo (RF-INV-07, RF-INV-12).</summary>
@@ -105,6 +112,11 @@ public interface IProyeccionConsumoService
     /// y revisa las alertas de todos los insumos activos (RN-INV-06, RN-INV-07).
     /// </summary>
     Task RecalcularAsync(DateOnly desde, DateOnly hasta, CancellationToken cancellationToken);
+    /// <summary>
+    /// Guarda la afluencia predicha por fecha (suma de las franjas) y recalcula esas fechas: cada día usa el mayor
+    /// valor entre reservas y predicción (GI-455).
+    /// </summary>
+    Task AplicarPrediccionAsync(PrediccionAfluenciaGeneradaEvent prediccion, CancellationToken cancellationToken);
 }
 
 /// <summary>

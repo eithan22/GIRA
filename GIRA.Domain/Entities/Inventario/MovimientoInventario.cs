@@ -30,6 +30,9 @@ public class MovimientoInventario : BaseEntity
     /// <summary>True si es una salida estimada por una visita completada, no contada.</summary>
     public bool Teorico { get; set; }
 
+    /// <summary>Visita que originó una salida teórica; evita descontar dos veces la misma visita. Null en los demás.</summary>
+    public Guid? VisitaId { get; set; }
+
     /// <summary>Quién lo registró; null si lo hizo el sistema.</summary>
     public Guid? UsuarioId { get; set; }
 

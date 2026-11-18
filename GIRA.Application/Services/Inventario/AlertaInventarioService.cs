@@ -3,6 +3,7 @@ using GIRA.Application.Common;
 using GIRA.Application.Common.Inventario;
 using GIRA.Application.DTOs.Inventario;
 using GIRA.Application.Interfaces.Repository.Inventario;
+using GIRA.Application.Interfaces.Services.Configuracion;
 using GIRA.Application.Interfaces.Services.Inventario;
 using GIRA.Domain.Entities.Inventario;
 using GIRA.Domain.Enums.Inventario;
@@ -18,6 +19,7 @@ public class AlertaInventarioService : IAlertaInventarioService
     private readonly EvaluadorAlertasInventario _evaluador;
     private readonly IValidator<ListarAlertasRequest> _validadorListado;
     private readonly IValidator<CambiarEstadoAlertaRequest> _validadorEstado;
+    private readonly IParametrosInventarioService _parametros;
     private readonly TimeProvider _reloj;
 
     /// <summary>Crea el servicio.</summary>
@@ -27,6 +29,7 @@ public class AlertaInventarioService : IAlertaInventarioService
         EvaluadorAlertasInventario evaluador,
         IValidator<ListarAlertasRequest> validadorListado,
         IValidator<CambiarEstadoAlertaRequest> validadorEstado,
+        IParametrosInventarioService parametros,
         TimeProvider reloj)
     {
         _alertas = alertas;
@@ -34,6 +37,7 @@ public class AlertaInventarioService : IAlertaInventarioService
         _evaluador = evaluador;
         _validadorListado = validadorListado;
         _validadorEstado = validadorEstado;
+        _parametros = parametros;
         _reloj = reloj;
     }
 
@@ -92,15 +96,19 @@ public class AlertaInventarioService : IAlertaInventarioService
         return OperationResult.Success(ToDto(lectura!));
     }
 
-    // shortcut: los vencimientos se revisan al abrir el panel de alertas; pasar a un BackgroundService diario si hace
-    // falta avisar sin que nadie abra el panel.
-    private async Task RevisarVencimientosAsync(CancellationToken cancellationToken)
+    /// <inheritdoc />
+    /// <remarks>Lo corre una vez al día el proceso de vencimientos (GI-483) y también al abrir el panel de alertas.</remarks>
+    public async Task<int> RevisarVencimientosAsync(CancellationToken cancellationToken)
     {
         var hoy = _reloj.HoyLocal();
-        var lotes = await _insumos.ListarLotesPorVencerAsync(hoy.AddDays(ReglasInventario.DiasAvisoVencimiento), cancellationToken);
+        var dias = (await _parametros.ObtenerAsync(cancellationToken)).DiasAvisoVencimientoInventario;
+        var lotes = await _insumos.ListarLotesPorVencerAsync(hoy.AddDays(dias), cancellationToken);
         var nuevas = new List<AlertaInventario>();
+        // Cada lote avisa una sola vez: si la alerta ya se atendió o descartó, ese lote no vuelve a salir.
+        var avisados = (await _alertas.ListarLotesConAlertaAsync(lotes.Select(l => l.LoteId).ToList(), cancellationToken)).ToHashSet();
 
-        foreach (var lote in lotes.GroupBy(l => l.InsumoId).Select(g => g.OrderBy(l => l.FechaVencimiento).First()))
+        foreach (var lote in lotes.Where(l => !avisados.Contains(l.LoteId))
+                     .GroupBy(l => l.InsumoId).Select(g => g.OrderBy(l => l.FechaVencimiento).First()))
         {
             var verbo = lote.FechaVencimiento < hoy ? "venció" : "vence";
             var alerta = await _evaluador.AbrirSiNoHayAsync(
@@ -111,17 +119,19 @@ public class AlertaInventarioService : IAlertaInventarioService
                 cancellationToken);
             if (alerta is not null)
             {
+                alerta.LoteInsumoId = lote.LoteId;
                 nuevas.Add(alerta);
             }
         }
 
         if (nuevas.Count == 0)
         {
-            return;
+            return 0;
         }
 
         await _alertas.GuardarCambiosAsync(cancellationToken);
         await _evaluador.PublicarAsync(nuevas, cancellationToken);
+        return nuevas.Count;
     }
 
     private static AlertaInventarioDto ToDto(AlertaLectura lectura)

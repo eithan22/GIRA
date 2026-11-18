@@ -5,14 +5,6 @@ namespace GIRA.Application.Common.Inventario;
 /// <summary>Parámetros y reglas pequeñas de Inventario que usan varios servicios.</summary>
 public static class ReglasInventario
 {
-    // shortcut: fijo en 3 días; leerlo de ConfiguracionRestaurante.DiasProyeccionInventario (SRS 5.6) cuando Configuración lo agregue.
-    /// <summary>Días de consumo proyectado que se restan al stock para avisar un quiebre (RN-INV-07).</summary>
-    public const int DiasProyeccionAlertas = 3;
-
-    // shortcut: fijo en 2 días (RN-INV-11 lo pide configurable); moverlo a Configuración junto con el anterior.
-    /// <summary>Días antes del vencimiento de un lote en que se avisa (RN-INV-11).</summary>
-    public const int DiasAvisoVencimiento = 2;
-
     /// <summary>Días máximos de la proyección, contando hoy.</summary>
     public const int DiasMaximosProyeccion = 14;
 

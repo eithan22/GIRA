@@ -4,6 +4,7 @@ import Icon from '../../security/components/Icon.jsx';
 import PaginaInventario, { AvisoError } from '../components/PaginaInventario.jsx';
 import { ROLES_ATENDER, TIPOS_MOVIMIENTO, aNumero, armarMovimiento, hoyLocal, mensajeError, numero, tieneRol } from '../inventarioFormato.js';
 import { inventarioService, todosLosInsumos } from '../inventarioService.js';
+import { useCarga } from '../useCarga.js';
 
 const VACIO = { insumoId: '', tipo: 'Entrada', cantidad: '', sentido: '+', costoUnitario: '', motivo: '', referencia: '', fechaVencimiento: '' };
 
@@ -18,18 +19,20 @@ export default function Movimientos() {
   const [modo, setModo] = useState('movimiento');
   const [insumos, setInsumos] = useState([]);
   const [error, setError] = useState('');
+  const { errorCarga, setErrorCarga, reintento, reintentar } = useCarga();
 
   useEffect(() => {
     let activo = true;
     todosLosInsumos()
       .then((lista) => { if (activo) setInsumos(lista); })
-      .catch((e) => { if (activo) setError(mensajeError(e, 'No se pudieron cargar los insumos.')); });
+      .catch((e) => { if (activo) setErrorCarga(mensajeError(e, 'No se pudieron cargar los insumos.')); });
     return () => { activo = false; };
-  }, []);
+  }, [reintento, setErrorCarga]);
 
   return (
     <PaginaInventario titulo="Movimientos" descripcion="Todo cambio de stock queda registrado con quién lo hizo y por qué.">
       <AvisoError mensaje={error} onCerrar={() => setError('')} />
+      <AvisoError mensaje={errorCarga} onReintentar={reintentar} />
       {puedeContar && (
         <div className="inv-segmentado" role="group" aria-label="Tipo de registro">
           <button type="button" className={modo === 'movimiento' ? 'active' : ''} aria-pressed={modo === 'movimiento'} onClick={() => setModo('movimiento')}>Un movimiento</button>

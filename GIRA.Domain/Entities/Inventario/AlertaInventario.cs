@@ -27,6 +27,9 @@ public class AlertaInventario : BaseEntity
     /// <summary>Texto adicional (lote que vence, diferencia de una salida teórica).</summary>
     public string? Detalle { get; set; }
 
+    /// <summary>Lote que vence (solo en alertas de vencimiento): ese lote avisa una sola vez, aunque la alerta se cierre.</summary>
+    public Guid? LoteInsumoId { get; set; }
+
     /// <summary>Abierta, Atendida o Descartada. Cambia solo con <see cref="Cerrar"/>.</summary>
     public EstadoAlertaInventario Estado { get; private set; } = EstadoAlertaInventario.Abierta;
 

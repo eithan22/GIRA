@@ -5,6 +5,7 @@ import Modal from '../../security/components/Modal.jsx';
 import PaginaInventario, { AvisoError, FilaEstado } from '../components/PaginaInventario.jsx';
 import { ROLES_GESTIONAR, aNumero, dinero, mensajeError, numero, tieneRol } from '../inventarioFormato.js';
 import { inventarioService, todosLosInsumos } from '../inventarioService.js';
+import { useCarga } from '../useCarga.js';
 
 const VACIO = { nombre: '', categoriaPlatoId: '', precio: '', porcentajeDemanda: '', activo: true };
 
@@ -25,24 +26,25 @@ export default function Platos() {
   const [receta, setReceta] = useState(null); // { plato, form: { porciones, instrucciones, lineas: [{ insumoId, cantidad }] } }
   const [ocupado, setOcupado] = useState(false);
   const [errorModal, setErrorModal] = useState('');
+  const { errorCarga, setErrorCarga, reintento, reintentar } = useCarga();
 
   useEffect(() => {
     let activo = true;
     Promise.all([inventarioService.listarCatalogo('categorias-plato'), todosLosInsumos()])
       .then(([cats, ins]) => { if (activo) { setCategorias(cats); setInsumos(ins); } })
-      .catch((e) => { if (activo) setError(mensajeError(e, 'No se pudieron cargar las categorías o los insumos.')); });
+      .catch((e) => { if (activo) setErrorCarga(mensajeError(e, 'No se pudieron cargar las categorías o los insumos.')); });
     return () => { activo = false; };
-  }, []);
+  }, [reintento, setErrorCarga]);
 
   useEffect(() => {
     let activo = true;
     setCargando(true);
     inventarioService.listarPlatos()
       .then((r) => { if (activo) setListado(r); })
-      .catch((e) => { if (activo) setError(mensajeError(e, 'No se pudieron cargar los platos.')); })
+      .catch((e) => { if (activo) setErrorCarga(mensajeError(e, 'No se pudieron cargar los platos.')); })
       .finally(() => { if (activo) setCargando(false); });
     return () => { activo = false; };
-  }, [recarga]);
+  }, [recarga, reintento, setErrorCarga]);
 
   function abrir(plato) {
     setErrorModal('');
@@ -119,10 +121,12 @@ export default function Platos() {
       accion={puedeGestionar && <button type="button" className="button button-primary" onClick={() => abrir(null)}><Icon name="plus" size={17} /> Nuevo plato</button>}
     >
       <AvisoError mensaje={error} onCerrar={() => setError('')} />
-      <div className={`inv-demanda${listado.advertencia ? ' inv-demanda-aviso' : ''}`} role="status">
+      <AvisoError mensaje={errorCarga} onReintentar={reintentar} />
+      {/* Sin datos (cargando o con error) no se puede decir si la suma es confiable. */}
+      {!cargando && !errorCarga && <div className={`inv-demanda${listado.advertencia ? ' inv-demanda-aviso' : ''}`} role="status">
         <Icon name={listado.advertencia ? 'alert' : 'check'} size={16} />
         <span>Suma del % de demanda de los platos activos: <strong>{numero(listado.sumaDemandaActivos, 2)} %</strong>. {listado.advertencia ?? 'Está entre 95 % y 105 %: la proyección es confiable.'}</span>
-      </div>
+      </div>}
       <div className="panel">
         <div className="panel-heading"><div><h2>Platos</h2><p>Los activos primero. Un plato sin receta no cuenta para el consumo.</p></div><span className="count-badge">{listado.items.length} platos</span></div>
         <div className="table-scroll">
@@ -140,7 +144,7 @@ export default function Platos() {
                     <td>{p.lineasReceta ? `${p.lineasReceta} ${p.lineasReceta === 1 ? 'insumo' : 'insumos'}` : <span className="inv-nivel inv-nivel-Bajo">Sin receta</span>}</td>
                     <td><span className={`status-pill ${p.activo ? 'active' : 'inactive'}`}><span className="status-dot" />{p.activo ? 'Activo' : 'Inactivo'}</span></td>
                     <td><div className="row-actions">
-                      <button type="button" className="button button-secondary button-small" onClick={() => abrirReceta(p)}>{puedeGestionar ? 'Receta' : 'Ver receta'}</button>
+                      <button type="button" className="button button-secondary button-small" onClick={() => abrirReceta(p)} aria-label={`${puedeGestionar ? 'Receta' : 'Ver receta'} de ${p.nombre}`}>{puedeGestionar ? 'Receta' : 'Ver receta'}</button>
                       {puedeGestionar && <button type="button" className="icon-button" onClick={() => abrir(p)} title="Editar" aria-label={`Editar ${p.nombre}`}><Icon name="edit" size={16} /></button>}
                     </div></td>
                   </tr>

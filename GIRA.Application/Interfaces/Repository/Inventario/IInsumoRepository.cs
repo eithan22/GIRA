@@ -5,7 +5,7 @@ using GIRA.Domain.Entities.Inventario;
 namespace GIRA.Application.Interfaces.Repository.Inventario;
 
 /// <summary>Lote con saldo que vence pronto, con lo necesario para el aviso.</summary>
-public sealed record LotePorVencer(Guid InsumoId, decimal Cantidad, DateOnly FechaVencimiento, string Unidad, decimal StockInsumo);
+public sealed record LotePorVencer(Guid LoteId, Guid InsumoId, decimal Cantidad, DateOnly FechaVencimiento, string Unidad, decimal StockInsumo);
 
 /// <summary>Insumos y sus lotes. Las consultas de insumos traen categoría, unidad y proveedor.</summary>
 public interface IInsumoRepository

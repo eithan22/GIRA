@@ -95,6 +95,9 @@ public class GiraDbContext : IdentityDbContext<Usuario, Rol, Guid>
     /// <summary>Alertas de reabastecimiento, vencimiento e inconsistencia.</summary>
     public DbSet<AlertaInventario> AlertasInventario => Set<AlertaInventario>();
 
+    /// <summary>Comensales predichos por Analítica, por fecha.</summary>
+    public DbSet<AfluenciaPredicha> AfluenciasPredichas => Set<AfluenciaPredicha>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder builder)
     {

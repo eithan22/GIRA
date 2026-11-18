@@ -2,6 +2,7 @@ using GIRA.Application.Common;
 using GIRA.Application.Common.Inventario;
 using GIRA.Application.Events.Inventario;
 using GIRA.Application.Interfaces.Repository.Inventario;
+using GIRA.Application.Interfaces.Services.Configuracion;
 using GIRA.Application.Interfaces.Services.Reservas;
 using GIRA.Domain.Entities.Inventario;
 using GIRA.Domain.Enums.Inventario;
@@ -17,6 +18,7 @@ public class EvaluadorAlertasInventario
     private readonly IAlertaInventarioRepository _alertas;
     private readonly CalculadoraConsumo _calculadora;
     private readonly IPublicadorEventosSeguro _publicador;
+    private readonly IParametrosInventarioService _parametros;
     private readonly TimeProvider _reloj;
 
     /// <summary>Crea el evaluador.</summary>
@@ -24,11 +26,13 @@ public class EvaluadorAlertasInventario
         IAlertaInventarioRepository alertas,
         CalculadoraConsumo calculadora,
         IPublicadorEventosSeguro publicador,
+        IParametrosInventarioService parametros,
         TimeProvider reloj)
     {
         _alertas = alertas;
         _calculadora = calculadora;
         _publicador = publicador;
+        _parametros = parametros;
         _reloj = reloj;
     }
 
@@ -137,10 +141,12 @@ public class EvaluadorAlertasInventario
             .Where(a => a.Estado == EstadoAlertaInventario.Abierta)
             .ToList();
 
-    private Task<BaseProyeccion> ProyeccionAlertasAsync(CancellationToken cancellationToken)
+    // Días de ConfiguracionRestaurante.DiasProyeccionInventario (3 si no se configuró), contando hoy (GI-468).
+    private async Task<BaseProyeccion> ProyeccionAlertasAsync(CancellationToken cancellationToken)
     {
         var hoy = _reloj.HoyLocal();
-        return _calculadora.CalcularAsync(hoy, hoy.AddDays(ReglasInventario.DiasProyeccionAlertas - 1), cancellationToken);
+        var dias = (await _parametros.ObtenerAsync(cancellationToken)).DiasProyeccionInventario;
+        return await _calculadora.CalcularAsync(hoy, hoy.AddDays(dias - 1), cancellationToken);
     }
 
     private static AlertaInventario Nueva(
