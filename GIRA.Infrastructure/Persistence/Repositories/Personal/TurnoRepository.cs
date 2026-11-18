@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace GIRA.Infrastructure.Persistence.Repositories.Personal;
 
 /// <summary>Implementación de <see cref="ITurnoRepository"/> contra <see cref="GiraDbContext"/>.</summary>
-public class TurnoRepository : ITurnoRepository, IAusenciaRepository
+public class TurnoRepository : ITurnoRepository
 {
     private readonly GiraDbContext _contexto;
 
@@ -42,13 +42,4 @@ public class TurnoRepository : ITurnoRepository, IAusenciaRepository
     /// <inheritdoc />
     public async Task GuardarCambiosAsync(CancellationToken cancellationToken) =>
         await _contexto.SaveChangesAsync(cancellationToken);
-
-    /// <inheritdoc />
-    public async Task<bool> TieneAprobadaEnFechaAsync(Guid empleadoId, DateOnly fecha, CancellationToken cancellationToken) =>
-        await _contexto.Ausencias.AsNoTracking().AnyAsync(a =>
-            a.EmpleadoId == empleadoId &&
-            a.Estado == EstadoAusencia.Aprobada &&
-            a.FechaDesde <= fecha &&
-            fecha <= a.FechaHasta,
-            cancellationToken);
 }

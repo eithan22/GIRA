@@ -70,7 +70,7 @@ public static class PersonalRepositoriesExtensions
         services.AddScoped<IEmpleadoRepository, EmpleadoRepository>();
         services.AddScoped<IDisponibilidadRepository, DisponibilidadRepository>();
         services.AddScoped<ITurnoRepository, TurnoRepository>();
-        services.AddScoped<IAusenciaRepository, TurnoRepository>();
+        services.AddScoped<IAusenciaRepository, AusenciaRepository>();
         services.AddScoped<IRequerimientoPersonalRepository, RequerimientoPersonalRepository>();
         return services;
     }
