@@ -21,6 +21,9 @@ public static class PersonalServiceExtensions
         // Disponibilidad semanal (GI-297).
         services.AddScoped<IDisponibilidadService, DisponibilidadService>();
 
+        // Turnos (GI-298).
+        services.AddScoped<ITurnoService, TurnoService>();
+
         return services;
     }
 }

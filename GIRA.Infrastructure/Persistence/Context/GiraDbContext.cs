@@ -38,6 +38,12 @@ public class GiraDbContext : IdentityDbContext<Usuario, Rol, Guid>
     /// <summary>Bloques de disponibilidad semanal de los empleados (GI-297).</summary>
     public DbSet<Disponibilidad> Disponibilidades => Set<Disponibilidad>();
 
+    /// <summary>Turnos asignados a los empleados (GI-298).</summary>
+    public DbSet<Turno> Turnos => Set<Turno>();
+
+    /// <summary>Solicitudes de ausencia de los empleados (GI-298, RN-PER-03).</summary>
+    public DbSet<Ausencia> Ausencias => Set<Ausencia>();
+
     /// <summary>Solicitudes de recuperación de contraseña pendientes de atender por un Administrador.</summary>
     public DbSet<SolicitudRecuperacionPassword> SolicitudesRecuperacionPassword => Set<SolicitudRecuperacionPassword>();
 
