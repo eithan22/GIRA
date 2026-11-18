@@ -192,7 +192,7 @@ public class TurnoServiceTests
     }
 
     [Fact]
-    public async Task CambiarEstado_CompletadoAunNoEsPermitido()
+    public async Task CambiarEstado_CompletadoDeTurnoFuturo_DevuelveConflicto()
     {
         var turnos = new RepositorioTurnosEnMemoria();
         var turno = Turno(Lunes, "09:00", "13:00");
@@ -200,6 +200,51 @@ public class TurnoServiceTests
         var servicio = Crear(turnos);
 
         var resultado = await servicio.CambiarEstadoAsync(turno.Id, EstadoTurno.Completado, default);
+
+        Assert.Equal(ErrorType.Conflict, resultado.Type);
+        Assert.Equal(EstadoTurno.Programado, turnos.Turnos.Single().Estado);
+    }
+
+    [Fact]
+    public async Task CambiarEstado_CompletadoYAusente_EnTurnoPasado_SeGuarda()
+    {
+        var turnos = new RepositorioTurnosEnMemoria();
+        var completado = Turno(new DateOnly(2026, 11, 10), "09:00", "13:00");
+        var ausente = Turno(new DateOnly(2026, 11, 11), "09:00", "13:00");
+        turnos.Turnos.Add(completado);
+        turnos.Turnos.Add(ausente);
+        var servicio = Crear(turnos);
+
+        var a = await servicio.CambiarEstadoAsync(completado.Id, EstadoTurno.Completado, default);
+        var b = await servicio.CambiarEstadoAsync(ausente.Id, EstadoTurno.Ausente, default);
+
+        Assert.Equal(EstadoTurno.Completado, a.Value!.Estado);
+        Assert.Equal(EstadoTurno.Ausente, b.Value!.Estado);
+    }
+
+    [Fact]
+    public async Task CambiarEstado_TurnoCancelado_NoSePuedeMarcarComoCompletado()
+    {
+        var turnos = new RepositorioTurnosEnMemoria();
+        var turno = Turno(new DateOnly(2026, 11, 10), "09:00", "13:00");
+        turno.Estado = EstadoTurno.Cancelado;
+        turnos.Turnos.Add(turno);
+        var servicio = Crear(turnos);
+
+        var resultado = await servicio.CambiarEstadoAsync(turno.Id, EstadoTurno.Completado, default);
+
+        Assert.Equal(ErrorType.Conflict, resultado.Type);
+    }
+
+    [Fact]
+    public async Task CambiarEstado_EstadoProgramado_NoSeAcepta()
+    {
+        var turnos = new RepositorioTurnosEnMemoria();
+        var turno = Turno(Lunes, "09:00", "13:00");
+        turnos.Turnos.Add(turno);
+        var servicio = Crear(turnos);
+
+        var resultado = await servicio.CambiarEstadoAsync(turno.Id, EstadoTurno.Programado, default);
 
         Assert.Equal(ErrorType.Validation, resultado.Type);
     }

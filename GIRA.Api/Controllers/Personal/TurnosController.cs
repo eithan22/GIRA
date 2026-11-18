@@ -49,7 +49,7 @@ public class TurnosController : ControllerBase
     public async Task<IActionResult> Actualizar(Guid id, [FromBody] TurnoRequest request, CancellationToken cancellationToken) =>
         (await _servicio.ActualizarAsync(id, request, cancellationToken)).ToActionResult();
 
-    /// <summary>Cambia el estado de un turno. Por ahora solo acepta Cancelado.</summary>
+    /// <summary>Cambia el estado de un turno: Cancelado, o Completado y Ausente si el turno ya pasó (GI-307).</summary>
     [HttpPatch("{id:guid}/estado")]
     [ProducesResponseType<TurnoDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
