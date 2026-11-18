@@ -67,6 +67,7 @@ public static class PersonalRepositoriesExtensions
     public static IServiceCollection AddPersonalRepositories(this IServiceCollection services)
     {
         services.AddScoped<ICargoRepository, CargoRepository>();
+        services.AddScoped<IEmpleadoRepository, EmpleadoRepository>();
         return services;
     }
 }

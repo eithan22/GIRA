@@ -15,6 +15,9 @@ public static class PersonalServiceExtensions
         // Cargos (GI-296).
         services.AddScoped<ICargoService, CargoService>();
 
+        // Empleados (GI-295).
+        services.AddScoped<IEmpleadoService, EmpleadoService>();
+
         return services;
     }
 }

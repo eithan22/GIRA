@@ -258,6 +258,85 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.ToTable("Cargo", "personal");
                 });
 
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.Empleado", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Apellido")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("CargoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Cedula")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateOnly>("FechaIngreso")
+                        .HasColumnType("date");
+
+                    b.Property<int>("HorasMaximasSemana")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Telefono")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CargoId");
+
+                    b.HasIndex("Cedula")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Empleado_Cedula")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("Empleado", "personal");
+                });
+
             modelBuilder.Entity("GIRA.Domain.Entities.Reservas.Cliente", b =>
                 {
                     b.Property<Guid>("Id")
@@ -930,6 +1009,15 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("UsuarioToken", "seguridad");
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.Empleado", b =>
+                {
+                    b.HasOne("GIRA.Domain.Entities.Personal.Cargo", null)
+                        .WithMany()
+                        .HasForeignKey("CargoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("GIRA.Domain.Entities.Reservas.Mesa", b =>
