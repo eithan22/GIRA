@@ -1,0 +1,32 @@
+/* Espaciado de las pantallas de Personal y Turnos. Los colores, botones y tablas
+   vienen de styles.css para que se vean igual que el resto de la aplicación. */
+
+.personal-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.personal-page > .page-heading-row {
+  margin-bottom: 4px;
+}
+
+.personal-form {
+  padding: 0 19px 19px;
+}
+
+.personal-form .form-grid {
+  margin-bottom: 6px;
+}
+
+.personal-form .form-actions {
+  margin-top: 16px;
+}
+
+.personal-page .field-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #788397;
+  font-size: 11px;
+}
