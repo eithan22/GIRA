@@ -4,6 +4,7 @@ using GIRA.Application.Interfaces.Repository.Personal;
 using GIRA.Application.Services.Personal;
 using GIRA.Application.Validations.Personal;
 using GIRA.Domain.Entities.Personal;
+using GIRA.Domain.Enums.Personal;
 using GIRA.Domain.Exceptions.Personal;
 
 namespace GIRA.Tests.Personal;
@@ -141,8 +142,84 @@ public class EmpleadoServiceTests
     private static EmpleadoRequest Datos(Guid cargoId, string cedula = "001-0000001-1") =>
         new("Ana", "Pérez", cedula, null, null, cargoId, Ingreso, 40);
 
-    private static EmpleadoService CrearServicio(RepositorioEmpleadosEnMemoria empleados, RepositorioCargosEnMemoria cargos) =>
-        new(empleados, cargos, new EmpleadoRequestValidator());
+    private static EmpleadoService CrearServicio(
+        RepositorioEmpleadosEnMemoria empleados,
+        RepositorioCargosEnMemoria cargos,
+        RepositorioTurnosFalso? turnos = null,
+        PublicadorFalso? publicador = null) =>
+        new(
+            empleados,
+            cargos,
+            turnos ?? new RepositorioTurnosFalso(),
+            publicador ?? new PublicadorFalso(),
+            new EmpleadoRequestValidator(),
+            new RelojFijo(new DateTimeOffset(2026, 11, 18, 12, 0, 0, TimeSpan.Zero)));
+
+    [Fact]
+    public async Task Desactivar_CancelaSoloLosTurnosFuturosActivosYPublicaCadaCambio()
+    {
+        var cargoId = Guid.NewGuid();
+        var id = Guid.NewGuid();
+        var empleados = new RepositorioEmpleadosEnMemoria();
+        empleados.Empleados.Add(new Empleado { Id = id, Nombre = "Ana", Apellido = "Pérez", Cedula = "001", CargoId = cargoId, Activo = true });
+        var turnos = new RepositorioTurnosFalso();
+        var futuro = Turno(id, new DateOnly(2026, 12, 7), EstadoTurno.Programado);
+        var pasado = Turno(id, new DateOnly(2026, 11, 10), EstadoTurno.Programado);
+        turnos.Turnos.Add(futuro);
+        turnos.Turnos.Add(pasado);
+        var publicador = new PublicadorFalso();
+        var servicio = CrearServicio(empleados, new RepositorioCargosEnMemoria(cargoId), turnos, publicador);
+
+        var resultado = await servicio.CambiarEstadoAsync(id, false, default);
+
+        Assert.False(resultado.Value!.Activo);
+        Assert.Equal(EstadoTurno.Cancelado, futuro.Estado);
+        Assert.Equal(EstadoTurno.Programado, pasado.Estado);
+        Assert.Single(publicador.Publicados);
+    }
+
+    private static Turno Turno(Guid empleadoId, DateOnly fecha, EstadoTurno estado) =>
+        new() { Id = Guid.NewGuid(), EmpleadoId = empleadoId, CargoId = Guid.NewGuid(), Fecha = fecha,
+            HoraInicio = new TimeOnly(9, 0), HoraFin = new TimeOnly(13, 0), Estado = estado };
+
+    private sealed class RelojFijo(DateTimeOffset ahora) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => ahora;
+    }
+
+    private sealed class PublicadorFalso : GIRA.Application.Interfaces.Services.Reservas.IPublicadorEventosSeguro
+    {
+        public List<object> Publicados { get; } = [];
+
+        public Task PublicarAsync<TEvento>(TEvento evento, string referencia, CancellationToken cancellationToken)
+            where TEvento : MediatR.INotification
+        {
+            Publicados.Add(evento!);
+            return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>Repositorio de turnos falso con los métodos que usa el servicio de empleados.</summary>
+    private sealed class RepositorioTurnosFalso : ITurnoRepository
+    {
+        public List<Turno> Turnos { get; } = [];
+
+        public Task<Turno?> BuscarAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(Turnos.FirstOrDefault(t => t.Id == id));
+
+        public Task<IReadOnlyList<Turno>> ListarPorEmpleadoYFechaAsync(Guid empleadoId, DateOnly fecha, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Turno>>(Turnos.Where(t => t.EmpleadoId == empleadoId && t.Fecha == fecha).ToList());
+
+        public Task<IReadOnlyList<Turno>> ListarPorEmpleadoEntreAsync(Guid empleadoId, DateOnly desde, DateOnly hasta, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Turno>>(Turnos.Where(t => t.EmpleadoId == empleadoId && t.Fecha >= desde && t.Fecha <= hasta).ToList());
+
+        public Task<IReadOnlyList<Turno>> ListarFuturosActivosAsync(Guid empleadoId, DateOnly desde, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Turno>>(Turnos.Where(t => t.EmpleadoId == empleadoId && t.Fecha >= desde
+                && (t.Estado == GIRA.Domain.Enums.Personal.EstadoTurno.Programado || t.Estado == GIRA.Domain.Enums.Personal.EstadoTurno.Confirmado)).ToList());
+
+        public void Agregar(Turno turno) => Turnos.Add(turno);
+
+        public Task GuardarCambiosAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
 
     /// <summary>Repositorio de empleados en memoria con la misma forma que el de producción.</summary>
     private sealed class RepositorioEmpleadosEnMemoria : IEmpleadoRepository

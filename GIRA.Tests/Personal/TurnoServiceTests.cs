@@ -1,6 +1,7 @@
 using FluentValidation;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Personal;
+using GIRA.Application.Interfaces.Services.Reservas;
 using GIRA.Application.Interfaces.Repository.Personal;
 using GIRA.Application.Services.Personal;
 using GIRA.Application.Validations.Personal;
@@ -264,7 +265,11 @@ public class TurnoServiceTests
             Estado = EstadoTurno.Programado,
         };
 
-    private static TurnoService Crear(RepositorioTurnosEnMemoria turnos, RepositorioAusenciasFalso? ausencias = null, bool empleadoActivo = true) =>
+    private static TurnoService Crear(
+        RepositorioTurnosEnMemoria turnos,
+        RepositorioAusenciasFalso? ausencias = null,
+        bool empleadoActivo = true,
+        PublicadorFalso? publicador = null) =>
         new(
             turnos,
             ausencias ?? new RepositorioAusenciasFalso(),
@@ -272,7 +277,33 @@ public class TurnoServiceTests
             new RepositorioCargosFalso(),
             new RepositorioDisponibilidadFalso(),
             new TurnoRequestValidator(),
-            new RelojFijo(new DateTimeOffset(2026, 11, 18, 12, 0, 0, TimeSpan.Zero)));
+            new RelojFijo(new DateTimeOffset(2026, 11, 18, 12, 0, 0, TimeSpan.Zero)),
+            publicador ?? new PublicadorFalso());
+
+    /// <summary>Publicador de eventos falso que guarda lo que se publica, para comprobarlo en las pruebas.</summary>
+    private sealed class PublicadorFalso : IPublicadorEventosSeguro
+    {
+        public List<object> Publicados { get; } = [];
+
+        public Task PublicarAsync<TEvento>(TEvento evento, string referencia, CancellationToken cancellationToken)
+            where TEvento : MediatR.INotification
+        {
+            Publicados.Add(evento!);
+            return Task.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task Crear_PublicaTurnoAsignadoEvent()
+    {
+        var publicador = new PublicadorFalso();
+        var servicio = Crear(new RepositorioTurnosEnMemoria(), publicador: publicador);
+
+        await servicio.CrearAsync(Solicitud(Lunes, "09:00", "13:00"), default);
+
+        var evento = Assert.IsType<GIRA.Application.Events.Personal.TurnoAsignadoEvent>(Assert.Single(publicador.Publicados));
+        Assert.Equal(Lunes, evento.Fecha);
+    }
 
     /// <summary>Reloj con una hora fija, para que RN-PER-10 se pruebe siempre igual.</summary>
     private sealed class RelojFijo(DateTimeOffset ahora) : TimeProvider
@@ -341,6 +372,10 @@ public class TurnoServiceTests
 
         public Task<IReadOnlyList<Turno>> ListarPorEmpleadoYFechaAsync(Guid empleadoId, DateOnly fecha, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<Turno>>(Turnos.Where(t => t.EmpleadoId == empleadoId && t.Fecha == fecha).ToList());
+
+        public Task<IReadOnlyList<Turno>> ListarFuturosActivosAsync(Guid empleadoId, DateOnly desde, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Turno>>(Turnos.Where(t => t.EmpleadoId == empleadoId && t.Fecha >= desde
+                && (t.Estado == EstadoTurno.Programado || t.Estado == EstadoTurno.Confirmado)).ToList());
 
         public Task<IReadOnlyList<Turno>> ListarPorEmpleadoEntreAsync(Guid empleadoId, DateOnly desde, DateOnly hasta, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<Turno>>(Turnos.Where(t => t.EmpleadoId == empleadoId && t.Fecha >= desde && t.Fecha <= hasta).ToList());
