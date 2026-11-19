@@ -15,6 +15,10 @@ import MiReserva from './reservas/pages/MiReserva.jsx';
 import AgendaPersonal from './reservas/personal/pages/AgendaPersonal.jsx';
 import MapaPersonal from './reservas/personal/pages/MapaPersonal.jsx';
 import ConfiguracionPersonal from './reservas/personal/pages/ConfiguracionPersonal.jsx';
+import CargosPage from './personal/pages/CargosPage.jsx';
+import EmpleadosPage from './personal/pages/EmpleadosPage.jsx';
+import RequerimientosPage from './personal/pages/RequerimientosPage.jsx';
+import AusenciasPage from './personal/pages/AusenciasPage.jsx';
 
 function Home() {
   const { user } = useAuth();
@@ -62,6 +66,11 @@ function AuthenticatedApp() {
           </Route>
           <Route element={<RequireRole roles={['Administrador', 'Gerente']} />}>
             <Route path="reservas/configuracion" element={<ConfiguracionPersonal />} />
+            <Route path="personal" element={<Navigate to="/personal/empleados" replace />} />
+            <Route path="personal/empleados" element={<EmpleadosPage />} />
+            <Route path="personal/cargos" element={<CargosPage />} />
+            <Route path="personal/requerimientos" element={<RequerimientosPage />} />
+            <Route path="personal/ausencias" element={<AusenciasPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
