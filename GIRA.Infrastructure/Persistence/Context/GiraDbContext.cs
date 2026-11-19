@@ -1,5 +1,6 @@
 using GIRA.Domain.Base;
 using GIRA.Domain.Entities.Configuracion;
+using GIRA.Domain.Entities.Inventario;
 using GIRA.Domain.Entities.Reservas;
 using GIRA.Domain.Entities.Seguridad;
 using GIRA.Infrastructure.Identity;
@@ -57,6 +58,45 @@ public class GiraDbContext : IdentityDbContext<Usuario, Rol, Guid>
 
     /// <summary>Fechas concretas en las que el restaurante está cerrado.</summary>
     public DbSet<DiaCerrado> DiasCerrados => Set<DiaCerrado>();
+
+    /// <summary>Unidades de medida de los insumos.</summary>
+    public DbSet<UnidadMedida> UnidadesMedida => Set<UnidadMedida>();
+
+    /// <summary>Categorías de insumo.</summary>
+    public DbSet<CategoriaInsumo> CategoriasInsumo => Set<CategoriaInsumo>();
+
+    /// <summary>Categorías de plato.</summary>
+    public DbSet<CategoriaPlato> CategoriasPlato => Set<CategoriaPlato>();
+
+    /// <summary>Proveedores de insumos.</summary>
+    public DbSet<Proveedor> Proveedores => Set<Proveedor>();
+
+    /// <summary>Insumos con su stock actual.</summary>
+    public DbSet<Insumo> Insumos => Set<Insumo>();
+
+    /// <summary>Platos del menú con su porcentaje de demanda.</summary>
+    public DbSet<Plato> Platos => Set<Plato>();
+
+    /// <summary>Recetas, una por plato.</summary>
+    public DbSet<Receta> Recetas => Set<Receta>();
+
+    /// <summary>Líneas de receta: insumo y cantidad.</summary>
+    public DbSet<RecetaDetalle> RecetaDetalles => Set<RecetaDetalle>();
+
+    /// <summary>Movimientos de inventario (kardex).</summary>
+    public DbSet<MovimientoInventario> MovimientosInventario => Set<MovimientoInventario>();
+
+    /// <summary>Lotes de insumos perecederos con su vencimiento.</summary>
+    public DbSet<LoteInsumo> LotesInsumo => Set<LoteInsumo>();
+
+    /// <summary>Consumo proyectado por fecha e insumo.</summary>
+    public DbSet<ConsumoProyectado> ConsumosProyectados => Set<ConsumoProyectado>();
+
+    /// <summary>Alertas de reabastecimiento, vencimiento e inconsistencia.</summary>
+    public DbSet<AlertaInventario> AlertasInventario => Set<AlertaInventario>();
+
+    /// <summary>Comensales predichos por Analítica, por fecha.</summary>
+    public DbSet<AfluenciaPredicha> AfluenciasPredichas => Set<AfluenciaPredicha>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder builder)

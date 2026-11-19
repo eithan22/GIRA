@@ -1,7 +1,9 @@
 using GIRA.Infrastructure.Persistence.Context;
 using GIRA.Infrastructure.Persistence.Interceptors;
 using GIRA.Infrastructure.Persistence.Repositories.Configuracion;
+using GIRA.Infrastructure.Persistence.Repositories.Inventario;
 using GIRA.Infrastructure.Persistence.Repositories.Reservas;
+using GIRA.Infrastructure.Services.Inventario;
 using GIRA.Infrastructure.Services.Reservas;
 using GIRA.Infrastructure.Services.Seguridad;
 using Microsoft.EntityFrameworkCore;
@@ -41,6 +43,8 @@ public static class DependencyInjection
         services.AddConfiguracionRepositories();
         services.AddReservasRepositories();
         services.AddReservasServicios(configuration);
+        services.AddInventarioRepositories();
+        services.AddInventarioServicios(configuration);
 
         return services;
     }

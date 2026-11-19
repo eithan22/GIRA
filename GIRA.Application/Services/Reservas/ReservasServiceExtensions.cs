@@ -1,4 +1,5 @@
 using GIRA.Application.Interfaces.Services.Configuracion;
+using GIRA.Application.Interfaces.Services.Inventario;
 using GIRA.Application.Interfaces.Services.Reservas;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,6 +15,7 @@ public static class ReservasServiceExtensions
         services.AddScoped<IDisponibilidadService, DisponibilidadService>();
         services.AddScoped<IPoliticasPublicasService, PoliticasPublicasService>();
         services.AddScoped<IConsultaSalon, ConsultaSalonService>();
+        services.AddScoped<IConsultaReservasInventario, ConsultaReservasInventarioService>();
         services.AddSingleton<GeneradorCodigoReserva>();
         services.AddScoped<IReservaService, ReservaService>();
         services.AddScoped<IClienteService, ClienteService>();

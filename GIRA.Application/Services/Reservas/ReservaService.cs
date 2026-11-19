@@ -749,7 +749,7 @@ public class ReservaService : IReservaService
 
         // Tras guardar, una sola vez; un handler que falla se registra y no revierte (SRS 3.3, regla 3).
         await _publicadorSeguro.PublicarAsync(
-            new VisitaCompletadaEvent(reserva.Fecha, reserva.FranjaHorariaId, personasReales, ConReserva: true),
+            new VisitaCompletadaEvent(reserva.Fecha, reserva.FranjaHorariaId, personasReales, ConReserva: true, VisitaId: reserva.Id),
             $"ReservaId={reserva.Id}",
             cancellationToken);
 

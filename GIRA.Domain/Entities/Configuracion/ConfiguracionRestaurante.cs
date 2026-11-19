@@ -41,4 +41,16 @@ public class ConfiguracionRestaurante : BaseEntity
     /// número por defecto, el restaurante lo escribe desde Configuración).
     /// </summary>
     public string? TelefonoContacto { get; set; }
+
+    /// <summary>Valor por defecto de <see cref="DiasProyeccionInventario"/>.</summary>
+    public const int DiasProyeccionInventarioPorDefecto = 3;
+
+    /// <summary>Valor por defecto de <see cref="DiasAvisoVencimientoInventario"/>.</summary>
+    public const int DiasAvisoVencimientoInventarioPorDefecto = 2;
+
+    /// <summary>Días de consumo proyectado que Inventario resta al stock para avisar un quiebre (RN-INV-07).</summary>
+    public int DiasProyeccionInventario { get; set; } = DiasProyeccionInventarioPorDefecto;
+
+    /// <summary>Días antes del vencimiento de un lote en que Inventario avisa (RN-INV-11).</summary>
+    public int DiasAvisoVencimientoInventario { get; set; } = DiasAvisoVencimientoInventarioPorDefecto;
 }
