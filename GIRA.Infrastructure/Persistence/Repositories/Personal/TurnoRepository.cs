@@ -37,6 +37,14 @@ public class TurnoRepository : ITurnoRepository
             .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Turno>> ListarFuturosActivosAsync(Guid empleadoId, DateOnly desde, CancellationToken cancellationToken) =>
+        await _contexto.Turnos
+            .Where(t => t.EmpleadoId == empleadoId
+                && t.Fecha >= desde
+                && (t.Estado == EstadoTurno.Programado || t.Estado == EstadoTurno.Confirmado))
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public void Agregar(Turno turno) => _contexto.Turnos.Add(turno);
 
     /// <inheritdoc />

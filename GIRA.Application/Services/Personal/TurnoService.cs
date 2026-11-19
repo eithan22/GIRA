@@ -1,7 +1,9 @@
 using FluentValidation;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Personal;
+using GIRA.Application.Events.Personal;
 using GIRA.Application.Interfaces.Repository.Personal;
+using GIRA.Application.Interfaces.Services.Reservas;
 using GIRA.Application.Interfaces.Services.Personal;
 using GIRA.Domain.Entities.Personal;
 using GIRA.Domain.Enums.Personal;
@@ -34,8 +36,9 @@ public class TurnoService : ITurnoService
     private readonly IDisponibilidadRepository _disponibilidades;
     private readonly IValidator<TurnoRequest> _validador;
     private readonly TimeProvider _reloj;
+    private readonly IPublicadorEventosSeguro _publicador;
 
-    /// <summary>Crea el servicio con sus repositorios, el validador y el reloj del restaurante.</summary>
+    /// <summary>Crea el servicio con sus repositorios, el validador, el reloj del restaurante y el publicador de eventos.</summary>
     public TurnoService(
         ITurnoRepository turnos,
         IAusenciaRepository ausencias,
@@ -43,7 +46,8 @@ public class TurnoService : ITurnoService
         ICargoRepository cargos,
         IDisponibilidadRepository disponibilidades,
         IValidator<TurnoRequest> validador,
-        TimeProvider reloj)
+        TimeProvider reloj,
+        IPublicadorEventosSeguro publicador)
     {
         _turnos = turnos;
         _ausencias = ausencias;
@@ -52,6 +56,7 @@ public class TurnoService : ITurnoService
         _disponibilidades = disponibilidades;
         _validador = validador;
         _reloj = reloj;
+        _publicador = publicador;
     }
 
     /// <inheritdoc />
@@ -73,6 +78,10 @@ public class TurnoService : ITurnoService
         Copiar(request, turno);
         _turnos.Agregar(turno);
         await _turnos.GuardarCambiosAsync(cancellationToken);
+        await _publicador.PublicarAsync(
+            new TurnoAsignadoEvent(turno.Id, turno.EmpleadoId, turno.Fecha, turno.HoraInicio, turno.HoraFin),
+            $"TurnoId={turno.Id}",
+            cancellationToken);
 
         return OperationResult.Success(ToDto(turno));
     }
@@ -105,6 +114,10 @@ public class TurnoService : ITurnoService
 
         Copiar(request, turno);
         await _turnos.GuardarCambiosAsync(cancellationToken);
+        await _publicador.PublicarAsync(
+            new TurnoModificadoEvent(turno.Id, turno.EmpleadoId, "Horario o datos modificados"),
+            $"TurnoId={turno.Id}",
+            cancellationToken);
 
         return OperationResult.Success(ToDto(turno));
     }
@@ -146,6 +159,10 @@ public class TurnoService : ITurnoService
 
         turno.Estado = estado;
         await _turnos.GuardarCambiosAsync(cancellationToken);
+        await _publicador.PublicarAsync(
+            new TurnoModificadoEvent(turno.Id, turno.EmpleadoId, $"Estado: {estado}"),
+            $"TurnoId={turno.Id}",
+            cancellationToken);
 
         return OperationResult.Success(ToDto(turno));
     }

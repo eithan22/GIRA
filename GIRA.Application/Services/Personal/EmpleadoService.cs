@@ -1,9 +1,13 @@
 using FluentValidation;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Personal;
+using GIRA.Application.Events.Personal;
 using GIRA.Application.Interfaces.Repository.Personal;
 using GIRA.Application.Interfaces.Services.Personal;
+using GIRA.Application.Interfaces.Services.Reservas;
+using GIRA.Application.Common;
 using GIRA.Domain.Entities.Personal;
+using GIRA.Domain.Enums.Personal;
 using GIRA.Domain.Exceptions.Personal;
 
 namespace GIRA.Application.Services.Personal;
@@ -18,13 +22,25 @@ public class EmpleadoService : IEmpleadoService
     private readonly IEmpleadoRepository _empleados;
     private readonly ICargoRepository _cargos;
     private readonly IValidator<EmpleadoRequest> _validador;
+    private readonly ITurnoRepository _turnos;
+    private readonly IPublicadorEventosSeguro _publicador;
+    private readonly TimeProvider _reloj;
 
-    /// <summary>Crea el servicio con los repositorios de empleados y cargos y el validador de datos.</summary>
-    public EmpleadoService(IEmpleadoRepository empleados, ICargoRepository cargos, IValidator<EmpleadoRequest> validador)
+    /// <summary>Crea el servicio con los repositorios, el validador, el publicador de eventos y el reloj del restaurante.</summary>
+    public EmpleadoService(
+        IEmpleadoRepository empleados,
+        ICargoRepository cargos,
+        ITurnoRepository turnos,
+        IPublicadorEventosSeguro publicador,
+        IValidator<EmpleadoRequest> validador,
+        TimeProvider reloj)
     {
         _empleados = empleados;
         _cargos = cargos;
+        _turnos = turnos;
+        _publicador = publicador;
         _validador = validador;
+        _reloj = reloj;
     }
 
     /// <inheritdoc />
@@ -88,6 +104,30 @@ public class EmpleadoService : IEmpleadoService
         if (empleado is null)
         {
             return OperationResult.Failure<EmpleadoDto>(ErrorType.NotFound, NoEncontrado);
+        }
+
+        if (!activo && empleado.Activo)
+        {
+            // RN-PER-08 (GI-329): al desactivar se cancelan sus turnos futuros, en la misma operación.
+            // "Futuro" = fecha posterior a hoy. Los turnos de hoy quedan para revisión manual.
+            var futuros = await _turnos.ListarFuturosActivosAsync(id, _reloj.HoyLocal().AddDays(1), cancellationToken);
+            foreach (var turno in futuros)
+            {
+                turno.Estado = EstadoTurno.Cancelado;
+            }
+
+            empleado.Activo = false;
+            await _empleados.GuardarCambiosAsync(cancellationToken);
+
+            foreach (var turno in futuros)
+            {
+                await _publicador.PublicarAsync(
+                    new TurnoModificadoEvent(turno.Id, turno.EmpleadoId, "Cancelado por desactivación del empleado"),
+                    $"TurnoId={turno.Id}",
+                    cancellationToken);
+            }
+
+            return OperationResult.Success(ToDto(empleado));
         }
 
         empleado.Activo = activo;
