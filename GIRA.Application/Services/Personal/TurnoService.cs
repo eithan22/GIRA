@@ -12,15 +12,23 @@ namespace GIRA.Application.Services.Personal;
 
 /// <summary>
 /// Implementación de <see cref="ITurnoService"/>. Aplica RN-PER-01 (disponibilidad), RN-PER-02 (sin solapamiento),
-/// RN-PER-03 (sin ausencia aprobada) y RN-PER-10 (los turnos pasados no se modifican).
+/// RN-PER-03 (sin ausencia aprobada), RN-PER-05 (descanso mínimo entre turnos, GI-306) y RN-PER-10 (los turnos pasados no se modifican).
 /// </summary>
 public class TurnoService : ITurnoService
 {
+    /// <summary>
+    /// Descanso mínimo por defecto entre el fin de un turno y el inicio del siguiente del mismo empleado.
+    /// Valor provisional tomado de la Directiva 2003/88/CE (11 horas); el equipo debe confirmar la cifra
+    /// que aplica al restaurante. Se puede cambiar pasando otro valor al constructor.
+    /// </summary>
+    public static readonly TimeSpan DescansoMinimoPorDefecto = TimeSpan.FromHours(11);
+
     private const string EmpleadoNoEncontrado = "El empleado no existe.";
     private const string EmpleadoInactivo = "El empleado está inactivo y no se le pueden asignar turnos.";
     private const string CargoInexistente = "El cargo indicado no existe.";
     private const string FueraDeDisponibilidad = "El horario queda fuera de la disponibilidad del empleado para ese día.";
     private const string Solapado = "El horario se solapa con otro turno del mismo empleado.";
+    private const string DescansoInsuficiente = "No se respeta el descanso mínimo entre turnos del empleado.";
     private const string AusenciaAprobada = "El empleado tiene una ausencia aprobada en esa fecha.";
     private const string TurnoNoNoModificable = "Un turno pasado o cancelado no se puede modificar.";
     private const string NoEncontrado = "El turno no existe.";
@@ -37,8 +45,12 @@ public class TurnoService : ITurnoService
     private readonly IValidator<TurnoRequest> _validador;
     private readonly TimeProvider _reloj;
     private readonly IPublicadorEventosSeguro _publicador;
+    private readonly TimeSpan _descansoMinimo;
 
-    /// <summary>Crea el servicio con sus repositorios, el validador, el reloj del restaurante y el publicador de eventos.</summary>
+    /// <summary>
+    /// Crea el servicio con sus repositorios, el validador, el reloj del restaurante, el publicador de eventos
+    /// y, opcionalmente, el descanso mínimo entre turnos (por defecto <see cref="DescansoMinimoPorDefecto"/>).
+    /// </summary>
     public TurnoService(
         ITurnoRepository turnos,
         IAusenciaRepository ausencias,
@@ -47,7 +59,8 @@ public class TurnoService : ITurnoService
         IDisponibilidadRepository disponibilidades,
         IValidator<TurnoRequest> validador,
         TimeProvider reloj,
-        IPublicadorEventosSeguro publicador)
+        IPublicadorEventosSeguro publicador,
+        TimeSpan? descansoMinimo = null)
     {
         _turnos = turnos;
         _ausencias = ausencias;
@@ -57,6 +70,7 @@ public class TurnoService : ITurnoService
         _validador = validador;
         _reloj = reloj;
         _publicador = publicador;
+        _descansoMinimo = descansoMinimo ?? DescansoMinimoPorDefecto;
     }
 
     /// <inheritdoc />
@@ -229,6 +243,22 @@ public class TurnoService : ITurnoService
         if (solapa)
         {
             return OperationResult.Failure<TurnoDto>(ErrorType.Conflict, Solapado);
+        }
+
+        // RN-PER-05 (GI-306): debe haber un descanso mínimo entre el fin de un turno y el inicio del siguiente.
+        // Se revisan los turnos del día anterior, del mismo día y del día siguiente, porque el descanso puede cruzar la medianoche.
+        var cercanos = await _turnos.ListarPorEmpleadoEntreAsync(request.EmpleadoId, request.Fecha.AddDays(-1), request.Fecha.AddDays(1), cancellationToken);
+        var inicioNuevo = request.Fecha.ToDateTime(request.HoraInicio);
+        var finNuevo = request.Fecha.ToDateTime(request.HoraFin);
+        var descansoInsuficiente = cercanos.Any(t =>
+            t.Id != excluirId &&
+            t.Estado != EstadoTurno.Cancelado &&
+            ((t.Fecha.ToDateTime(t.HoraFin) <= inicioNuevo && inicioNuevo - t.Fecha.ToDateTime(t.HoraFin) < _descansoMinimo) ||
+             (finNuevo <= t.Fecha.ToDateTime(t.HoraInicio) && t.Fecha.ToDateTime(t.HoraInicio) - finNuevo < _descansoMinimo)));
+        if (descansoInsuficiente)
+        {
+            var mensaje = $"{DescansoInsuficiente} Descanso mínimo configurado: {_descansoMinimo.TotalHours:0.##} horas.";
+            return OperationResult.Failure<TurnoDto>(ErrorType.Validation, mensaje);
         }
 
         // RN-PER-04 (GI-299): las horas de la semana no pueden superar HorasMaximasSemana.
