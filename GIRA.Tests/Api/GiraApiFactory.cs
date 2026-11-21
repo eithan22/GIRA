@@ -32,6 +32,7 @@ public class GiraApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:Key", "clave-de-pruebas-de-gira-con-mas-de-32-caracteres");
         // El proceso automático de reservas (BackgroundService) no debe correr en ninguna prueba HTTP.
         builder.UseSetting("Reservas:ProcesoAutomatico:Habilitado", "false");
+        builder.UseSetting("Inventario:ProcesoVencimientos:Habilitado", "false");
 
         builder.ConfigureTestServices(services =>
         {

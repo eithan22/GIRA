@@ -8,6 +8,7 @@ const menuItems = [
   { label: 'Inicio', to: '/inicio', icon: 'grid', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
   { label: 'Reservas', to: '/reservas', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero'] },
   { label: 'Personal', to: '/personal', icon: 'users', roles: ['Administrador', 'Gerente'] },
+  { label: 'Inventario', to: '/inventario', icon: 'box', roles: ['Administrador', 'Gerente', 'Supervisor', 'Cocina'] },
   { label: 'Usuarios', to: '/seguridad/usuarios', icon: 'users', roles: ['Administrador'], badge: true },
 ];
 
@@ -97,6 +98,10 @@ function locationLabel() {
     if (path.includes('/mapa')) return 'Mapa de mesas';
     if (path.includes('/configuracion')) return 'Zonas, mesas y franjas';
     return 'Agenda de reservas';
+  }
+  if (path.startsWith('/inventario')) {
+    const seccion = { platos: 'Platos y recetas', movimientos: 'Movimientos', kardex: 'Kardex', alertas: 'Alertas', proyeccion: 'Proyección de consumo', catalogos: 'Catálogos' };
+    return `Inventario · ${seccion[path.split('/')[2]] ?? 'Insumos'}`;
   }
   return 'Inicio';
 }

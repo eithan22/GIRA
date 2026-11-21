@@ -23,6 +23,8 @@ public class ConfiguracionRestauranteConfiguration : IEntityTypeConfiguration<Co
             tabla.HasCheckConstraint("CK_ConfiguracionRestaurante_ToleranciaNoShow", "[ToleranciaNoShowMinutos] BETWEEN 0 AND 120");
             tabla.HasCheckConstraint("CK_ConfiguracionRestaurante_MaxVigentes", "[MaxReservasVigentesPorTelefono] BETWEEN 1 AND 10");
             tabla.HasCheckConstraint("CK_ConfiguracionRestaurante_MaxPersonas", "[MaxPersonasPorReserva] BETWEEN 1 AND 50");
+            tabla.HasCheckConstraint("CK_ConfiguracionRestaurante_DiasProyeccionInventario", "[DiasProyeccionInventario] BETWEEN 1 AND 14");
+            tabla.HasCheckConstraint("CK_ConfiguracionRestaurante_DiasAvisoVencimiento", "[DiasAvisoVencimientoInventario] BETWEEN 1 AND 30");
         });
 
         builder.HasKey(c => c.Id);

@@ -140,7 +140,7 @@ public class VisitaServicioTests
         Assert.Equal(e.Mesa.Id, guardada.MesaId);
         Assert.Equal(3, guardada.PersonasReales);
         var evento = Assert.IsType<VisitaCompletadaEvent>(Assert.Single(publisher.Publicados));
-        Assert.Equal(new VisitaCompletadaEvent(Dia, e.Almuerzo.Id, 3, ConReserva: false), evento);
+        Assert.Equal(new VisitaCompletadaEvent(Dia, e.Almuerzo.Id, 3, ConReserva: false, VisitaId: guardada.Id), evento);
     }
 
     [Fact]

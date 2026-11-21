@@ -198,7 +198,7 @@ public class ProcesoNoShowsIntegrationTests : IClassFixture<ProcesoNoShowsIntegr
         Assert.All(resultados, r => Assert.Empty(r.Fallos));
 
         var evento = Assert.IsType<VisitaCompletadaEvent>(Assert.Single(publisher.Publicados));
-        Assert.Equal(new VisitaCompletadaEvent(new DateOnly(2020, 1, 7), FranjaAlmuerzoId, 4, ConReserva: true), evento);
+        Assert.Equal(new VisitaCompletadaEvent(new DateOnly(2020, 1, 7), FranjaAlmuerzoId, 4, ConReserva: true, VisitaId: reservaId), evento);
 
         await using var lectura = new GiraDbContext(_fixture.Opciones);
         Assert.Equal(EstadoReserva.Completada, (await lectura.Reservas.SingleAsync(r => r.Id == reservaId)).Estado);

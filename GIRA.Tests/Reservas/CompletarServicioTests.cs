@@ -133,7 +133,7 @@ public class CompletarServicioTests
         Assert.Equal(EstadoReserva.Completada, (await e.Contexto.Reservas.SingleAsync()).Estado);
         var evento = Assert.IsType<VisitaCompletadaEvent>(Assert.Single(publisher.Publicados));
         // PersonasReales de la reserva (3), no las reservadas (2); con reserva.
-        Assert.Equal(new VisitaCompletadaEvent(Dia, e.Franja.Id, 3, ConReserva: true), evento);
+        Assert.Equal(new VisitaCompletadaEvent(Dia, e.Franja.Id, 3, ConReserva: true, VisitaId: (await e.Contexto.Reservas.SingleAsync()).Id), evento);
     }
 
     [Fact]
