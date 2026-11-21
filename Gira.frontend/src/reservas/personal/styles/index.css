@@ -1,0 +1,67 @@
+/* Estilos del personal. El CSS de Eithan (variables, base, botones, avisos, indicador de carga) NO se
+   importa aquí: lo importa PaginaPersonal.jsx desde JS justo antes que este archivo. Así el empaquetador
+   lo comparte con las pantallas públicas en vez de duplicarlo en el chunk del personal, y el orden de la
+   cascada se mantiene (Eithan primero, el personal después). Solo se agregan clases con el prefijo
+   reservas-personal-. Sin estilos globales. */
+@import './agenda.css';
+@import './formularios.css';
+@import './mapa.css';
+@import './configuracion.css';
+
+.reservas-personal {
+  background: var(--reservas-fondo-pagina);
+  border-radius: var(--reservas-radio-grande);
+}
+
+/* Anillo de foco más visible solo en estas pantallas: el de Eithan (#b9aef5) da 2,01:1 sobre blanco; el
+   morado fuerte da 6,38:1 sobre blanco y 5,29:1 o más sobre los fondos de estado. La doble clase gana a
+   .reservas-raiz de Eithan sin depender del orden de carga. */
+.reservas-raiz.reservas-personal { --reservas-foco: #5948d3; }
+
+/* El shell de Seguridad ya rellena la página (30 px en escritorio, 17 o 12 px en móvil): el relleno
+   propio es menor para no restar ancho a las tablas. */
+.reservas-personal-pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 20px;
+}
+
+.reservas-personal-encabezado {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reservas-personal-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--reservas-morado-fuerte);
+}
+
+.reservas-personal-titulo {
+  font-size: 28px;
+  line-height: 1.2;
+  color: var(--reservas-texto);
+}
+
+.reservas-personal-descripcion {
+  max-width: 62ch;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--reservas-texto-medio);
+}
+
+.reservas-personal-estado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 62ch;
+}
+
+@media (max-width: 720px) {
+  .reservas-personal-pagina { padding: 12px; }
+  .reservas-personal-titulo { font-size: 24px; }
+}

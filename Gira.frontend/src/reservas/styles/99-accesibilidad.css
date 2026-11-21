@@ -1,0 +1,33 @@
+.reservas-solo-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Excepción deliberada al "sin !important" del resto del CSS: un kill-switch
+   de accesibilidad debe ganar siempre, sin depender de la especificidad de
+   la regla de animación/transition que esté anulando. */
+@media (prefers-reduced-motion: reduce) {
+  .reservas-raiz *,
+  .reservas-raiz *::before,
+  .reservas-raiz *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* El último fotograma de reservas-parpadeo (04-seleccion.css) es
+     opacity:0.25, no 1: sin esta regla explícita, el apagado genérico de
+     arriba dejaría los puntos de carga atenuados en vez de visibles. */
+  .reservas-cargando-punto {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}

@@ -1,0 +1,166 @@
+# Cómo proteger endpoints (GI-97, GI-127)
+
+Guía corta para los demás equipos: qué política poner en cada endpoint y qué devuelven los errores 401 y 403.
+
+## Cómo usarlo
+
+Pon siempre una política de `Politicas` (GIRA.Domain/Constants). **No escribas nombres de rol a mano** en los controladores.
+
+```csharp
+[Authorize(Policy = Politicas.GestionarInventario)]
+[HttpPost]
+public async Task<IActionResult> Crear(...) { ... }
+```
+
+- Un endpoint sin `[Authorize]` y sin `[AllowAnonymous]` queda abierto: no lo dejes así.
+- `[AllowAnonymous]` solo se usa en login y refresh.
+- Para un permiso nuevo o para cambiar quién tiene uno, se edita solo `GIRA.Api/Authorization/AutorizacionExtensions.cs` y se avisa en el PR.
+
+## Políticas y roles
+
+| Política | Roles permitidos | Módulo |
+|---|---|---|
+| `GestionarUsuarios` | Administrador | Seguridad |
+| `OperarReservas` | Administrador, Gerente, Supervisor, Mesero | Reservas |
+| `GestionarSalon` | Administrador, Gerente | Reservas |
+| `ConsultarInventario` | Administrador, Gerente, Supervisor, Cocina | Inventario |
+| `GestionarInventario` | Administrador, Gerente | Inventario |
+| `RegistrarMovimientos` | Administrador, Gerente, Supervisor, Cocina | Inventario |
+| `AtenderAlertasInventario` | Administrador, Gerente, Supervisor | Inventario |
+| `GestionarPersonal` | Administrador, Gerente | Personal |
+| `AsignarTurnos` | Administrador, Gerente, Supervisor | Personal |
+| `ConsultarMisTurnos` | Todos los roles | Personal |
+| `VerDashboard` | Administrador, Gerente | Afluencia |
+| `VerPrediccion` | Administrador, Gerente, Supervisor | Afluencia |
+| `GestionarModelos` | Administrador, Gerente | Afluencia |
+| `GestionarConfiguracion` | Administrador, Gerente | Configuración |
+| `GestionarPlantillasCorreo` | Administrador | Configuración |
+
+> `AddAutorizacionGira` (en `GIRA.Api/Authorization/AutorizacionExtensions.cs`) es compartido entre todos los módulos: cada módulo agrega ahí sus propias políticas, no crea su propio registro de autorización.
+
+## Endpoints actuales
+
+| Endpoint | Verbo | Acceso |
+|---|---|---|
+| `/api/auth/login` | POST | Anónimo (máximo 10 intentos por minuto por IP; 429 si se pasa) |
+| `/api/auth/refresh` | POST | Anónimo |
+| `/api/auth/logout` | POST | `[Authorize]` (usuario autenticado, sin política específica) |
+| `/api/auth/cambiar-password` | PUT | `[Authorize]` (usuario autenticado, sin política específica) |
+| `/api/auth/me` | GET | `[Authorize]` (usuario autenticado, sin política específica) |
+| `/api/roles` | GET | `GestionarUsuarios` |
+| `/api/usuarios` | GET | `GestionarUsuarios`. Filtros opcionales por `UsuarioFiltroRequest` |
+| `/api/usuarios/{id}` | GET | `GestionarUsuarios` |
+| `/api/usuarios` | POST | `GestionarUsuarios` |
+| `/api/usuarios/{id}` | PUT | `GestionarUsuarios` |
+| `/api/usuarios/{id}/estado` | PATCH | `GestionarUsuarios` |
+| `/api/usuarios/{id}/roles` | PUT | `GestionarUsuarios` |
+| `/api/usuarios/{id}/accesos` | GET | `GestionarUsuarios`. Paginado (`page`, `pageSize` máximo 100), lo más reciente primero; filtros opcionales `exitoso`, `desde`, `hasta` |
+
+### Reservas: disponibilidad y creación (GI-158, GI-403)
+
+Aquí conviven el cliente web (anónimo) y el personal (`OperarReservas`); cada fila dice quién puede usarla. Los canales y su ciclo de vida están en [reservas-canales.md](reservas-canales.md).
+
+| Endpoint | Verbo | Acceso |
+|---|---|---|
+| `/api/reservas/disponibilidad` | GET | Anónimo, con límite por IP (429). Query `fecha` y `personas`. **Cambio de contrato (GI-226):** devuelve TODAS las franjas activas del día, cada una con `id`, `nombre`, `horaInicio`, `horaFin`, `disponible` (bool) y `motivoNoDisponible` (texto cuando `disponible` es false, ausente o nulo si no). Motivos, en este orden de prioridad: "El restaurante está cerrado ese día.", "Fuera del rango de reserva (máximo N días).", "Esta franja ya pasó.", "Requiere reservar con al menos N horas de antelación." y "Sin mesas disponibles para X personas." (N y X salen de la configuración y de la consulta). **Una fecha pasada o fuera de la ventana de reserva ya no responde 400** para el cliente: responde 200 con las franjas deshabilitadas y su motivo. Sigue respondiendo 400 si el grupo supera el tamaño máximo efectivo ("Para grupos de más de N personas, llama al restaurante.") o si `personas` es menor que 1. Antes devolvía solo las franjas con mesa libre y rechazaba con 400 las fechas fuera de la ventana |
+| `/api/reservas/disponibilidad-personal` | GET | `OperarReservas` (GI-403). Query `fecha` y `personas`. Franjas con mesa libre para el personal: incluye la franja de hoy en curso y no exige la antelación de 2 h; solo excluye las franjas que ya terminaron. Sin límite por IP. **Sin cambios con GI-226:** devuelve solo las franjas seleccionables (siempre con `disponible = true`) y conserva el 400 por fecha pasada o fuera de la ventana ("La fecha no puede ser en el pasado." / "La fecha supera la ventana máxima de anticipación."). El `GET /api/reservas/disponibilidad` anónimo (limitado por IP) conserva las 2 h y no cambia. La ruta va antes de `{id}` |
+| `/api/reservas` | POST | Anónimo o `OperarReservas` (GI-403). Sin `Authorization`: cliente web (origen Web, antelación mínima de 2 h; el `origen` del cuerpo se ignora). Con token y `OperarReservas`: personal, `origen` Telefono (1) o Presencial (2), **sin** antelación de 2 h pero con la franja sin terminar y fecha no pasada. Con token inválido responde 401, nunca sigue como anónimo |
+| `/api/reservas/politicas` | GET | Anónimo, con límite por IP (429), solo lectura (GI-226). Devuelve solo lo que el cliente necesita: `antelacionMinimaMinutos`, `antelacionMaximaDias`, `limiteCancelacionMinutos`, `maxPersonas` (el tamaño de grupo **efectivo**: el menor entre el parámetro y la mesa activa más grande), `maxReservasVigentesPorTelefono` (el máximo de reservas vigentes por teléfono, para que las pantallas muestren el número configurado y no uno escrito a mano), `telefonoContacto` y `diasCerrados` (fechas cerradas dentro de la ventana de reserva, sin motivo). **No** incluye la ventana de check-in, los horarios ni datos de quién configuró |
+
+### Reservas: agenda del personal (GI-164)
+
+Todos con `OperarReservas` (Administrador, Gerente, Supervisor, Mesero), sin excepciones. El estado y el origen salen como texto (por ejemplo `"Confirmada"`).
+
+| Endpoint | Verbo | Acceso |
+|---|---|---|
+| `/api/reservas` | GET | `OperarReservas`. Paginado (`page`, `pageSize` máximo 100); filtros opcionales `fecha`, `estado` (nombre), `franjaId` y `telefono` (10 dígitos). Sin `fecha` ni `telefono` devuelve el día de hoy |
+| `/api/reservas/codigo/{codigo}` | GET | `OperarReservas` (GI-401). Detalle de una reserva por su código de 8 dígitos (`ReservaDetalleDto`, el mismo de `/api/reservas/{id}`), de cualquier fecha y estado. Acepta espacios y guiones en el código y los normaliza; 400 "El código debe tener 8 dígitos." si no son exactamente 8 dígitos 0-9; 404 "No encontramos esa reserva." si no existe; 429 por encima de 20 búsquedas por minuto y por usuario. **No es la consulta pública** (`POST /api/reservas/consultar`, código + teléfono): aquí no se pide el teléfono porque exige el rol. El código va en la ruta, nunca en el cuerpo de un error, y la aplicación no lo registra |
+| `/api/reservas/{id}` | GET | `OperarReservas`. Detalle con cliente, mesa, franja, estado y motivo de cancelación; 404 si no existe |
+| `/api/reservas/{id}/check-in` | PATCH | `OperarReservas`. Body `{ "personasReales": n }`. Desde la ventana de check-in configurada antes de la franja (por defecto 15 minutos; parámetro de Configuración) y hasta que termina; 400 si supera la capacidad de la mesa; 409 si el estado o la hora no lo permiten. Devuelve el detalle |
+| `/api/reservas/{id}` | PUT | `OperarReservas`. Body `{ fecha, franjaHorariaId, personas, mesaId? }`. Modifica una reserva Confirmada hasta el inicio de su franja, revalidando la disponibilidad; sin `mesaId` conserva la mesa si sirve. Publica `ReservaModificadaEvent`. Devuelve el detalle |
+| `/api/reservas/{id}/cancelar` | PATCH | `OperarReservas`. Body `{ "motivo": "texto" }` (obligatorio, 1 a 500 caracteres). Cancela hasta el inicio de la franja; 409 si no está Confirmada o la franja ya empezó. Devuelve el detalle |
+| `/api/reservas/{id}/completar` | PATCH | `OperarReservas`. EnCurso pasa a Completada y publica `VisitaCompletadaEvent` (`ConReserva = true`, con las personas reales). Sin ventana horaria; 409 si no está EnCurso. Devuelve el detalle |
+| `/api/reservas/{id}/no-asistio` | PATCH | `OperarReservas` (GI-404). Sin cuerpo. Confirmada pasa a NoAsistio, solo con la franja ya empezada; antes del inicio responde 409 ("La franja aún no empieza; si el cliente no vendrá, cancela la reserva."). 404 si no existe; 409 si no está Confirmada o hubo una modificación concurrente. Libera la mesa y publica `ReservaNoAsistidaEvent` una sola vez, después de guardar (un handler que falla no revierte). El check-in sobre una reserva NoAsistio responde 409. Devuelve el detalle |
+| `/api/visitas` | POST | `OperarReservas`. Visita sin reserva de hoy (fecha del servidor). Body `{ franjaHorariaId, mesaId, personas }`; la franja debe estar activa y haber empezado; la mesa es **obligatoria** (decisión del líder: null, vacía u omitida responde 400) y debe estar activa, de zona activa, sin reserva vigente y sin otra visita en esa franja (una mesa admite un solo grupo por franja). **Cambio incompatible:** antes `mesaId` era opcional (`Guid?` sin exigirla); un cliente que no la enviara antes y siga sin hacerlo ahora recibe 400 en vez de 200. Publica `VisitaCompletadaEvent` (`ConReserva = false`). **No marca la mesa como ocupada en el mapa** (no tiene hora de salida), aunque sí la marca con la etiqueta «Con visita» |
+| `/api/visitas` | GET | `OperarReservas` (GI-402). Visitas sin reserva de un día: query `fecha` (aaaa-mm-dd); sin ella, hoy en Santo Domingo. Devuelve `{ fecha, totalVisitas, totalPersonas, truncada, visitas: [{ id, franjaNombre, mesaNumero?, personas, horaRegistro }] }` con las 200 más recientes primero (`horaRegistro` en hora local); los totales cuentan todo el día y `truncada` avisa si hay más de 200. **Sin datos personales** (no hay cliente, teléfono ni usuario). 400 si la fecha no es exactamente aaaa-mm-dd (con ceros; no se aceptan formatos como 01/12/2026, que se leerían como mes/día), es futura o es de hace más de 365 días. Solo lectura: no cambia el POST ni el mapa |
+| `/api/reservas/ocupacion` | GET | `OperarReservas`. Mapa de ocupación (GI-167): todas las mesas por zona, con su estado para una fecha y una franja. `fecha` opcional (aaaa-mm-dd; por defecto hoy en hora de Santo Domingo) y `franjaId` obligatoria; 400 si falta o no es válida, 404 si la franja no existe. Estado como texto: `Libre`, `Reservada` (reserva Confirmada), `Ocupada` (reserva EnCurso) o `Inactiva` (la mesa o su zona están inactivas; gana sobre la reserva, que igual se muestra con `reservaId` y `clienteNombre`). Con varias reservas vigentes en una mesa gana EnCurso. **Las visitas sin reserva no cambian el estado** en el mapa: no tienen hora de salida, así que una mesa con un walk-in aparece Libre, pero sale con `tieneVisita: true` (etiqueta «Con visita» en el frontend) para que el personal lo note. El nombre del cliente sí se incluye; el teléfono no (se obtiene con el detalle de la reserva) |
+| `/api/reservas/franjas` | GET | `OperarReservas` (GI-399, controlador `FranjasOperativasController`). Todas las franjas no borradas, **activas e inactivas**, con `id`, `nombre`, `horaInicio`, `horaFin` y `activa`; ordenadas por hora de inicio y **sin paginar**. Es la fuente de franjas para Mesero y Supervisor, que no pueden usar `/api/franjas` (`GestionarSalon`, 403). El front ofrece solo las activas para crear reservas o registrar visitas |
+| `/api/clientes` | GET | `OperarReservas`. `buscar` (nombre o teléfono, mínimo 3 caracteres), paginado |
+
+> **Excepción documentada (GI-169): teléfono en el query string.** `GET /api/reservas?telefono=` y `GET /api/clientes?buscar=` reciben el teléfono del cliente en la URL. Se acepta solo porque son endpoints del personal autenticado (`OperarReservas`) y no hay un POST de búsqueda. Reglas para el front: el teléfono vive solo en el estado de la página; nunca va en la ruta del navegador (`/reservas/...`), ni en `localStorage`/`sessionStorage`, ni en logs del cliente. Pendiente de backlog: un `POST /api/reservas/buscar` con el teléfono en el cuerpo, para quitar la excepción.
+
+### Configuración de reservas (GI-226)
+
+Ver [parametros-reservas.md](parametros-reservas.md). Lectura con `OperarReservas`; escritura con `GestionarConfiguracion` (Administrador, Gerente). Los errores de formato o de rango salen como `ValidationProblem` (400, con `errors` por campo en camelCase); las reglas que dependen del estado, como un ProblemDetails con un mensaje de texto. El día de la semana es el `DayOfWeek` de .NET (0 = domingo … 6 = sábado).
+
+| Endpoint | Verbo | Acceso |
+|---|---|---|
+| `/api/configuracion/reservas/parametros` | GET | `OperarReservas`. Las seis políticas, sus valores por defecto (`valoresPorDefecto`, para «Restablecer valores recomendados») y `actualizadoEn`. `actualizadoPor` solo se incluye para quien tiene `GestionarConfiguracion` |
+| `/api/configuracion/reservas/parametros` | PUT | `GestionarConfiguracion`. Body con las seis políticas; crea la fila única la primera vez. 400 por campo si un valor no es válido (rangos y antelación mínima < máxima); 409 si otra persona cambió la configuración a la vez. `advertencias` (por ejemplo, un grupo máximo mayor que la mesa más grande) no impiden guardar. Invalida la caché de parámetros |
+| `/api/configuracion/reservas/horario` | GET | `OperarReservas`. Los 7 días, de lunes a domingo, con `diaSemana` (DayOfWeek de .NET) y `nombreDia` |
+| `/api/configuracion/reservas/horario/{dia}` | PUT | `GestionarConfiguracion`. Body `{ abierto, horaApertura, horaCierre }`. 400 si `dia` no está entre 0 y 6 o si la apertura no es anterior al cierre; **409 si una franja activa quedaría fuera del horario** (indica franja y día). Al cerrar un día, `advertencias` informa cuántas reservas vigentes futuras hay en ese día de la semana (no se cancelan) |
+| `/api/configuracion/reservas/dias-cerrados` | GET | `OperarReservas`. Fechas cerradas de hoy en adelante, por fecha |
+| `/api/configuracion/reservas/dias-cerrados` | POST | `GestionarConfiguracion`. Body `{ fecha, motivo? }` (motivo hasta 200 caracteres). 400 si la fecha es pasada; 409 si la fecha ya está cerrada. `advertencias` informa cuántas reservas vigentes hay ese día (no se cancelan) |
+| `/api/configuracion/reservas/dias-cerrados/{id}` | DELETE | `GestionarConfiguracion`. Borrado lógico; 204, o 404 si no existe |
+
+### Reservas: zonas, mesas y franjas (GI-163)
+
+Todos con `GestionarSalon` (Administrador, Gerente). `{recurso}` es `zonas`, `mesas` o `franjas`.
+
+| Endpoint | Verbo | Acceso |
+|---|---|---|
+| `/api/{recurso}` | GET | `GestionarSalon`. Paginado (`page`, `pageSize` máximo 100); filtro opcional `activa` (mesas también `zonaId`) |
+| `/api/{recurso}/{id}` | GET | `GestionarSalon` |
+| `/api/{recurso}` | POST | `GestionarSalon`. 409 si el nombre o número ya existe; en franjas, también 409 si la franja se solapa con otra activa o **no cabe en el horario de operación** de algún día abierto (GI-226; el mensaje indica el día y su horario). Lo mismo al cambiar el horario de una franja activa o reactivarla |
+| `/api/{recurso}/{id}` | PUT | `GestionarSalon`. En mesas: 409 si se cambia la zona y la mesa tiene reservas vigentes de hoy en adelante (reasignarlas primero), si se reduce la capacidad por debajo de una reserva futura o si el número ya existe |
+| `/api/{recurso}/{id}/estado` | PATCH | `GestionarSalon`. Body `{ "activa": bool }`; 409 si hay reservas futuras vigentes (reasignarlas primero) |
+
+### Reservas: proceso automático (no es un endpoint)
+
+Un solo `BackgroundService` (`ReservasProcesoAutomaticoService`) ejecuta cada minuto los procesos automáticos de Reservas. Hoy marca como **NoAsistio** las reservas Confirmada sin check-in cuya **tolerancia de no-show** ya venció (parámetro editable, 15 minutos por defecto, contados desde el mayor entre el inicio de la franja y el último registro de la reserva; GI-404), hasta 200 por ciclo y las más antiguas primero, y publica `ReservaNoAsistidaEvent` (GI-161); el personal también puede marcarla antes con `PATCH /api/reservas/{id}/no-asistio`, ya empezada la franja. La tolerancia se lee **en cada ciclo**, así que un cambio en Configuración rige desde el ciclo siguiente. En el mismo ciclo **completa** las reservas EnCurso cuya franja ya terminó (desde el instante en que termina) y publica `VisitaCompletadaEvent` con las personas reales y `ConReserva = true` (GI-224). Cada paso procesa hasta 200 reservas por ciclo, las más antiguas primero. El proceso **no toca las visitas sin reserva**: no tienen estado ni cierre.
+
+Configuración (sección `Reservas:ProcesoAutomatico`; un valor inválido nunca impide arrancar: se usa el valor por defecto y se registra un Warning):
+
+| Clave | Por defecto | Rango |
+|---|---|---|
+| `Habilitado` | `true` | `false` desactiva el proceso (las pruebas HTTP lo desactivan) |
+| `IntervaloSegundos` | 60 | 5 a 3600 |
+| `RetrasoInicialSegundos` | 15 | 0 a 600 (el primer ciclo espera para no competir con `Migrate()` y el seeder) |
+
+## Respuestas de error
+
+Las dos usan `application/problem+json`, igual que el resto de la API.
+
+**401: sin token, token vencido o inválido** (incluye el encabezado `WWW-Authenticate: Bearer`):
+
+```json
+{
+  "title": "No autenticado",
+  "status": 401,
+  "detail": "Debes iniciar sesión para acceder a este recurso."
+}
+```
+
+**403: token válido, pero el rol no tiene permiso:**
+
+```json
+{
+  "title": "Acceso denegado",
+  "status": 403,
+  "detail": "Tu rol no tiene permiso para realizar esta acción."
+}
+```
+
+El front debe tratar el 401 como "volver al login" y el 403 como "mostrar mensaje sin cerrar sesión".
+
+## Probar con Swagger
+
+1. Ejecuta la API en Development y abre `/swagger`.
+2. En `POST /api/auth/login` inicia sesión y copia el `accessToken`.
+3. Botón **Authorize**: pega solo el token, sin la palabra `Bearer`, y pulsa Authorize.
+4. Prueba los endpoints protegidos.
+
+## Pruebas
+
+- `AutorizacionPoliticasTests`: 401 y 403 con endpoints de ejemplo que solo existen en las pruebas (`GiraApiFactoryConPruebas`).
+- Para probar tu propio endpoint protegido: crea un usuario con `CrearUsuarioAsync`, inicia sesión con `ObtenerTokenAsync` y manda el token con `UsarToken`.

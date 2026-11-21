@@ -1,0 +1,68 @@
+/* Especificidad 0 a propósito: cualquier clase reservas-* debe poder pisar
+   este reset sin necesitar !important. */
+:where(.reservas-raiz) a {
+  color: inherit;
+  text-decoration: none;
+}
+
+:where(.reservas-raiz) button,
+:where(.reservas-raiz) input {
+  font-family: var(--reservas-fuente-texto);
+  color: inherit;
+}
+
+:where(.reservas-raiz) button {
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+:where(.reservas-raiz) h1,
+:where(.reservas-raiz) h2,
+:where(.reservas-raiz) p,
+:where(.reservas-raiz) dl,
+:where(.reservas-raiz) dd {
+  margin: 0;
+}
+
+:where(.reservas-raiz) h1,
+:where(.reservas-raiz) h2 {
+  font-family: var(--reservas-fuente-titulo);
+}
+
+:where(.reservas-raiz) button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+/* Especificidad real (ya no :where): el foco visible siempre debe ganar, sin
+   depender del orden de carga frente al global de Gira.frontend. */
+.reservas-raiz :is(button, a, input):focus-visible {
+  outline: 3px solid var(--reservas-foco);
+  outline-offset: 2px;
+}
+
+/* box-sizing también lleva especificidad real: nada necesita pisarlo selectivamente. */
+.reservas-raiz,
+.reservas-raiz *,
+.reservas-raiz *::before,
+.reservas-raiz *::after {
+  box-sizing: border-box;
+}
+
+.reservas-raiz {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  font-family: var(--reservas-fuente-texto);
+  color: var(--reservas-texto);
+}
+
+/* Elementos no interactivos que se enfocan por JS (h1 al cambiar de paso,
+   aviso de éxito tras cancelar): el cambio de contenido ya es la señal
+   visible, un anillo de foco sobre un heading se vería fuera de lugar. */
+.reservas-raiz [tabindex="-1"]:focus {
+  outline: none;
+}

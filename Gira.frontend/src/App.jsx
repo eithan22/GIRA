@@ -1,0 +1,103 @@
+import { Link, Navigate, Route, Routes } from 'react-router-dom';
+import { useAuth } from './security/AuthContext.jsx';
+import AccessDenied from './security/pages/AccessDenied.jsx';
+import ChangePassword from './security/pages/ChangePassword.jsx';
+import ForgotPassword from './security/pages/ForgotPassword.jsx';
+import Login from './security/pages/Login.jsx';
+import UserDetail from './security/pages/UserDetail.jsx';
+import UserForm from './security/pages/UserForm.jsx';
+import Users from './security/pages/Users.jsx';
+import AppLayout from './security/components/AppLayout.jsx';
+import RequireRole from './security/components/RequireRole.jsx';
+import Icon from './security/components/Icon.jsx';
+import Reservar from './reservas/pages/Reservar.jsx';
+import MiReserva from './reservas/pages/MiReserva.jsx';
+import AgendaPersonal from './reservas/personal/pages/AgendaPersonal.jsx';
+import MapaPersonal from './reservas/personal/pages/MapaPersonal.jsx';
+import ConfiguracionPersonal from './reservas/personal/pages/ConfiguracionPersonal.jsx';
+import Insumos from './inventario/pages/Insumos.jsx';
+import Platos from './inventario/pages/Platos.jsx';
+import Movimientos from './inventario/pages/Movimientos.jsx';
+import Kardex from './inventario/pages/Kardex.jsx';
+import Alertas from './inventario/pages/Alertas.jsx';
+import Proyeccion from './inventario/pages/Proyeccion.jsx';
+import Catalogos from './inventario/pages/Catalogos.jsx';
+import Dashboard from './analitica/Dashboard.jsx';
+import Marcaciones from './personal/Marcaciones.jsx';
+
+function Home() {
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('Administrador');
+  return (
+    <section className="welcome-panel enter">
+      <div className="welcome-icon"><Icon name="shield" size={25} /></div>
+      <span className="eyebrow">CENTRO DE SEGURIDAD</span>
+      <h1>Hola, {user?.nombre?.split(' ')[0] || 'bienvenido'}.</h1>
+      <p>Tu espacio de trabajo está listo. Desde aquí puedes revisar tu perfil y los accesos disponibles para tu rol.</p>
+      <div className="welcome-actions">
+        {isAdmin && <Link className="button button-primary" to="/seguridad/usuarios">Gestionar usuarios <Icon name="arrow" size={16} /></Link>}
+      </div>
+      <div className="welcome-footer"><span className="status-dot" /> Sesión segura activa <span className="welcome-role">{user?.roles?.join(' · ')}</span></div>
+    </section>
+  );
+}
+
+function AuthenticatedApp() {
+  const { user } = useAuth();
+  const home = user?.roles?.includes('Administrador') ? '/seguridad/usuarios' : '/inicio';
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/recuperar-password" element={<ForgotPassword />} />
+      <Route path="/reservar" element={<Reservar />} />
+      <Route path="/mi-reserva" element={<MiReserva />} />
+      <Route element={<RequireRole />}>
+        <Route element={<AppLayout />}>
+          <Route index element={<Navigate to={home} replace />} />
+          <Route path="inicio" element={<Home />} />
+          <Route element={<RequireRole roles={['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina']} />}>
+            <Route path="personal/marcaciones" element={<Marcaciones />} />
+          </Route>
+          <Route path="acceso-denegado" element={<AccessDenied />} />
+          <Route path="perfil/cambiar-password" element={<ChangePassword />} />
+          <Route element={<RequireRole roles={['Administrador']} />}>
+            <Route path="seguridad/usuarios" element={<Users />} />
+            <Route path="seguridad/usuarios/nuevo" element={<UserForm />} />
+            <Route path="seguridad/usuarios/:userId/editar" element={<UserForm />} />
+            <Route path="seguridad/usuarios/:userId" element={<UserDetail />} />
+          </Route>
+          <Route element={<RequireRole roles={['Administrador', 'Gerente', 'Supervisor', 'Mesero']} />}>
+            <Route path="reservas" element={<Navigate to="/reservas/agenda" replace />} />
+            <Route path="reservas/agenda" element={<AgendaPersonal />} />
+            <Route path="reservas/mapa" element={<MapaPersonal />} />
+            <Route path="reservas/visitas" element={<Navigate to="/reservas/agenda" replace />} />
+          </Route>
+          <Route element={<RequireRole roles={['Administrador', 'Gerente']} />}>
+            <Route path="analitica/dashboard" element={<Dashboard />} />
+            <Route path="gerencia/dashboard" element={<Navigate to="/analitica/dashboard" replace />} />
+            <Route path="reservas/configuracion" element={<ConfiguracionPersonal />} />
+            <Route path="inventario/catalogos" element={<Catalogos />} />
+          </Route>
+          <Route element={<RequireRole roles={['Administrador', 'Gerente', 'Supervisor', 'Cocina']} />}>
+            <Route path="inventario" element={<Navigate to="/inventario/insumos" replace />} />
+            <Route path="inventario/insumos" element={<Insumos />} />
+            <Route path="inventario/platos" element={<Platos />} />
+            <Route path="inventario/movimientos" element={<Movimientos />} />
+          </Route>
+          <Route element={<RequireRole roles={['Administrador', 'Gerente', 'Supervisor']} />}>
+            <Route path="inventario/kardex" element={<Kardex />} />
+            <Route path="inventario/alertas" element={<Alertas />} />
+            <Route path="inventario/proyeccion" element={<Proyeccion />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Route>
+    </Routes>
+  );
+}
+
+export default function App() {
+  const { loading } = useAuth();
+  if (loading) return <div className="boot-screen"><span className="brand-mark">G</span><span className="loading-orb" /> Cargando tu espacio seguro…</div>;
+  return <AuthenticatedApp />;
+}
