@@ -23,6 +23,7 @@ Dentro de cada capa, el código se organiza **por módulo** (una carpeta por mó
 
 - .NET 10 SDK
 - Docker Desktop (solo para SQL Server; la API y el frontend corren normal en la máquina)
+- En Ubuntu, `sudo apt-get update && sudo apt-get install -y libomp-dev` para la dependencia nativa `libiomp5.so` de ML.NET SSA, necesaria tanto para entrenar modelos como para ejecutar sus pruebas.
 
 ## Levantar SQL Server
 
