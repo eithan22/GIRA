@@ -74,7 +74,8 @@ public class TurnoServiceTests
     {
         var turnos = new RepositorioTurnosEnMemoria();
         turnos.Turnos.Add(Turno(Lunes, "09:00", "13:00"));
-        var servicio = Crear(turnos);
+        // Descanso cero: esta prueba es sobre solapamiento (RN-PER-02), no sobre el descanso mínimo.
+        var servicio = Crear(turnos, descanso: TimeSpan.Zero);
 
         var resultado = await servicio.CrearAsync(Solicitud(Lunes, "13:00", "17:00"), default);
 
@@ -100,6 +101,59 @@ public class TurnoServiceTests
         var resultado = await servicio.CrearAsync(Solicitud(Lunes, "09:00", "13:00"), default);
 
         Assert.Equal(ErrorType.Validation, resultado.Type);
+    }
+
+    [Fact]
+    public async Task Crear_SinDescansoMinimoEnElMismoDia_DevuelveValidacion()
+    {
+        var turnos = new RepositorioTurnosEnMemoria();
+        turnos.Turnos.Add(Turno(Lunes, "06:00", "10:00"));
+        var servicio = Crear(turnos);
+
+        // Hay 2 horas de descanso y el mínimo por defecto es de 11.
+        var resultado = await servicio.CrearAsync(Solicitud(Lunes, "12:00", "14:00"), default);
+
+        Assert.Equal(ErrorType.Validation, resultado.Type);
+        Assert.Single(turnos.Turnos);
+    }
+
+    [Fact]
+    public async Task Crear_DescansoIgualAlMinimo_SeAsigna()
+    {
+        var turnos = new RepositorioTurnosEnMemoria();
+        turnos.Turnos.Add(Turno(Lunes, "06:00", "10:00"));
+        var servicio = Crear(turnos, descanso: TimeSpan.FromHours(2));
+
+        var resultado = await servicio.CrearAsync(Solicitud(Lunes, "12:00", "14:00"), default);
+
+        Assert.True(resultado.IsSuccess);
+    }
+
+    [Fact]
+    public async Task Crear_DescansoQueCruzaLaMedianoche_DevuelveValidacion()
+    {
+        var turnos = new RepositorioTurnosEnMemoria();
+        // El domingo termina a las 18:00 y el lunes empieza a las 06:00: 12 horas de descanso.
+        turnos.Turnos.Add(Turno(Lunes.AddDays(-1), "12:00", "18:00"));
+        var servicio = Crear(turnos, descanso: TimeSpan.FromHours(13));
+
+        var resultado = await servicio.CrearAsync(Solicitud(Lunes, "06:00", "10:00"), default);
+
+        Assert.Equal(ErrorType.Validation, resultado.Type);
+    }
+
+    [Fact]
+    public async Task Crear_TurnoCanceladoNoCuentaParaElDescanso()
+    {
+        var turnos = new RepositorioTurnosEnMemoria();
+        var cancelado = Turno(Lunes, "06:00", "10:00");
+        cancelado.Estado = EstadoTurno.Cancelado;
+        turnos.Turnos.Add(cancelado);
+        var servicio = Crear(turnos);
+
+        var resultado = await servicio.CrearAsync(Solicitud(Lunes, "12:00", "14:00"), default);
+
+        Assert.True(resultado.IsSuccess);
     }
 
     [Fact]
@@ -269,7 +323,8 @@ public class TurnoServiceTests
         RepositorioTurnosEnMemoria turnos,
         RepositorioAusenciasFalso? ausencias = null,
         bool empleadoActivo = true,
-        PublicadorFalso? publicador = null) =>
+        PublicadorFalso? publicador = null,
+        TimeSpan? descanso = null) =>
         new(
             turnos,
             ausencias ?? new RepositorioAusenciasFalso(),
@@ -278,7 +333,8 @@ public class TurnoServiceTests
             new RepositorioDisponibilidadFalso(),
             new TurnoRequestValidator(),
             new RelojFijo(new DateTimeOffset(2026, 11, 18, 12, 0, 0, TimeSpan.Zero)),
-            publicador ?? new PublicadorFalso());
+            publicador ?? new PublicadorFalso(),
+            descanso);
 
     /// <summary>Publicador de eventos falso que guarda lo que se publica, para comprobarlo en las pruebas.</summary>
     private sealed class PublicadorFalso : IPublicadorEventosSeguro
