@@ -8,6 +8,8 @@ const menuItems = [
   { label: 'Inicio', to: '/inicio', icon: 'grid', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
   { label: 'Reservas', to: '/reservas', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero'] },
   { label: 'Inventario', to: '/inventario', icon: 'box', roles: ['Administrador', 'Gerente', 'Supervisor', 'Cocina'] },
+  { label: 'Dashboard', to: '/analitica/dashboard', icon: 'grid', roles: ['Administrador', 'Gerente'] },
+  { label: 'Mi turno', to: '/personal/marcaciones', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
   { label: 'Usuarios', to: '/seguridad/usuarios', icon: 'users', roles: ['Administrador'], badge: true },
 ];
 
@@ -93,6 +95,8 @@ function locationLabel() {
   if (path.includes('/perfil/cambiar-password')) return 'Cambiar contraseña';
   if (path.includes('/usuarios')) return path.includes('nuevo') ? 'Nuevo usuario' : path.includes('editar') ? 'Editar usuario' : path.split('/').length > 3 ? 'Detalle de usuario' : 'Usuarios';
   if (path.includes('acceso-denegado')) return 'Acceso denegado';
+  if (path.startsWith('/personal')) return 'Marcación de turno';
+  if (path.startsWith('/analitica')) return 'Dashboard gerencial';
   if (path.startsWith('/reservas')) {
     if (path.includes('/mapa')) return 'Mapa de mesas';
     if (path.includes('/configuracion')) return 'Zonas, mesas y franjas';

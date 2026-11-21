@@ -1,3 +1,4 @@
+using GIRA.Application.Events.Analitica;
 using GIRA.Application.Interfaces.Services.Reservas;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -28,6 +29,14 @@ public class PublicadorEventosSeguro : IPublicadorEventosSeguro
         try
         {
             await _publisher.Publish(evento, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (ErrorRegistroAfluenciaException)
+        {
+            throw;
         }
         catch (Exception ex)
         {

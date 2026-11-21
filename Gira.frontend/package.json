@@ -8,7 +8,8 @@
     "build": "vite build --outDir build",
     "preview": "vite preview --host 0.0.0.0",
     "lint": "oxlint src",
-    "test": "node --test \"src/**/*.test.js\""
+    "test": "node --test \"src/**/*.test.js\"",
+    "test:dashboard": "node --test tests/dashboard.integration.mjs"
   },
   "dependencies": {
     "axios": "^1.8.4",
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^5.0.0",
     "oxlint": "^1.0.0",
+    "playwright": "^1.65.1",
     "vite": "8.3.5"
   }
 }

@@ -2,10 +2,14 @@ using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using GIRA.Application.DTOs.Inventario;
 using GIRA.Application.Events.Inventario;
+using GIRA.Application.Events.Reservas;
 using GIRA.Application.Interfaces.Services.Inventario;
 using GIRA.Application.Interfaces.Services.Seguridad.Auth;
+using GIRA.Domain.Entities.Reservas;
+using GIRA.Infrastructure.Persistence.Context;
 using GIRA.Tests.Api;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GIRA.Tests.Inventario;
@@ -32,13 +36,28 @@ internal static class ApiInventario
     public static async Task PublicarAsync(GiraApiFactory factory, INotification evento)
     {
         using var scope = factory.Services.CreateScope();
+        if (evento is VisitaCompletadaEvent visita)
+        {
+            var db = scope.ServiceProvider.GetRequiredService<GiraDbContext>();
+            if (!await db.FranjasHorarias.AnyAsync(franja => franja.Id == visita.FranjaHorariaId))
+            {
+                db.FranjasHorarias.Add(new FranjaHoraria
+                {
+                    Id = visita.FranjaHorariaId,
+                    Nombre = "Franja de prueba"
+                });
+                await db.SaveChangesAsync();
+            }
+        }
         await scope.ServiceProvider.GetRequiredService<IPublisher>().Publish(evento);
     }
 
     /// <summary>POST /api/movimientos.</summary>
     public static Task<HttpResponseMessage> Movimiento(
-        HttpClient cliente, Guid insumoId, string tipo, decimal cantidad, string? motivo = null, DateOnly? vence = null) =>
-        cliente.PostAsJsonAsync("/api/movimientos", new RegistrarMovimientoRequest(insumoId, tipo, cantidad, null, motivo, null, vence));
+        HttpClient cliente, Guid insumoId, string tipo, decimal cantidad, string? motivo = null,
+        DateOnly? vence = null, decimal? costoUnitario = null) =>
+        cliente.PostAsJsonAsync("/api/movimientos",
+            new RegistrarMovimientoRequest(insumoId, tipo, cantidad, costoUnitario, motivo, null, vence));
 
     /// <summary>Crea un insumo (y la unidad y la categoría si todavía no hay).</summary>
     public static async Task<InsumoDto> CrearInsumoAsync(

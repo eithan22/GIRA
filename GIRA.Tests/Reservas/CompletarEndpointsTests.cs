@@ -2,6 +2,7 @@ using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Events.Reservas;
 using GIRA.Application.Interfaces.Services.Seguridad.Auth;
 using GIRA.Domain.Constants;
+using GIRA.Domain.Entities.Analitica;
 using GIRA.Domain.Entities.Reservas;
 using GIRA.Domain.Enums.Reservas;
 using GIRA.Infrastructure.Persistence.Context;
@@ -137,6 +138,12 @@ public class CompletarEndpointsTests : IAsyncLifetime
         Assert.Equal(usuarioId, guardada.UpdatedBy);
         var evento = Assert.Single(_registro.Visitas);
         Assert.Equal(new VisitaCompletadaEvent(Dia, _franjaId, 3, ConReserva: true, VisitaId: _enCursoId), evento);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GiraDbContext>();
+        var hecho = await db.Set<RegistroAfluencia>().SingleAsync(r => r.ReferenciaId == _enCursoId);
+        Assert.Equal(OrigenRegistroAfluencia.Reserva, hecho.Origen);
+        Assert.Equal(TipoRegistroAfluencia.VisitaCompletada, hecho.Tipo);
+        Assert.Equal(3, hecho.Personas);
     }
 
     [Fact]

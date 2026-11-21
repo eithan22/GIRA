@@ -84,7 +84,9 @@ public class MovimientoInventarioService : IMovimientoInventarioService
                 $"El stock quedaría en {ReglasInventario.Texto(insumo.CantidadStock + variacion)} {insumo.UnidadMedida?.Abreviatura}. No puede quedar por debajo de cero.");
         }
 
-        var costo = tipo == TipoMovimientoInventario.Entrada ? request.CostoUnitario : null;
+        decimal? costo = tipo == TipoMovimientoInventario.Entrada
+            ? request.CostoUnitario ?? insumo.CostoUnitario
+            : null;
         var movimiento = await AplicarAsync(insumo, tipo, variacion, request.Motivo, request.Referencia, costo, teorico: false, usuarioId, cancellationToken);
         if (lote)
         {
@@ -93,6 +95,7 @@ public class MovimientoInventarioService : IMovimientoInventarioService
                 Id = Guid.NewGuid(),
                 InsumoId = insumo.Id,
                 Cantidad = request.Cantidad,
+                CostoUnitario = costo,
                 FechaEntrada = hoy,
                 FechaVencimiento = request.FechaVencimiento!.Value
             });
@@ -300,8 +303,12 @@ public class MovimientoInventarioService : IMovimientoInventarioService
         insumo.AplicarMovimiento(variacion);
         if (variacion < 0 && insumo.Perecedero)
         {
-            await DescontarDeLotesAsync(insumo.Id, -variacion, cancellationToken);
+            var costoLotes = await DescontarDeLotesAsync(insumo.Id, -variacion, cancellationToken);
+            if (tipo is TipoMovimientoInventario.Salida or TipoMovimientoInventario.Merma)
+                costo = costoLotes;
         }
+        else if (variacion < 0 && tipo is TipoMovimientoInventario.Salida or TipoMovimientoInventario.Merma)
+            costo = insumo.CostoUnitario;
 
         var movimiento = new MovimientoInventario
         {
@@ -322,8 +329,12 @@ public class MovimientoInventarioService : IMovimientoInventarioService
     }
 
     // Las salidas gastan primero el lote que vence antes, para no avisar el vencimiento de algo que ya se usó.
-    private async Task DescontarDeLotesAsync(Guid insumoId, decimal cantidad, CancellationToken cancellationToken)
+    private async Task<decimal?> DescontarDeLotesAsync(
+        Guid insumoId, decimal cantidad, CancellationToken cancellationToken)
     {
+        var cantidadOriginal = cantidad;
+        var costoTotal = 0m;
+        var completo = true;
         foreach (var lote in await _insumos.ListarLotesConSaldoAsync(insumoId, cancellationToken))
         {
             if (cantidad <= 0)
@@ -332,9 +343,18 @@ public class MovimientoInventarioService : IMovimientoInventarioService
             }
 
             var usar = Math.Min(lote.Cantidad, cantidad);
+            if (lote.CostoUnitario is decimal costo)
+                costoTotal += usar * costo;
+            else
+                completo = false;
             lote.Cantidad -= usar;
             cantidad -= usar;
         }
+
+        if (cantidad > 0)
+            completo = false;
+
+        return completo && cantidadOriginal > 0 ? costoTotal / cantidadOriginal : null;
     }
 
     private async Task<OperationResult> GuardarAsync(CancellationToken cancellationToken)

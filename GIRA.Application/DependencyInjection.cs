@@ -1,6 +1,10 @@
 using FluentValidation;
+using GIRA.Application.Interfaces.Services.Analitica;
+using GIRA.Application.Interfaces.Services.Personal;
+using GIRA.Application.Services.Analitica;
 using GIRA.Application.Services.Configuracion;
 using GIRA.Application.Services.Inventario;
+using GIRA.Application.Services.Personal;
 using GIRA.Application.Services.Reservas;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +22,14 @@ public static class DependencyInjection
         services.AddConfiguracion();
         services.AddReservas();
         services.AddInventario();
+        services.AddScoped<IHistorialAfluenciaService, HistorialAfluenciaService>();
+        services.AddScoped<IKpisService, KpisService>();
+        services.AddScoped<IPrediccionAfluenciaService, PrediccionAfluenciaService>();
+        services.AddScoped<IGeneracionPrediccionService, GeneracionPrediccionService>();
+        services.AddScoped<IEntrenamientoModeloService, EntrenamientoModeloService>();
+        services.AddScoped<ICapacidadOperativaService, CapacidadOperativaService>();
+        services.AddScoped<IMarcacionTurnoService, MarcacionTurnoService>();
+        services.AddScoped<IRecomendacionesService, RecomendacionesService>();
         return services;
     }
 }
