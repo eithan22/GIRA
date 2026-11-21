@@ -19,6 +19,13 @@ import CargosPage from './personal/pages/CargosPage.jsx';
 import EmpleadosPage from './personal/pages/EmpleadosPage.jsx';
 import RequerimientosPage from './personal/pages/RequerimientosPage.jsx';
 import AusenciasPage from './personal/pages/AusenciasPage.jsx';
+import Insumos from './inventario/pages/Insumos.jsx';
+import Platos from './inventario/pages/Platos.jsx';
+import Movimientos from './inventario/pages/Movimientos.jsx';
+import Kardex from './inventario/pages/Kardex.jsx';
+import Alertas from './inventario/pages/Alertas.jsx';
+import Proyeccion from './inventario/pages/Proyeccion.jsx';
+import Catalogos from './inventario/pages/Catalogos.jsx';
 
 function Home() {
   const { user } = useAuth();
@@ -71,6 +78,18 @@ function AuthenticatedApp() {
             <Route path="personal/cargos" element={<CargosPage />} />
             <Route path="personal/requerimientos" element={<RequerimientosPage />} />
             <Route path="personal/ausencias" element={<AusenciasPage />} />
+            <Route path="inventario/catalogos" element={<Catalogos />} />
+          </Route>
+          <Route element={<RequireRole roles={['Administrador', 'Gerente', 'Supervisor', 'Cocina']} />}>
+            <Route path="inventario" element={<Navigate to="/inventario/insumos" replace />} />
+            <Route path="inventario/insumos" element={<Insumos />} />
+            <Route path="inventario/platos" element={<Platos />} />
+            <Route path="inventario/movimientos" element={<Movimientos />} />
+          </Route>
+          <Route element={<RequireRole roles={['Administrador', 'Gerente', 'Supervisor']} />}>
+            <Route path="inventario/kardex" element={<Kardex />} />
+            <Route path="inventario/alertas" element={<Alertas />} />
+            <Route path="inventario/proyeccion" element={<Proyeccion />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

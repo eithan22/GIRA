@@ -15,6 +15,7 @@ public static class ConfiguracionServiceExtensions
     {
         services.AddScoped<IParametrosReservaService, ParametrosReservaDbService>();
         services.AddScoped<IConfiguracionReservasService, ConfiguracionReservasService>();
+        services.AddScoped<IParametrosInventarioService, ParametrosInventarioService>();
         return services;
     }
 }

@@ -139,7 +139,7 @@ public class VisitaEndpointsTests : IAsyncLifetime
         Assert.Equal(usuarioId, visita.CreatedBy);
         Assert.Equal(3, visita.PersonasReales);
         var evento = Assert.Single(_registro.Visitas);
-        Assert.Equal(new VisitaCompletadaEvent(Dia, _almuerzoId, 3, ConReserva: false), evento);
+        Assert.Equal(new VisitaCompletadaEvent(Dia, _almuerzoId, 3, ConReserva: false, VisitaId: visita.Id), evento);
     }
 
     [Fact]

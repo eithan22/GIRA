@@ -136,7 +136,7 @@ public class CompletarEndpointsTests : IAsyncLifetime
         Assert.Equal(EstadoReserva.Completada, guardada.Estado);
         Assert.Equal(usuarioId, guardada.UpdatedBy);
         var evento = Assert.Single(_registro.Visitas);
-        Assert.Equal(new VisitaCompletadaEvent(Dia, _franjaId, 3, ConReserva: true), evento);
+        Assert.Equal(new VisitaCompletadaEvent(Dia, _franjaId, 3, ConReserva: true, VisitaId: _enCursoId), evento);
     }
 
     [Fact]
