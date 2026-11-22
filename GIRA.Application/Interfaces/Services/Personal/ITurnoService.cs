@@ -15,4 +15,10 @@ public interface ITurnoService
 
     /// <summary>Cambia el estado de un turno. Por ahora solo acepta Cancelado.</summary>
     Task<OperationResult<TurnoDto>> CambiarEstadoAsync(Guid id, EstadoTurno estado, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lista los turnos entre dos fechas (inclusive), de todos los estados, con filtro opcional por cargo (GI-338, RF-PER-04).
+    /// Rango máximo de 31 días. Devuelve 404 si el cargo indicado no existe.
+    /// </summary>
+    Task<OperationResult<IReadOnlyList<TurnoDto>>> ListarAsync(DateOnly desde, DateOnly hasta, Guid? cargoId, CancellationToken cancellationToken);
 }

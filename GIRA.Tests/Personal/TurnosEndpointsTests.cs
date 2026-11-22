@@ -16,6 +16,7 @@ namespace GIRA.Tests.Personal;
 public class TurnosEndpointsTests : IAsyncLifetime
 {
     private const string Ruta = "/api/turnos";
+    private const string RutaCobertura = "/api/turnos/cobertura";
 
     private readonly GiraApiFactory _factory = new();
     private HttpClient _cliente = null!;
@@ -45,7 +46,7 @@ public class TurnosEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Supervisor_ConsultaLaPlanificacionSemanal_RecibeOk()
+    public async Task Supervisor_ListaTurnosDelRango_RecibeOk()
     {
         Como(Roles.Supervisor);
 
@@ -55,11 +56,21 @@ public class TurnosEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Supervisor_ConsultaLaPlanificacionSemanal_RecibeOk()
+    {
+        Como(Roles.Supervisor);
+
+        var respuesta = await _cliente.GetAsync($"{RutaCobertura}?desde=2026-12-07&hasta=2026-12-13");
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+    }
+
+    [Fact]
     public async Task Planificacion_RangoInvertido_RecibeBadRequest()
     {
         Como(Roles.Supervisor);
 
-        var respuesta = await _cliente.GetAsync($"{Ruta}?desde=2026-12-13&hasta=2026-12-07");
+        var respuesta = await _cliente.GetAsync($"{RutaCobertura}?desde=2026-12-13&hasta=2026-12-07");
 
         Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
     }
@@ -69,9 +80,20 @@ public class TurnosEndpointsTests : IAsyncLifetime
     {
         Como(Roles.Supervisor);
 
-        var respuesta = await _cliente.GetAsync($"{Ruta}?desde=2026-12-07&hasta=2026-12-07&cargoId={Guid.NewGuid()}");
+        var respuesta = await _cliente.GetAsync($"{RutaCobertura}?desde=2026-12-07&hasta=2026-12-07&cargoId={Guid.NewGuid()}");
 
         Assert.Equal(HttpStatusCode.NotFound, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task Mesero_ConsultaLaPlanificacion_RecibeForbidden()
+    {
+        // GI-340: un rol sin permiso de asignación de turnos no puede ver la planificación.
+        Como(Roles.Mesero);
+
+        var respuesta = await _cliente.GetAsync($"{RutaCobertura}?desde=2026-12-07&hasta=2026-12-13");
+
+        Assert.Equal(HttpStatusCode.Forbidden, respuesta.StatusCode);
     }
 
     [Fact]

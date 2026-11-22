@@ -36,6 +36,8 @@ public class TurnoService : ITurnoService
     private const string EstadoNoPermitido = "Solo se puede cambiar el estado a Cancelado, Completado o Ausente.";
     private const string TurnoCancelado = "Un turno cancelado no se puede marcar como completado o ausente.";
     private const string SoloTurnosPasados = "Solo se marcan como completados o ausentes los turnos que ya pasaron.";
+    private const string RangoInvertido = "La fecha de inicio no puede ser posterior a la fecha de fin.";
+    private const string RangoMuyGrande = "El rango no puede superar 31 días.";
 
     private readonly ITurnoRepository _turnos;
     private readonly IAusenciaRepository _ausencias;
@@ -179,6 +181,35 @@ public class TurnoService : ITurnoService
             cancellationToken);
 
         return OperationResult.Success(ToDto(turno));
+    }
+
+    /// <inheritdoc />
+    public async Task<OperationResult<IReadOnlyList<TurnoDto>>> ListarAsync(DateOnly desde, DateOnly hasta, Guid? cargoId, CancellationToken cancellationToken)
+    {
+        if (desde > hasta)
+        {
+            return OperationResult.Failure<IReadOnlyList<TurnoDto>>(ErrorType.Validation, RangoInvertido);
+        }
+
+        if (hasta.DayNumber - desde.DayNumber + 1 > PlanificacionService.MaximoDias)
+        {
+            return OperationResult.Failure<IReadOnlyList<TurnoDto>>(ErrorType.Validation, RangoMuyGrande);
+        }
+
+        if (cargoId is not null && await _cargos.BuscarAsync(cargoId.Value, cancellationToken) is null)
+        {
+            return OperationResult.Failure<IReadOnlyList<TurnoDto>>(ErrorType.NotFound, CargoInexistente);
+        }
+
+        var turnos = await _turnos.ListarEntreAsync(desde, hasta, cancellationToken);
+        var filtrados = cargoId is null ? turnos : turnos.Where(t => t.CargoId == cargoId.Value);
+        var dtos = filtrados
+            .OrderBy(t => t.Fecha)
+            .ThenBy(t => t.HoraInicio)
+            .Select(ToDto)
+            .ToList();
+
+        return OperationResult.Success<IReadOnlyList<TurnoDto>>(dtos);
     }
 
     /// <summary>Un turno se puede modificar si no está cancelado y su fecha no ha pasado (RN-PER-10).</summary>
