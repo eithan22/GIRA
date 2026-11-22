@@ -86,6 +86,26 @@ public class TurnosEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Supervisor_ListaSugerencias_RecibeOk()
+    {
+        Como(Roles.Supervisor);
+
+        var respuesta = await _cliente.GetAsync("/api/turnos/sugerencias?estado=0");
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task Mesero_ListaSugerencias_RecibeForbidden()
+    {
+        Como(Roles.Mesero);
+
+        var respuesta = await _cliente.GetAsync("/api/turnos/sugerencias");
+
+        Assert.Equal(HttpStatusCode.Forbidden, respuesta.StatusCode);
+    }
+
+    [Fact]
     public async Task Mesero_ConsultaLaPlanificacion_RecibeForbidden()
     {
         // GI-340: un rol sin permiso de asignación de turnos no puede ver la planificación.

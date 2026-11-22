@@ -1,4 +1,5 @@
 using GIRA.Application.Common;
+using GIRA.Application.Common.Personal;
 using GIRA.Application.DTOs.Personal;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Interfaces.Repository.Personal;
@@ -81,11 +82,7 @@ public class PlanificacionService : IPlanificacionService
                 foreach (var cargo in cargos.OrderBy(c => c.Nombre))
                 {
                     // Un turno cubre la franja si empieza antes o a la vez que ella y termina después o a la vez que ella.
-                    var planificado = turnos.Count(t =>
-                        t.Fecha == fecha &&
-                        t.CargoId == cargo.Id &&
-                        t.HoraInicio <= franja.HoraInicio &&
-                        t.HoraFin >= franja.HoraFin);
+                    var planificado = CalculoCobertura.Planificado(turnos, fecha, cargo.Id, franja.HoraInicio, franja.HoraFin);
 
                     filas.Add(new CoberturaFranjaDto(
                         fecha, franja.Id, franja.Nombre, franja.HoraInicio, franja.HoraFin,

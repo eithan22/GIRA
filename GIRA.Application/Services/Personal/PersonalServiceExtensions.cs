@@ -27,6 +27,10 @@ public static class PersonalServiceExtensions
         // Planificación semanal con cobertura (GI-301).
         services.AddScoped<IPlanificacionService, PlanificacionService>();
 
+        // Sugerencias de personal desde la predicción de afluencia (GI-303) y su resolución (GI-304).
+        services.AddScoped<IGeneracionSugerenciasService, GeneracionSugerenciasService>();
+        services.AddScoped<ISugerenciaService, SugerenciaService>();
+
         // Ausencias (GI-305).
         services.AddScoped<IAusenciaService, AusenciaService>();
 
