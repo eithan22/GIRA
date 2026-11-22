@@ -3,6 +3,7 @@ using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Interfaces.Repository.Personal;
 using GIRA.Application.Interfaces.Services.Reservas;
 using GIRA.Domain.Entities.Personal;
+using GIRA.Application.Events.Personal;
 using GIRA.Domain.Enums.Personal;
 
 namespace GIRA.Tests.Personal;
@@ -104,6 +105,19 @@ internal sealed class FranjasPrueba : IFranjaService
     public Task<OperationResult<FranjaDto>> ActualizarAsync(Guid id, GuardarFranjaRequest request, CancellationToken cancellationToken) => throw new NotImplementedException();
 
     public Task<OperationResult<FranjaDto>> CambiarEstadoAsync(Guid id, bool activa, CancellationToken cancellationToken) => throw new NotImplementedException();
+}
+
+/// <summary>Publicador de eventos falso que guarda lo que se publica, para comprobarlo en las pruebas.</summary>
+internal sealed class PublicadorPrueba : IPublicadorEventosSeguro
+{
+    public List<object> Publicados { get; } = [];
+
+    public Task PublicarAsync<TEvento>(TEvento evento, string referencia, CancellationToken cancellationToken)
+        where TEvento : MediatR.INotification
+    {
+        Publicados.Add(evento!);
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>Reloj con una hora fija, para que las pruebas no dependan del día en que se corren.</summary>
