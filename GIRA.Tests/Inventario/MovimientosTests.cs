@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using GIRA.Application.DTOs.Inventario;
 using GIRA.Domain.Constants;
+using GIRA.Infrastructure.Persistence.Context;
 using GIRA.Tests.Api;
 using GIRA.Tests.Common;
 using Microsoft.Extensions.DependencyInjection;
@@ -56,6 +57,41 @@ public class MovimientosTests : IAsyncLifetime
         Assert.Equal(14, await StockAsync(_cliente, arroz.Id));
         var ultima = (await KardexAsync(arroz.Id)).Movimientos.Items[^1];
         Assert.Equal(("Entrada", 10m, "Ana Pérez"), (ultima.Tipo, ultima.Cantidad, ultima.Usuario));
+    }
+
+    [Fact]
+    public async Task Merma_Perecedera_Valora_El_Consumo_Por_FEFO_Y_Media_Ponderada()
+    {
+        var leche = await CrearInsumoAsync(_cliente, "Leche FEFO", 0, perecedero: true);
+        await Movimiento(_cliente, leche.Id, "Entrada", 2, vence: Hoy.AddDays(1), costoUnitario: 4);
+        await Movimiento(_cliente, leche.Id, "Entrada", 3, vence: Hoy.AddDays(2), costoUnitario: 8);
+
+        var respuesta = await Movimiento(_cliente, leche.Id, "Merma", 3, motivo: "Derrame");
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        var merma = (await KardexAsync(leche.Id)).Movimientos.Items[^1];
+        Assert.Equal("Merma", merma.Tipo);
+        Assert.Equal(16m / 3m, merma.CostoUnitario);
+    }
+
+    [Fact]
+    public async Task Salida_De_Stock_Percedero_Historico_Sin_Lotes_No_Falla_Y_Deja_Costo_No_Disponible()
+    {
+        var leche = await CrearInsumoAsync(_cliente, "Leche histórica", 0, perecedero: true);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var contexto = scope.ServiceProvider.GetRequiredService<GiraDbContext>();
+            var insumo = await contexto.Insumos.FindAsync(leche.Id);
+            insumo!.AplicarMovimiento(5);
+            await contexto.SaveChangesAsync();
+        }
+
+        var respuesta = await Movimiento(_cliente, leche.Id, "Merma", 1, motivo: "Producto vencido");
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        var merma = (await KardexAsync(leche.Id)).Movimientos.Items[^1];
+        Assert.Null(merma.CostoUnitario);
+        Assert.Equal(4m, await StockAsync(_cliente, leche.Id));
     }
 
     [Fact]

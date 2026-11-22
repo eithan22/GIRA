@@ -22,6 +22,443 @@ namespace GIRA.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.AuditoriaActivacionModelo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("ActivadoEn")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("EsRollback")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("ModeloActivadoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ModeloAnteriorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActivadoEn");
+
+                    b.HasIndex("ModeloActivadoId");
+
+                    b.HasIndex("ModeloAnteriorId");
+
+                    b.ToTable("AuditoriaActivacionModelo", "analitica");
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.CapacidadOperativaDiaria", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("CapacidadTotal")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CapturadaEn")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Fecha")
+                        .IsUnique();
+
+                    b.ToTable("CapacidadOperativaDiaria", "analitica", t =>
+                        {
+                            t.HasCheckConstraint("CK_CapacidadOperativaDiaria_Capacidad", "[CapacidadTotal] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.EntrenamientoModelo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("Estado")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("FinalizadoEn")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("IniciadoEn")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("SolicitadoEn")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("SolicitadoPor")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Estado")
+                        .IsUnique()
+                        .HasFilter("[Estado] IN (1, 2)");
+
+                    b.HasIndex("SolicitadoEn");
+
+                    b.ToTable("EntrenamientoModelo", "analitica", t =>
+                        {
+                            t.HasCheckConstraint("CK_EntrenamientoModelo_Estado", "[Estado] BETWEEN 1 AND 4");
+                        });
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.GeneracionPrediccion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("CantidadPredicciones")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("FechaProceso")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset>("GeneradaEn")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FechaProceso")
+                        .IsUnique();
+
+                    b.ToTable("GeneracionPrediccion", "analitica", t =>
+                        {
+                            t.HasCheckConstraint("CK_GeneracionPrediccion_Cantidad", "[CantidadPredicciones] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.ModeloAfluencia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit");
+
+                    b.Property<byte[]>("ArchivoModelo")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<DateTimeOffset>("CreadoEn")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateOnly>("EntrenamientoDesde")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("EntrenamientoHasta")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("EntrenamientoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("FranjaHorariaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Mae")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("Rmse")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateOnly>("ValidacionDesde")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("ValidacionHasta")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntrenamientoId");
+
+                    b.HasIndex("FranjaHorariaId")
+                        .IsUnique()
+                        .HasFilter("[Activo] = 1");
+
+                    b.HasIndex("FranjaHorariaId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("ModeloAfluencia", "analitica", t =>
+                        {
+                            t.HasCheckConstraint("CK_ModeloAfluencia_Fechas", "[EntrenamientoDesde] <= [EntrenamientoHasta] AND [ValidacionDesde] <= [ValidacionHasta] AND [EntrenamientoHasta] < [ValidacionDesde]");
+
+                            t.HasCheckConstraint("CK_ModeloAfluencia_Metricas", "[Mae] >= 0 AND [Rmse] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.PrediccionAfluencia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AfluenciaEstimada")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("BajaConfianza")
+                        .HasColumnType("bit");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("FranjaHorariaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("GeneracionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("GeneradaEn")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<decimal?>("LimiteInferior")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("LimiteSuperior")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("VersionModelo")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("Vigente")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FranjaHorariaId");
+
+                    b.HasIndex("Fecha", "FranjaHorariaId")
+                        .IsUnique()
+                        .HasFilter("[Vigente] = 1");
+
+                    b.HasIndex("GeneracionId", "Fecha", "FranjaHorariaId")
+                        .IsUnique();
+
+                    b.ToTable("PrediccionAfluencia", "analitica", t =>
+                        {
+                            t.HasCheckConstraint("CK_PrediccionAfluencia_Estimada", "[AfluenciaEstimada] >= 0");
+
+                            t.HasCheckConstraint("CK_PrediccionAfluencia_Limites", "([LimiteInferior] IS NULL AND [LimiteSuperior] IS NULL) OR ([LimiteInferior] IS NOT NULL AND [LimiteSuperior] IS NOT NULL AND [LimiteInferior] >= 0 AND [LimiteSuperior] >= [LimiteInferior])");
+                        });
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.PublicacionPrediccion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("GeneracionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("PublicadaEn")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PublicadaEn");
+
+                    b.HasIndex("GeneracionId", "Fecha")
+                        .IsUnique();
+
+                    b.ToTable("PublicacionPrediccion", "analitica");
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.Recomendacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Clave")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset>("FechaGeneracion")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Mensaje")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Origen")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Prioridad")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<bool>("Vigente")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Clave")
+                        .IsUnique();
+
+                    b.HasIndex("Vigente", "Estado", "Fecha");
+
+                    b.ToTable("Recomendacion", "analitica", t =>
+                        {
+                            t.HasCheckConstraint("CK_Recomendacion_Estado", "[Estado] IN ('Nueva', 'Vista', 'Descartada')");
+                        });
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.RegistroAfluencia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("FranjaHorariaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Origen")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Personas")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ReferenciaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Tipo")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FranjaHorariaId");
+
+                    b.HasIndex("Fecha", "FranjaHorariaId");
+
+                    b.HasIndex("Origen", "ReferenciaId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_RegistroAfluencia_Origen_ReferenciaId");
+
+                    b.ToTable("RegistroAfluencia", "analitica", t =>
+                        {
+                            t.HasCheckConstraint("CK_RegistroAfluencia_Fecha", "[Fecha] > '0001-01-01'");
+
+                            t.HasCheckConstraint("CK_RegistroAfluencia_Personas", "[Personas] > 0");
+
+                            t.HasCheckConstraint("CK_RegistroAfluencia_Referencia", "[ReferenciaId] <> '00000000-0000-0000-0000-000000000000'");
+
+                            t.HasCheckConstraint("CK_RegistroAfluencia_TipoOrigen", "([Tipo] = 1 AND [Origen] IN (1, 2)) OR ([Tipo] = 2 AND [Origen] = 1)");
+                        });
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.ResultadoEntrenamientoModelo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("EntrenamientoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Estado")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("FranjaHorariaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("Mae")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("MaeReferencia")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid?>("ModeloId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ObservacionesEntrenamiento")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ObservacionesValidacion")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("Rmse")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("VersionModelo")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ModeloId");
+
+                    b.HasIndex("EntrenamientoId", "FranjaHorariaId")
+                        .IsUnique();
+
+                    b.ToTable("ResultadoEntrenamientoModelo", "analitica", t =>
+                        {
+                            t.HasCheckConstraint("CK_ResultadoEntrenamientoModelo_Estado", "[Estado] BETWEEN 1 AND 3");
+
+                            t.HasCheckConstraint("CK_ResultadoEntrenamientoModelo_Observaciones", "[ObservacionesEntrenamiento] >= 0 AND [ObservacionesValidacion] >= 0");
+                        });
+                });
+
             modelBuilder.Entity("GIRA.Domain.Entities.Configuracion.ConfiguracionRestaurante", b =>
                 {
                     b.Property<Guid>("Id")
@@ -593,6 +1030,10 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.Property<decimal>("Cantidad")
                         .HasPrecision(18, 3)
                         .HasColumnType("decimal(18,3)");
+
+                    b.Property<decimal?>("CostoUnitario")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -1244,6 +1685,38 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("Empleado", "personal");
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.MarcacionTurno", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("FinEn")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("InicioEn")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("MinutosPausa")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId")
+                        .IsUnique()
+                        .HasFilter("[FinEn] IS NULL");
+
+                    b.ToTable("MarcacionTurno", "personal", t =>
+                        {
+                            t.HasCheckConstraint("CK_MarcacionTurno_Pausa", "[MinutosPausa] >= 0");
+
+                            t.HasCheckConstraint("CK_MarcacionTurno_Rango", "[FinEn] IS NULL OR [FinEn] > [InicioEn]");
+                        });
                 });
 
             modelBuilder.Entity("GIRA.Domain.Entities.Personal.RequerimientoPersonal", b =>
@@ -2037,6 +2510,76 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.ToTable("UsuarioToken", "seguridad");
                 });
 
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.AuditoriaActivacionModelo", b =>
+                {
+                    b.HasOne("GIRA.Domain.Entities.Analitica.ModeloAfluencia", null)
+                        .WithMany()
+                        .HasForeignKey("ModeloActivadoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GIRA.Domain.Entities.Analitica.ModeloAfluencia", null)
+                        .WithMany()
+                        .HasForeignKey("ModeloAnteriorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.ModeloAfluencia", b =>
+                {
+                    b.HasOne("GIRA.Domain.Entities.Analitica.EntrenamientoModelo", null)
+                        .WithMany()
+                        .HasForeignKey("EntrenamientoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GIRA.Domain.Entities.Reservas.FranjaHoraria", null)
+                        .WithMany()
+                        .HasForeignKey("FranjaHorariaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.PrediccionAfluencia", b =>
+                {
+                    b.HasOne("GIRA.Domain.Entities.Reservas.FranjaHoraria", null)
+                        .WithMany()
+                        .HasForeignKey("FranjaHorariaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.PublicacionPrediccion", b =>
+                {
+                    b.HasOne("GIRA.Domain.Entities.Analitica.GeneracionPrediccion", null)
+                        .WithMany()
+                        .HasForeignKey("GeneracionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.RegistroAfluencia", b =>
+                {
+                    b.HasOne("GIRA.Domain.Entities.Reservas.FranjaHoraria", null)
+                        .WithMany()
+                        .HasForeignKey("FranjaHorariaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.ResultadoEntrenamientoModelo", b =>
+                {
+                    b.HasOne("GIRA.Domain.Entities.Analitica.EntrenamientoModelo", null)
+                        .WithMany("Resultados")
+                        .HasForeignKey("EntrenamientoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GIRA.Domain.Entities.Analitica.ModeloAfluencia", null)
+                        .WithMany()
+                        .HasForeignKey("ModeloId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("GIRA.Domain.Entities.Inventario.AlertaInventario", b =>
                 {
                     b.HasOne("GIRA.Domain.Entities.Inventario.Insumo", "Insumo")
@@ -2170,6 +2713,15 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.MarcacionTurno", b =>
+                {
+                    b.HasOne("GIRA.Infrastructure.Identity.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("GIRA.Domain.Entities.Personal.RequerimientoPersonal", b =>
                 {
                     b.HasOne("GIRA.Domain.Entities.Personal.Cargo", null)
@@ -2287,6 +2839,11 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Analitica.EntrenamientoModelo", b =>
+                {
+                    b.Navigation("Resultados");
                 });
 
             modelBuilder.Entity("GIRA.Domain.Entities.Inventario.Plato", b =>

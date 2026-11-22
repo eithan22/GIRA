@@ -29,6 +29,10 @@ public class PublicadorEventosSeguro : IPublicadorEventosSeguro
         {
             await _publisher.Publish(evento, cancellationToken);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             // La operación ya está guardada: no se revierte ni se propaga (SRS 3.3, regla 3).

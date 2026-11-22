@@ -2,6 +2,7 @@ using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Events.Reservas;
 using GIRA.Application.Interfaces.Services.Seguridad.Auth;
 using GIRA.Domain.Constants;
+using GIRA.Domain.Entities.Analitica;
 using GIRA.Domain.Entities.Reservas;
 using GIRA.Domain.Enums.Reservas;
 using GIRA.Infrastructure.Persistence.Context;
@@ -138,6 +139,12 @@ public class VisitaEndpointsTests : IAsyncLifetime
         var visita = Assert.Single(await LeerVisitasAsync());
         Assert.Equal(usuarioId, visita.CreatedBy);
         Assert.Equal(3, visita.PersonasReales);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GiraDbContext>();
+        var hecho = await db.Set<RegistroAfluencia>().SingleAsync(r => r.ReferenciaId == visita.Id);
+        Assert.Equal(OrigenRegistroAfluencia.VisitaSinReserva, hecho.Origen);
+        Assert.Equal(TipoRegistroAfluencia.VisitaCompletada, hecho.Tipo);
+        Assert.Equal(3, hecho.Personas);
         var evento = Assert.Single(_registro.Visitas);
         Assert.Equal(new VisitaCompletadaEvent(Dia, _almuerzoId, 3, ConReserva: false, VisitaId: visita.Id), evento);
     }

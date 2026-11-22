@@ -1,5 +1,88 @@
 @GIRA.Api_HostAddress = http://localhost:5253
 
+### Recomendaciones vigentes (Gerente o Administrador; estado opcional)
+GET {{GIRA.Api_HostAddress}}/api/analitica/recomendaciones?estado=Nueva
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+### Marcar recomendación como vista o descartada
+PATCH {{GIRA.Api_HostAddress}}/api/analitica/recomendaciones/00000000-0000-0000-0000-000000000001
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+Content-Type: application/json
+
+{ "estado": "Vista" }
+
+### Predicciones vigentes (Supervisor, Gerente o Administrador; rango inclusivo, franjaId opcional)
+### Sin predicciones se devuelve []; los límites pueden ser null si no están disponibles.
+GET {{GIRA.Api_HostAddress}}/api/analitica/prediccion?desde=2026-11-21&hasta=2026-11-21
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+### Predicciones de una franja específica (reemplaza el valor por un GUID existente)
+GET {{GIRA.Api_HostAddress}}/api/analitica/prediccion?desde=2026-11-21&hasta=2026-11-21&franjaId=GUID_DE_FRANJA_EXISTENTE
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+### Indicadores de Analítica (Gerente o Administrador; fechas locales inclusivas)
+### Cancelación: reservas creadas en el período y canceladas a la fecha.
+### Promedios: solo fechas con registros; no incluyen fechas sin eventos.
+### Comensales atendidos: null si no hay registros en el período; cero si los registros suman cero.
+### Alertas: abiertas actualmente. KPI sin fuentes fiables o denominador cero: null.
+GET {{GIRA.Api_HostAddress}}/api/analitica/kpis?desde=2026-11-01&hasta=2026-11-30
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+### Consultar turno abierto del usuario autenticado
+GET {{GIRA.Api_HostAddress}}/api/personal/marcaciones/actual
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+### Registrar entrada
+POST {{GIRA.Api_HostAddress}}/api/personal/marcaciones/entrada
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+### Registrar salida y descontar pausa (minutos)
+POST {{GIRA.Api_HostAddress}}/api/personal/marcaciones/salida
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+Content-Type: application/json
+
+{ "minutosPausa": 30 }
+
+### Historial de afluencia (Gerente o Administrador)
+GET {{GIRA.Api_HostAddress}}/api/analitica/historial?desde=2026-11-01&hasta=2026-11-30
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+### Encolar entrenamiento (Gerente o Administrador; responde 202 Accepted)
+POST {{GIRA.Api_HostAddress}}/api/analitica/modelos/entrenamientos
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+### Consultar estado del entrenamiento
+GET {{GIRA.Api_HostAddress}}/api/analitica/modelos/entrenamientos/00000000-0000-0000-0000-000000000001
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+### Listar versiones SSA y modelo activo
+GET {{GIRA.Api_HostAddress}}/api/analitica/modelos
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+### Reactivar una versión anterior (requiere motivo y deja auditoría)
+POST {{GIRA.Api_HostAddress}}/api/analitica/modelos/00000000-0000-0000-0000-000000000001/activar
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+Content-Type: application/json
+
+{ "motivo": "Rollback autorizado por regresión observada." }
+
+### Consultar calendario de feriados (Gerente o Administrador)
+GET {{GIRA.Api_HostAddress}}/api/feriados
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+### Agregar feriado o día cerrado
+POST {{GIRA.Api_HostAddress}}/api/feriados
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+Content-Type: application/json
+
+{ "fecha": "2026-12-25", "motivo": "Cierre por feriado" }
+
+### Eliminar feriado por identificador
+DELETE {{GIRA.Api_HostAddress}}/api/feriados/00000000-0000-0000-0000-000000000001
+Authorization: Bearer PEGA_AQUI_EL_TOKEN
+
+###
+
 GET {{GIRA.Api_HostAddress}}/weatherforecast/
 Accept: application/json
 
@@ -23,7 +106,7 @@ GET https://localhost:7177/api/usuarios
 POST https://localhost:7177/api/auth/login
 Content-Type: application/json
 
-{ "email": "admin@gira.com", "password": "Admin123!*" }
+{ "email": "TU_ADMIN", "password": "TU_PASSWORD" }
 
 
 ### Listar usuarios
