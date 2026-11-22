@@ -1,6 +1,7 @@
 using GIRA.Application.Common.Personal;
 using GIRA.Application.Events.Analitica;
 using GIRA.Application.Interfaces.Repository.Personal;
+using GIRA.Application.Events.Personal;
 using GIRA.Application.Interfaces.Services.Personal;
 using GIRA.Application.Interfaces.Services.Reservas;
 using GIRA.Domain.Entities.Personal;
@@ -22,20 +23,23 @@ public class GeneracionSugerenciasService : IGeneracionSugerenciasService
     private readonly IRequerimientoPersonalRepository _requerimientos;
     private readonly IFranjaService _franjas;
     private readonly TimeProvider _reloj;
+    private readonly IPublicadorEventosSeguro _publicador;
 
-    /// <summary>Crea el servicio con sus repositorios, las franjas de Reservas y el reloj.</summary>
+    /// <summary>Crea el servicio con sus repositorios, las franjas de Reservas, el reloj y el publicador de eventos.</summary>
     public GeneracionSugerenciasService(
         ISugerenciaTurnoRepository sugerencias,
         ITurnoRepository turnos,
         IRequerimientoPersonalRepository requerimientos,
         IFranjaService franjas,
-        TimeProvider reloj)
+        TimeProvider reloj,
+        IPublicadorEventosSeguro publicador)
     {
         _sugerencias = sugerencias;
         _turnos = turnos;
         _requerimientos = requerimientos;
         _franjas = franjas;
         _reloj = reloj;
+        _publicador = publicador;
     }
 
     /// <inheritdoc />
@@ -59,6 +63,7 @@ public class GeneracionSugerenciasService : IGeneracionSugerenciasService
         var requerimientos = await _requerimientos.ListarAsync(cancellationToken);
         var turnos = (await _turnos.ListarEntreAsync(evento.Desde, evento.Hasta, cancellationToken)).ToList();
         var ahora = _reloj.GetUtcNow().UtcDateTime;
+        var generadas = new List<SugerenciaTurno>();
 
         foreach (var prediccion in evento.Predicciones)
         {
@@ -82,7 +87,7 @@ public class GeneracionSugerenciasService : IGeneracionSugerenciasService
                     continue;
                 }
 
-                _sugerencias.Agregar(new SugerenciaTurno
+                var nueva = new SugerenciaTurno
                 {
                     Fecha = prediccion.Fecha,
                     FranjaHorariaId = prediccion.FranjaHorariaId,
@@ -94,10 +99,21 @@ public class GeneracionSugerenciasService : IGeneracionSugerenciasService
                     PrediccionId = null,
                     Estado = EstadoSugerencia.Pendiente,
                     FechaGeneracion = ahora,
-                });
+                };
+                _sugerencias.Agregar(nueva);
+                generadas.Add(nueva);
             }
         }
 
         await _sugerencias.GuardarCambiosAsync(cancellationToken);
+
+        // GI-349: se publica después de guardar, nunca antes; un handler que falla no revierte nada (SRS 3.3).
+        foreach (var generada in generadas)
+        {
+            await _publicador.PublicarAsync(
+                new SugerenciaTurnoGeneradaEvent(generada.Id, generada.Fecha, generada.FranjaHorariaId, generada.CargoId, generada.Diferencia),
+                $"SugerenciaId={generada.Id}",
+                cancellationToken);
+        }
     }
 }

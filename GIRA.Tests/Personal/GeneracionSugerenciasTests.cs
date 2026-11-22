@@ -1,5 +1,6 @@
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Events.Analitica;
+using GIRA.Application.Events.Personal;
 using GIRA.Application.Services.Personal;
 using GIRA.Domain.Entities.Personal;
 using GIRA.Domain.Enums.Personal;
@@ -46,6 +47,21 @@ public class GeneracionSugerenciasTests
         await servicio.GenerarDesdePrediccionAsync(Evento(Lunes, Lunes, (Manana, 10)), default);
 
         Assert.Equal(2, Assert.Single(sugerencias.Sugerencias).PersonalRequerido);
+    }
+
+    [Fact]
+    public async Task Prediccion_PublicaUnaSugerenciaTurnoGeneradaPorCadaSugerenciaCreada()
+    {
+        // GI-349: después de guardar, se publica un evento por sugerencia nueva.
+        var sugerencias = new RepositorioSugerenciasFalso();
+        var publicador = new PublicadorPrueba();
+        var servicio = Crear(sugerencias, minimo: 2, comensales: 20, publicador: publicador);
+
+        await servicio.GenerarDesdePrediccionAsync(Evento(Lunes, Lunes, (Manana, 45)), default);
+
+        var evento = Assert.IsType<SugerenciaTurnoGeneradaEvent>(Assert.Single(publicador.Publicados));
+        Assert.Equal(Assert.Single(sugerencias.Sugerencias).Id, evento.SugerenciaId);
+        Assert.Equal(3, evento.Diferencia);
     }
 
     [Fact]
@@ -124,7 +140,8 @@ public class GeneracionSugerenciasTests
         RepositorioSugerenciasFalso sugerencias,
         int minimo,
         int comensales,
-        RepositorioTurnosPrueba? turnos = null)
+        RepositorioTurnosPrueba? turnos = null,
+        PublicadorPrueba? publicador = null)
     {
         var requerimientos = new RepositorioRequerimientosFalso();
         requerimientos.Requerimientos.Add(new RequerimientoPersonal { CargoId = Mesero, MinimoPorFranja = minimo, ComensalesPorEmpleado = comensales });
@@ -139,7 +156,8 @@ public class GeneracionSugerenciasTests
             turnos ?? new RepositorioTurnosPrueba(),
             requerimientos,
             franjas,
-            new RelojPrueba(new DateTimeOffset(2026, 11, 22, 14, 0, 0, TimeSpan.Zero)));
+            new RelojPrueba(new DateTimeOffset(2026, 11, 22, 14, 0, 0, TimeSpan.Zero)),
+            publicador ?? new PublicadorPrueba());
     }
 
     private static PrediccionAfluenciaGeneradaEvent Evento(DateOnly desde, DateOnly hasta, params (Guid Franja, int Afluencia)[] predicciones) =>
