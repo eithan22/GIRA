@@ -1,6 +1,8 @@
 using GIRA.Domain.Base;
 using GIRA.Domain.Entities.Configuracion;
+using GIRA.Domain.Entities.Analitica;
 using GIRA.Domain.Entities.Inventario;
+using GIRA.Domain.Entities.Personal;
 using GIRA.Domain.Entities.Reservas;
 using GIRA.Domain.Entities.Seguridad;
 using GIRA.Infrastructure.Identity;
@@ -97,6 +99,21 @@ public class GiraDbContext : IdentityDbContext<Usuario, Rol, Guid>
 
     /// <summary>Comensales predichos por Analítica, por fecha.</summary>
     public DbSet<AfluenciaPredicha> AfluenciasPredichas => Set<AfluenciaPredicha>();
+
+    /// <summary>Solicitudes de entrenamiento de modelos de afluencia y sus métricas de validación.</summary>
+    public DbSet<EntrenamientoModelo> EntrenamientosModelos => Set<EntrenamientoModelo>();
+
+    /// <summary>Versiones SSA entrenadas y evaluadas para cada franja horaria.</summary>
+    public DbSet<ModeloAfluencia> ModelosAfluencia => Set<ModeloAfluencia>();
+
+    /// <summary>Capacidad efectiva capturada para cada día operativo.</summary>
+    public DbSet<CapacidadOperativaDiaria> CapacidadesOperativasDiarias => Set<CapacidadOperativaDiaria>();
+
+    /// <summary>Marcaciones reales de entrada y salida del personal.</summary>
+    public DbSet<MarcacionTurno> MarcacionesTurnos => Set<MarcacionTurno>();
+
+    /// <summary>Auditoría de activación y rollback manual de modelos.</summary>
+    public DbSet<AuditoriaActivacionModelo> AuditoriasActivacionModelo => Set<AuditoriaActivacionModelo>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder builder)

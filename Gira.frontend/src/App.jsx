@@ -22,6 +22,8 @@ import Kardex from './inventario/pages/Kardex.jsx';
 import Alertas from './inventario/pages/Alertas.jsx';
 import Proyeccion from './inventario/pages/Proyeccion.jsx';
 import Catalogos from './inventario/pages/Catalogos.jsx';
+import Dashboard from './analitica/Dashboard.jsx';
+import Marcaciones from './personal/Marcaciones.jsx';
 
 function Home() {
   const { user } = useAuth();
@@ -53,6 +55,9 @@ function AuthenticatedApp() {
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to={home} replace />} />
           <Route path="inicio" element={<Home />} />
+          <Route element={<RequireRole roles={['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina']} />}>
+            <Route path="personal/marcaciones" element={<Marcaciones />} />
+          </Route>
           <Route path="acceso-denegado" element={<AccessDenied />} />
           <Route path="perfil/cambiar-password" element={<ChangePassword />} />
           <Route element={<RequireRole roles={['Administrador']} />}>
@@ -68,6 +73,8 @@ function AuthenticatedApp() {
             <Route path="reservas/visitas" element={<Navigate to="/reservas/agenda" replace />} />
           </Route>
           <Route element={<RequireRole roles={['Administrador', 'Gerente']} />}>
+            <Route path="analitica/dashboard" element={<Dashboard />} />
+            <Route path="gerencia/dashboard" element={<Navigate to="/analitica/dashboard" replace />} />
             <Route path="reservas/configuracion" element={<ConfiguracionPersonal />} />
             <Route path="inventario/catalogos" element={<Catalogos />} />
           </Route>

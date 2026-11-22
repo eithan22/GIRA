@@ -13,6 +13,7 @@ public class LoteInsumoConfiguration : IEntityTypeConfiguration<LoteInsumo>
         builder.ToTable("LoteInsumo", "inventario");
         builder.HasKey(l => l.Id);
         builder.Property(l => l.Cantidad).HasPrecision(18, 3);
+        builder.Property(l => l.CostoUnitario).HasPrecision(18, 4);
         builder.HasIndex(l => new { l.InsumoId, l.FechaVencimiento });
 
         builder.HasOne<Insumo>().WithMany().HasForeignKey(l => l.InsumoId).OnDelete(DeleteBehavior.Restrict);

@@ -33,6 +33,10 @@ public class GiraApiFactory : WebApplicationFactory<Program>
         // El proceso automático de reservas (BackgroundService) no debe correr en ninguna prueba HTTP.
         builder.UseSetting("Reservas:ProcesoAutomatico:Habilitado", "false");
         builder.UseSetting("Inventario:ProcesoVencimientos:Habilitado", "false");
+        builder.UseSetting("Analitica:Generacion:Habilitada", "false");
+        builder.UseSetting("Analitica:Capacidad:Habilitada", "false");
+        builder.UseSetting("Analitica:Recomendaciones:Habilitada", "false");
+        builder.UseSetting("Analitica:Entrenamiento:Habilitada", "false");
 
         builder.ConfigureTestServices(services =>
         {
