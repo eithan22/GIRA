@@ -436,6 +436,9 @@ public class TurnoServiceTests
         public Task<IReadOnlyList<Turno>> ListarPorEmpleadoEntreAsync(Guid empleadoId, DateOnly desde, DateOnly hasta, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<Turno>>(Turnos.Where(t => t.EmpleadoId == empleadoId && t.Fecha >= desde && t.Fecha <= hasta).ToList());
 
+        public Task<IReadOnlyList<Turno>> ListarEntreAsync(DateOnly desde, DateOnly hasta, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Turno>>(Turnos.Where(t => t.Fecha >= desde && t.Fecha <= hasta).ToList());
+
         public void Agregar(Turno turno)
         {
             turno.Id = Guid.NewGuid();

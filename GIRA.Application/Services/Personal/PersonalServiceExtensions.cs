@@ -24,6 +24,9 @@ public static class PersonalServiceExtensions
         // Turnos (GI-298).
         services.AddScoped<ITurnoService, TurnoService>();
 
+        // Planificación semanal con cobertura (GI-301).
+        services.AddScoped<IPlanificacionService, PlanificacionService>();
+
         // Ausencias (GI-305).
         services.AddScoped<IAusenciaService, AusenciaService>();
 

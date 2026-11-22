@@ -216,6 +216,9 @@ public class EmpleadoServiceTests
             Task.FromResult<IReadOnlyList<Turno>>(Turnos.Where(t => t.EmpleadoId == empleadoId && t.Fecha >= desde
                 && (t.Estado == GIRA.Domain.Enums.Personal.EstadoTurno.Programado || t.Estado == GIRA.Domain.Enums.Personal.EstadoTurno.Confirmado)).ToList());
 
+        public Task<IReadOnlyList<Turno>> ListarEntreAsync(DateOnly desde, DateOnly hasta, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Turno>>(Turnos.Where(t => t.Fecha >= desde && t.Fecha <= hasta).ToList());
+
         public void Agregar(Turno turno) => Turnos.Add(turno);
 
         public Task GuardarCambiosAsync(CancellationToken cancellationToken) => Task.CompletedTask;

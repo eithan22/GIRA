@@ -19,12 +19,25 @@ namespace GIRA.Api.Controllers.Personal;
 public class TurnosController : ControllerBase
 {
     private readonly ITurnoService _servicio;
+    private readonly IPlanificacionService _planificacion;
 
-    /// <summary>Crea el controlador con el servicio de turnos.</summary>
-    public TurnosController(ITurnoService servicio)
+    /// <summary>Crea el controlador con el servicio de turnos y el de planificación.</summary>
+    public TurnosController(ITurnoService servicio, IPlanificacionService planificacion)
     {
         _servicio = servicio;
+        _planificacion = planificacion;
     }
+
+    /// <summary>
+    /// Planificación semanal con cobertura (GI-301, RF-PER-07): por día, franja y cargo, cuántos turnos cubren la franja completa.
+    /// Rango máximo de 31 días. Responde 400 si el rango es inválido y 404 si el cargo no existe.
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType<IReadOnlyList<CoberturaFranjaDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Cobertura([FromQuery] DateOnly desde, [FromQuery] DateOnly hasta, [FromQuery] Guid? cargoId, CancellationToken cancellationToken) =>
+        (await _planificacion.CoberturaAsync(desde, hasta, cargoId, cancellationToken)).ToActionResult();
 
     /// <summary>Asigna un turno. Responde 409 si hay solapamiento o ausencia aprobada, y 400 si está fuera de disponibilidad.</summary>
     [HttpPost]
