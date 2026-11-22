@@ -15,7 +15,7 @@ public class MovimientoInventario : BaseEntity
     /// <summary>Variación del stock con signo: positiva suma, negativa resta.</summary>
     public decimal Cantidad { get; set; }
 
-    /// <summary>Costo por unidad de una entrada, en RD$; null en los demás tipos.</summary>
+    /// <summary>Costo unitario de entrada, salida o merma, en RD$; null si no pudo determinarse.</summary>
     public decimal? CostoUnitario { get; set; }
 
     /// <summary>Fecha y hora del movimiento, en UTC.</summary>

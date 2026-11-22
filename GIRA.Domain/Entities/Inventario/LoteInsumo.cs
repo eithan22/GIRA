@@ -11,6 +11,9 @@ public class LoteInsumo : BaseEntity
     /// <summary>Cantidad que queda del lote. Las salidas gastan primero el lote que vence antes.</summary>
     public decimal Cantidad { get; set; }
 
+    /// <summary>Costo unitario registrado en la entrada; null en lotes históricos sin costo.</summary>
+    public decimal? CostoUnitario { get; set; }
+
     /// <summary>Día en que entró.</summary>
     public DateOnly FechaEntrada { get; set; }
 
