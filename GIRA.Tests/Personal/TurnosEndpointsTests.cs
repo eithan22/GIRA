@@ -45,6 +45,36 @@ public class TurnosEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Supervisor_ConsultaLaPlanificacionSemanal_RecibeOk()
+    {
+        Como(Roles.Supervisor);
+
+        var respuesta = await _cliente.GetAsync($"{Ruta}?desde=2026-12-07&hasta=2026-12-13");
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task Planificacion_RangoInvertido_RecibeBadRequest()
+    {
+        Como(Roles.Supervisor);
+
+        var respuesta = await _cliente.GetAsync($"{Ruta}?desde=2026-12-13&hasta=2026-12-07");
+
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task Planificacion_CargoInexistente_RecibeNotFound()
+    {
+        Como(Roles.Supervisor);
+
+        var respuesta = await _cliente.GetAsync($"{Ruta}?desde=2026-12-07&hasta=2026-12-07&cargoId={Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.NotFound, respuesta.StatusCode);
+    }
+
+    [Fact]
     public async Task TurnoSolapado_RecibeConflict()
     {
         var empleadoId = await PrepararEmpleadoAsync();

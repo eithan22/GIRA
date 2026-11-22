@@ -37,6 +37,13 @@ public class TurnoRepository : ITurnoRepository
             .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Turno>> ListarEntreAsync(DateOnly desde, DateOnly hasta, CancellationToken cancellationToken) =>
+        await _contexto.Turnos
+            .AsNoTracking()
+            .Where(t => t.Fecha >= desde && t.Fecha <= hasta)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Turno>> ListarFuturosActivosAsync(Guid empleadoId, DateOnly desde, CancellationToken cancellationToken) =>
         await _contexto.Turnos
             .Where(t => t.EmpleadoId == empleadoId
