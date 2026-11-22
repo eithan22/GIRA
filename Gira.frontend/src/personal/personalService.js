@@ -64,4 +64,41 @@ export const personalService = {
     const response = await api.patch(`/api/ausencias/${id}/estado`, { estado });
     return response.data;
   },
+
+  // Turnos y planificación (GI-338, GI-301, GI-364). La lista de turnos y la cobertura son rutas distintas.
+  async listarTurnos({ desde, hasta, cargoId } = {}) {
+    const response = await api.get('/api/turnos', { params: { desde, hasta, cargoId: cargoId || undefined } });
+    return response.data;
+  },
+
+  async obtenerCobertura({ desde, hasta, cargoId } = {}) {
+    const response = await api.get('/api/turnos/cobertura', { params: { desde, hasta, cargoId: cargoId || undefined } });
+    return response.data;
+  },
+
+  async crearTurno(datos) {
+    const response = await api.post('/api/turnos', datos);
+    return response.data;
+  },
+
+  async actualizarTurno(id, datos) {
+    const response = await api.put(`/api/turnos/${id}`, datos);
+    return response.data;
+  },
+
+  async cambiarEstadoTurno(id, estado) {
+    const response = await api.patch(`/api/turnos/${id}/estado`, { estado });
+    return response.data;
+  },
+
+  // Sugerencias de personal (GI-304, GI-365). Solo cambian el estado de la sugerencia, nunca los turnos.
+  async listarSugerencias({ estado } = {}) {
+    const response = await api.get('/api/turnos/sugerencias', { params: { estado: estado ?? undefined } });
+    return response.data;
+  },
+
+  async resolverSugerencia(id, estado) {
+    const response = await api.patch(`/api/turnos/sugerencias/${id}`, { estado });
+    return response.data;
+  },
 };

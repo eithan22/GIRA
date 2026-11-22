@@ -1,0 +1,29 @@
+/* Estilos de la planificación semanal y del panel de sugerencias (GI-364, GI-365). Usa las clases del sistema de diseño. */
+
+.planificador-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 0 19px 19px;
+}
+
+.planificador-grid td {
+  min-width: 120px;
+  vertical-align: top;
+}
+
+.celda-cobertura {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.celda-cobertura strong {
+  font-size: 15px;
+}
+
+.celda-cobertura .celda-nombres {
+  color: var(--muted, #6b7280);
+}
