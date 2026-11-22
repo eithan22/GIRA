@@ -50,6 +50,9 @@ public class GiraDbContext : IdentityDbContext<Usuario, Rol, Guid>
     /// <summary>Requerimiento de personal por cargo: comensales por empleado y mínimo por franja (GI-302).</summary>
     public DbSet<RequerimientoPersonal> RequerimientosPersonal => Set<RequerimientoPersonal>();
 
+    /// <summary>Sugerencias de personal generadas por las predicciones de afluencia (GI-303, RF-PER-09).</summary>
+    public DbSet<SugerenciaTurno> Sugerencias => Set<SugerenciaTurno>();
+
     /// <summary>Solicitudes de recuperación de contraseña pendientes de atender por un Administrador.</summary>
     public DbSet<SolicitudRecuperacionPassword> SolicitudesRecuperacionPassword => Set<SolicitudRecuperacionPassword>();
 

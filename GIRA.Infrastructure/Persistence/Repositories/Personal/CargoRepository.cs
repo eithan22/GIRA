@@ -72,6 +72,7 @@ public static class PersonalRepositoriesExtensions
         services.AddScoped<ITurnoRepository, TurnoRepository>();
         services.AddScoped<IAusenciaRepository, AusenciaRepository>();
         services.AddScoped<IRequerimientoPersonalRepository, RequerimientoPersonalRepository>();
+        services.AddScoped<ISugerenciaTurnoRepository, SugerenciaTurnoRepository>();
         return services;
     }
 }
