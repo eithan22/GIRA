@@ -157,6 +157,27 @@ public class TurnoServiceTests
     }
 
     [Fact]
+    public async Task Listar_FiltraPorCargoYDevuelveTodosLosEstados()
+    {
+        var turnos = new RepositorioTurnosEnMemoria();
+        var cancelado = Turno(Lunes, "09:00", "13:00");
+        cancelado.Estado = EstadoTurno.Cancelado;
+        turnos.Turnos.Add(cancelado);
+        turnos.Turnos.Add(Turno(Lunes, "14:00", "18:00"));
+        var otroCargo = Turno(Lunes, "09:00", "13:00");
+        otroCargo.CargoId = Guid.NewGuid();
+        turnos.Turnos.Add(otroCargo);
+        var servicio = Crear(turnos);
+
+        var resultado = await servicio.ListarAsync(Lunes, Lunes, Cargo, default);
+
+        // Del cargo indicado: el cancelado sí aparece (la lista muestra todos los estados) y el de otro cargo no.
+        Assert.True(resultado.IsSuccess);
+        Assert.Equal(2, resultado.Value!.Count);
+        Assert.All(resultado.Value, t => Assert.Equal(Cargo, t.CargoId));
+    }
+
+    [Fact]
     public async Task Actualizar_TurnoPasado_NoSeModifica()
     {
         var turnos = new RepositorioTurnosEnMemoria();

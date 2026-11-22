@@ -29,10 +29,21 @@ public class TurnosController : ControllerBase
     }
 
     /// <summary>
+    /// Lista los turnos entre dos fechas, con filtro opcional por cargo (GI-338, RF-PER-04). Rango máximo de 31 días.
+    /// Responde 400 si el rango es inválido y 404 si el cargo no existe.
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType<IReadOnlyList<TurnoDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Listar([FromQuery] DateOnly desde, [FromQuery] DateOnly hasta, [FromQuery] Guid? cargoId, CancellationToken cancellationToken) =>
+        (await _servicio.ListarAsync(desde, hasta, cargoId, cancellationToken)).ToActionResult();
+
+    /// <summary>
     /// Planificación semanal con cobertura (GI-301, RF-PER-07): por día, franja y cargo, cuántos turnos cubren la franja completa.
     /// Rango máximo de 31 días. Responde 400 si el rango es inválido y 404 si el cargo no existe.
     /// </summary>
-    [HttpGet]
+    [HttpGet("cobertura")]
     [ProducesResponseType<IReadOnlyList<CoberturaFranjaDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
