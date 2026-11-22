@@ -1,5 +1,4 @@
 using GIRA.Application.EventHandlers.Analitica;
-using GIRA.Application.Events.Analitica;
 using GIRA.Application.Events.Reservas;
 using GIRA.Application.Interfaces.Repository.Analitica;
 using GIRA.Domain.Entities.Reservas;
@@ -12,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace GIRA.Tests.Analitica;
 
@@ -19,7 +19,7 @@ namespace GIRA.Tests.Analitica;
 public sealed class AfluenciaSqlServerIntegrationTests
 {
     [Fact]
-    public async Task ErrorDeSqlServer_SeRegistraYPropagaAlProductor()
+    public async Task ErrorDeSqlServer_SeRegistraSinPropagarseAlProductor()
     {
         var origen = new ConfigurationBuilder().AddUserSecrets<Program>().Build().GetConnectionString("GiraDb")
             ?? throw new InvalidOperationException("Falta ConnectionStrings:GiraDb en los secretos de la API.");
@@ -51,25 +51,36 @@ public sealed class AfluenciaSqlServerIntegrationTests
             servicios.AddDbContext<GiraDbContext>(opcionesDb => opcionesDb.UseSqlServer(conexion));
             servicios.AddScoped<IRegistroAfluenciaRepository, RegistroAfluenciaRepository>();
             using var proveedor = servicios.BuildServiceProvider();
+            var logger = new LoggerPrueba();
             var handler = new AfluenciaPorReservasHandler(
                 proveedor.GetRequiredService<IServiceScopeFactory>(),
-                NullLogger<AfluenciaPorReservasHandler>.Instance);
+                logger);
             var publicador = new PublicadorEventosSeguro(
                 new PublicadorPrueba(handler),
                 NullLogger<PublicadorEventosSeguro>.Instance);
             var evento = new VisitaCompletadaEvent(
                 new DateOnly(2026, 11, 21), franjaId, 3, ConReserva: true, VisitaId: Guid.NewGuid());
 
-            var error = await Assert.ThrowsAsync<ErrorRegistroAfluenciaException>(() =>
-                publicador.PublicarAsync(evento, evento.VisitaId.ToString(), CancellationToken.None));
-
-            Assert.IsType<SqlException>(error.InnerException);
+            await publicador.PublicarAsync(evento, evento.VisitaId.ToString(), CancellationToken.None);
+            Assert.IsType<SqlException>(Assert.Single(logger.Errores));
         }
         finally
         {
             if (creada && nombre.StartsWith(prefijo, StringComparison.Ordinal)
                 && Guid.TryParseExact(nombre[prefijo.Length..], "N", out _))
                 await db.Database.EnsureDeletedAsync();
+        }
+    }
+
+    private sealed class LoggerPrueba : ILogger<AfluenciaPorReservasHandler>
+    {
+        public List<Exception?> Errores { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => logLevel == LogLevel.Error;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Error) Errores.Add(exception);
         }
     }
 

@@ -14,6 +14,27 @@ namespace GIRA.Tests.Analitica;
 public sealed class DependencyInjectionAnaliticaTests
 {
     [Fact]
+    public void ConfiguracionBase_NoRegistraGeneracionAutomatica()
+    {
+        var archivo = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory, "..", "..", "..", "..", "GIRA.Api", "appsettings.json"));
+        var configuracion = new ConfigurationBuilder().AddJsonFile(archivo).AddInMemoryCollection(
+            new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:GiraDb"] = "Server=no-se-usa",
+                ["Jwt:Key"] = "clave-de-pruebas-de-gira-con-mas-de-32-caracteres"
+            }).Build();
+        var servicios = new ServiceCollection();
+
+        servicios.AddInfrastructure(configuracion);
+
+        Assert.False(configuracion.GetValue<bool>("Analitica:Generacion:Habilitada"));
+        Assert.DoesNotContain(servicios, descriptor =>
+            descriptor.ServiceType == typeof(IHostedService) &&
+            descriptor.ImplementationType == typeof(GeneracionPrediccionBackgroundService));
+    }
+
+    [Fact]
     public void RegistraServiciosRepositoriosYProcesosUnaSolaVez()
     {
         var configuracion = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>

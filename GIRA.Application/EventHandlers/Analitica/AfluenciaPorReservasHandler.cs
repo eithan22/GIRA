@@ -1,5 +1,4 @@
 using GIRA.Application.Events.Reservas;
-using GIRA.Application.Events.Analitica;
 using GIRA.Application.Interfaces.Repository.Analitica;
 using GIRA.Domain.Entities.Analitica;
 using MediatR;
@@ -51,12 +50,15 @@ public sealed class AfluenciaPorReservasHandler(
             await scope.ServiceProvider.GetRequiredService<IRegistroAfluenciaRepository>()
                 .RegistrarAsync(registro, cancellationToken);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
         {
             logger.LogError(ex,
                 "No se pudo registrar la afluencia de {Origen} {ReferenciaId}; se requiere revisión.",
                 registro.Origen, registro.ReferenciaId);
-            throw new ErrorRegistroAfluenciaException(ex);
         }
     }
 }

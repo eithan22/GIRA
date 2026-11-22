@@ -1,12 +1,15 @@
 using GIRA.Application.EventHandlers.Analitica;
-using GIRA.Application.Events.Analitica;
 using GIRA.Application.Events.Reservas;
+using GIRA.Application.Interfaces.Repository.Analitica;
+using GIRA.Application.DTOs.Analitica;
 using GIRA.Domain.Entities.Analitica;
 using GIRA.Domain.Entities.Reservas;
 using GIRA.Infrastructure.Persistence.Context;
 using GIRA.Tests.Api;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -75,9 +78,7 @@ public sealed class AfluenciaPorReservasTests : IAsyncLifetime
         var id = Guid.NewGuid();
         await handler.Handle(new VisitaCompletadaEvent(fecha, franja, 4, true, id), CancellationToken.None);
 
-        var error = await Assert.ThrowsAsync<ErrorRegistroAfluenciaException>(
-            () => handler.Handle(new ReservaNoAsistidaEvent(id, fecha, franja, 4), CancellationToken.None));
-        Assert.IsType<InvalidOperationException>(error.InnerException);
+        await handler.Handle(new ReservaNoAsistidaEvent(id, fecha, franja, 4), CancellationToken.None);
         Assert.IsType<InvalidOperationException>(Assert.Single(logger.Errores));
 
         using var scope = _factory.Services.CreateScope();
@@ -92,9 +93,7 @@ public sealed class AfluenciaPorReservasTests : IAsyncLifetime
         var handler = CrearHandler(logger);
         var evento = new VisitaCompletadaEvent(new DateOnly(2026, 11, 18), _franja, 0, true, Guid.NewGuid());
 
-        var error = await Assert.ThrowsAsync<ErrorRegistroAfluenciaException>(
-            () => handler.Handle(evento, CancellationToken.None));
-        Assert.IsType<ArgumentException>(error.InnerException);
+        await handler.Handle(evento, CancellationToken.None);
         Assert.IsType<ArgumentException>(Assert.Single(logger.Errores));
 
         using var scope = _factory.Services.CreateScope();
@@ -112,10 +111,7 @@ public sealed class AfluenciaPorReservasTests : IAsyncLifetime
             fechaAusente ? default : new DateOnly(2026, 11, 18),
             franjaAusente ? Guid.Empty : _franja, 2, true, Guid.NewGuid());
 
-        var error = await Assert.ThrowsAsync<ErrorRegistroAfluenciaException>(
-            () => CrearHandler(logger).Handle(evento, CancellationToken.None));
-
-        Assert.IsType<ArgumentException>(error.InnerException);
+        await CrearHandler(logger).Handle(evento, CancellationToken.None);
         Assert.IsType<ArgumentException>(Assert.Single(logger.Errores));
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<GiraDbContext>();
@@ -129,10 +125,7 @@ public sealed class AfluenciaPorReservasTests : IAsyncLifetime
         var handler = CrearHandler(logger);
         var evento = new VisitaCompletadaEvent(new DateOnly(2026, 11, 18), Guid.NewGuid(), 2, true, Guid.NewGuid());
 
-        var error = await Assert.ThrowsAsync<ErrorRegistroAfluenciaException>(
-            () => handler.Handle(evento, CancellationToken.None));
-
-        Assert.IsType<InvalidOperationException>(error.InnerException);
+        await handler.Handle(evento, CancellationToken.None);
         Assert.IsType<InvalidOperationException>(Assert.Single(logger.Errores));
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<GiraDbContext>();
@@ -156,6 +149,50 @@ public sealed class AfluenciaPorReservasTests : IAsyncLifetime
         using var verificacion = _factory.Services.CreateScope();
         var contexto = verificacion.ServiceProvider.GetRequiredService<GiraDbContext>();
         Assert.Single(await contexto.Set<RegistroAfluencia>().ToListAsync());
+    }
+
+    [Fact]
+    public async Task FalloDeAfluencia_SeRegistraYNoInterrumpeElSiguienteHandler()
+    {
+        var logger = new LoggerPrueba();
+        var siguiente = new HandlerPosterior();
+        var servicios = new ServiceCollection();
+        servicios.AddLogging();
+        servicios.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(AfluenciaPorReservasHandler).Assembly));
+        servicios.RemoveAll<INotificationHandler<VisitaCompletadaEvent>>();
+        servicios.AddScoped<IRegistroAfluenciaRepository, RepositorioConFallo>();
+        servicios.AddSingleton<ILogger<AfluenciaPorReservasHandler>>(logger);
+        servicios.AddTransient<INotificationHandler<VisitaCompletadaEvent>, AfluenciaPorReservasHandler>();
+        servicios.AddSingleton<INotificationHandler<VisitaCompletadaEvent>>(siguiente);
+        using var proveedor = servicios.BuildServiceProvider();
+        using var scope = proveedor.CreateScope();
+        var evento = new VisitaCompletadaEvent(new DateOnly(2026, 11, 18), _franja, 2, true, Guid.NewGuid());
+
+        await scope.ServiceProvider.GetRequiredService<IPublisher>().Publish(evento);
+
+        Assert.IsType<InvalidOperationException>(Assert.Single(logger.Errores));
+        Assert.Equal(evento, Assert.Single(siguiente.Eventos));
+    }
+
+    private sealed class RepositorioConFallo : IRegistroAfluenciaRepository
+    {
+        public Task RegistrarAsync(RegistroAfluencia registro, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Fallo de persistencia de prueba.");
+
+        public Task<IReadOnlyList<HistorialAfluenciaDto>> ConsultarAsync(
+            DateOnly desde, DateOnly hasta, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class HandlerPosterior : INotificationHandler<VisitaCompletadaEvent>
+    {
+        public List<VisitaCompletadaEvent> Eventos { get; } = [];
+
+        public Task Handle(VisitaCompletadaEvent notification, CancellationToken cancellationToken)
+        {
+            Eventos.Add(notification);
+            return Task.CompletedTask;
+        }
     }
 
     private AfluenciaPorReservasHandler CrearHandler(ILogger<AfluenciaPorReservasHandler>? logger = null) =>

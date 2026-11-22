@@ -45,9 +45,11 @@ Ubicaciones principales: [entidades](../GIRA.Domain/Entities/Analitica),
   los comensales atendidos.
 - El historial se agrupa por fecha y franja. Un índice por origen y referencia
   evita duplicados; un evento repetido con contenido contradictorio se rechaza.
-- Los datos inválidos y errores de persistencia se registran y propagan al
-  productor. La recepción usa MediatR en memoria: **no garantiza entrega
-  durable ni recuperación automática después de una caída**.
+- Los datos inválidos y errores de persistencia se registran sin propagarse al
+  productor ni impedir que se ejecuten los siguientes handlers. La operación
+  de origen puede completarse aunque el historial no se haya guardado; requiere
+  revisión y conciliación. MediatR en memoria **no garantiza entrega durable
+  ni recuperación automática después de una caída**.
 - La ausencia de eventos no se interpreta automáticamente como un día con
   cero asistentes. El historial anterior a la captura no se reconstruye.
 
@@ -67,10 +69,10 @@ y [repositorio de afluencia](../GIRA.Infrastructure/Persistence/Repositories/Ana
   no existe un programador diario de entrenamiento.
 - Los modelos, sus versiones y métricas se guardan en SQL Server. La
   reactivación manual de una versión anterior exige motivo y queda auditada.
-- La generación diaria de predicciones está habilitada en la configuración
-  base y se comprueba cada cinco minutos después del cierre configurado, mientras
-  la API permanece activa. Usa SSA si hay un modelo activo y observaciones
-  posteriores continuas.
+- La generación diaria de predicciones está desactivada en la configuración
+  base. Una vez validada con Inventario se puede habilitar; entonces se comprueba
+  cada cinco minutos después del cierre configurado, mientras la API permanece
+  activa. Usa SSA si hay un modelo activo y observaciones posteriores continuas.
 - Si no puede usar SSA, utiliza el promedio de fechas observadas del mismo día
   de la semana y franja dentro de los últimos 28 días, con baja confianza.
   Cuando no hay observaciones comparables no inventa un pronóstico. Si no
@@ -219,15 +221,24 @@ consulta su resultado por separado. La activación requiere un motivo.
 4. Iniciar la API y el frontend. La API debe permanecer activa para capturar
    capacidad, procesar entrenamientos, generar predicciones y recomendaciones.
 5. Solicitar entrenamiento cuando exista historial suficiente y consultar el
-   resultado por franja. Revisar la generación después del cierre y los logs si
-   no aparecen resultados.
+   resultado por franja. Tras validar la generación con Inventario, habilitarla
+   y revisar su ejecución después del cierre y los logs si no aparecen resultados.
 
-En [appsettings.json](../GIRA.Api/appsettings.json) están habilitados
-`Analitica:Generacion:Habilitada`, `Analitica:Capacidad:Habilitada`,
-`Analitica:Entrenamiento:Habilitada` y `Analitica:Recomendaciones:Habilitada`.
-Las variables o archivos del entorno pueden sobrescribir esos valores. Estar
-habilitado no garantiza que existan observaciones, un modelo entrenado ni una
-ejecución exitosa.
+En [appsettings.json](../GIRA.Api/appsettings.json) la generación está
+desactivada (`Analitica:Generacion:Habilitada=false`). Capacidad, entrenamiento
+y recomendaciones están habilitados. Las variables o archivos del entorno
+pueden sobrescribir esos valores. Estar habilitado no garantiza que existan
+observaciones, un modelo entrenado ni una ejecución exitosa.
+
+| Proceso habilitado | Frecuencia | Efecto |
+|---|---|---|
+| Capacidad | Al iniciar y cada minuto | Captura capacidad diaria antes de la apertura cuando corresponde. |
+| Entrenamiento | Procesa solicitudes pendientes; espera 5 segundos cuando no hay trabajo | Guarda estados y resultados de entrenamientos solicitados. |
+| Recomendaciones | Al iniciar y cada 5 minutos | Guarda o actualiza recomendaciones y publica eventos de las nuevas. |
+
+La generación, cuando se habilita, revisa cada cinco minutos la generación
+posterior al cierre y las publicaciones pendientes hacia Inventario. No habilitarla
+sin validación coordinada con ese módulo.
 
 ## 5. Validaciones realizadas
 
@@ -252,7 +263,8 @@ demuestra por sí sola el funcionamiento de la API o de SQL Server.
 |---|---|---|
 | Alta | Confirmar el SRS oficial y conciliar sus criterios con GI-8 y las ocho historias. Aclarar las referencias a varios restaurantes frente al alcance actual de un único restaurante. | Equipo funcional y arquitectura |
 | Alta | Validar con datos operativos reales el registro de visitas y no-shows, cancelaciones, costos, capturas de capacidad y marcaciones; comprobar los indicadores con sus responsables. | Reservas, Inventario, Personal y gerencia |
-| Alta | Dejar la API activa antes de la apertura y después del cierre; validar en condiciones reales la captura y la generación automática, monitorear errores y definir alertas operativas. | Infraestructura y Analítica |
+| Alta | Validar con Inventario antes de habilitar la generación. Mantener la API activa antes de la apertura y después del cierre para comprobar la captura y la generación en condiciones reales; monitorear errores y definir alertas operativas. | Inventario, infraestructura y Analítica |
+| Alta | Revisar con el responsable de Inventario los cambios de costo en movimientos y lotes, y las migraciones relacionadas, antes de integrar a DEV. | Inventario |
 | Alta | Integrar Notificaciones con los eventos de recomendaciones y fallos de entrenamiento; definir entrega y reintentos. | Responsable de Notificaciones, GI-93 |
 | Alta | Diseñar y acordar entrega durable o conciliación para eventos de afluencia perdidos; MediatR en memoria no recupera eventos tras una caída. | Reservas, Analítica e infraestructura |
 | Alta | Ampliar e integrar Personal/Turnos según el alcance aprobado; conservar el contrato de horas reales o adaptar la consulta de Analítica de forma coordinada. | Responsable de Personal, GI-92 |
@@ -262,6 +274,9 @@ demuestra por sí sola el funcionamiento de la API o de SQL Server.
 | Media | Definir cómo señalar en el dashboard recomendaciones desactualizadas cuando falla su actualización. | Analítica y frontend |
 | Media | Verificar el rendimiento y la precisión con volumen, infraestructura y datos reales; acordar métricas operativas y umbrales de alerta o rollback si se requieren. | QA e infraestructura |
 | Media | Resolver o conciliar los criterios pendientes de las historias y subtareas de Jira; registrar la evidencia antes de cerrarlas. | Responsable de Jira y QA |
+
+Las pruebas de navegador del dashboard usan Playwright como dependencia de
+desarrollo; el equipo debe tenerla en cuenta al preparar el entorno de pruebas.
 
 Los datos históricos previos sin eventos, snapshots, costos o marcaciones
 fiables no se recuperan automáticamente. Incorporarlos requiere acordar una
