@@ -20,6 +20,9 @@ internal sealed class RepositorioSugerenciasFalso : ISugerenciaTurnoRepository
         Task.FromResult<IReadOnlyList<SugerenciaTurno>>(
             Sugerencias.Where(s => estado is null || s.Estado == estado).ToList());
 
+    public Task<bool> ExistePrediccionAsync(Guid prediccionId, CancellationToken cancellationToken) =>
+        Task.FromResult(Sugerencias.Any(s => s.PrediccionId == prediccionId));
+
     public Task<IReadOnlyList<SugerenciaTurno>> ListarPendientesEntreAsync(DateOnly desde, DateOnly hasta, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<SugerenciaTurno>>(
             Sugerencias.Where(s => s.Estado == EstadoSugerencia.Pendiente && s.Fecha >= desde && s.Fecha <= hasta).ToList());

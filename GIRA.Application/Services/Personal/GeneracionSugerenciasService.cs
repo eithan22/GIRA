@@ -45,6 +45,13 @@ public class GeneracionSugerenciasService : IGeneracionSugerenciasService
     /// <inheritdoc />
     public async Task GenerarDesdePrediccionAsync(PrediccionAfluenciaGeneradaEvent evento, CancellationToken cancellationToken)
     {
+        // GI-303 (provisional): un evento con el mismo contenido que ya generó sugerencias no vuelve a generarlas.
+        var prediccionId = IdentificadorPrediccionProvisional.Derivar(evento);
+        if (await _sugerencias.ExistePrediccionAsync(prediccionId, cancellationToken))
+        {
+            return;
+        }
+
         // Primero las franjas: si no se pueden leer, no se toca ninguna sugerencia y el error sale hacia el publicador.
         var franjasResultado = await _franjas.ListarOperativasAsync(cancellationToken);
         if (franjasResultado.IsFailure)
@@ -95,8 +102,8 @@ public class GeneracionSugerenciasService : IGeneracionSugerenciasService
                     PersonalPlanificado = planificado,
                     PersonalRequerido = requerido,
                     Diferencia = diferencia,
-                    // Pendiente con Isaac: el evento aún no trae el identificador de la predicción.
-                    PrediccionId = null,
+                    // Provisional: identificador derivado del contenido hasta acordar el real con Isaac.
+                    PrediccionId = prediccionId,
                     Estado = EstadoSugerencia.Pendiente,
                     FechaGeneracion = ahora,
                 };

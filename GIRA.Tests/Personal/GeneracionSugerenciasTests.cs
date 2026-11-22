@@ -1,3 +1,4 @@
+using GIRA.Application.Common.Personal;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Events.Analitica;
 using GIRA.Application.Events.Personal;
@@ -34,7 +35,44 @@ public class GeneracionSugerenciasTests
         Assert.Equal(0, sugerencia.PersonalPlanificado);
         Assert.Equal(3, sugerencia.Diferencia);
         Assert.Equal(EstadoSugerencia.Pendiente, sugerencia.Estado);
-        Assert.Null(sugerencia.PrediccionId);
+        Assert.NotNull(sugerencia.PrediccionId);
+    }
+
+    [Fact]
+    public async Task EventoRepetido_NoGeneraSugerenciasDuplicadas()
+    {
+        // Mismo contenido dos veces: la segunda no hace nada, así que la cuenta no cambia.
+        var sugerencias = new RepositorioSugerenciasFalso();
+        var servicio = Crear(sugerencias, minimo: 2, comensales: 20);
+        var evento = Evento(Lunes, Lunes, (Manana, 45));
+
+        await servicio.GenerarDesdePrediccionAsync(evento, default);
+        await servicio.GenerarDesdePrediccionAsync(evento, default);
+
+        Assert.Single(sugerencias.Sugerencias);
+    }
+
+    [Fact]
+    public async Task EventoConOtraAfluencia_GeneraSugerenciasNuevasYVenceLasAnteriores()
+    {
+        // Contenido distinto: no es un duplicado, así que se procesa como una predicción nueva (RN-PER-07).
+        var sugerencias = new RepositorioSugerenciasFalso();
+        var servicio = Crear(sugerencias, minimo: 2, comensales: 20);
+
+        await servicio.GenerarDesdePrediccionAsync(Evento(Lunes, Lunes, (Manana, 45)), default);
+        await servicio.GenerarDesdePrediccionAsync(Evento(Lunes, Lunes, (Manana, 60)), default);
+
+        Assert.Equal(2, sugerencias.Sugerencias.Count);
+        Assert.Single(sugerencias.Sugerencias, s => s.Estado == EstadoSugerencia.Pendiente);
+    }
+
+    [Fact]
+    public void IdentificadorProvisional_NoDependeDelOrdenDeLasPredicciones()
+    {
+        var a = Evento(Lunes, Lunes, (Manana, 45), (Mediodia, 10));
+        var b = Evento(Lunes, Lunes, (Mediodia, 10), (Manana, 45));
+
+        Assert.Equal(IdentificadorPrediccionProvisional.Derivar(a), IdentificadorPrediccionProvisional.Derivar(b));
     }
 
     [Fact]
