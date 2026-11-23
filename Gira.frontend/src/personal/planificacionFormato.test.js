@@ -10,6 +10,8 @@ import {
   horaCorta,
   lunesDe,
   puedeResolver,
+  puedeMarcarPasado,
+  puedeModificarTurno,
   sumarDias,
   textoDiferencia,
   turnosQueCubren,
@@ -76,4 +78,20 @@ test('las etiquetas de estado cubren todos los valores', () => {
   assert.equal(etiquetaEstadoTurno(ESTADO_TURNO.CANCELADO), 'Cancelado');
   assert.equal(etiquetaEstadoSugerencia(ESTADO_SUGERENCIA.VENCIDA), 'Vencida');
   assert.equal(etiquetaEstadoSugerencia(99), '—');
+});
+
+test('puedeMarcarPasado solo para turnos vigentes de un día anterior a hoy (GI-380)', () => {
+  const pasado = { fecha: '2026-12-01', estado: ESTADO_TURNO.PROGRAMADO };
+  const hoy = { fecha: '2026-12-07', estado: ESTADO_TURNO.PROGRAMADO };
+  const cancelado = { fecha: '2026-12-01', estado: ESTADO_TURNO.CANCELADO };
+  assert.equal(puedeMarcarPasado(pasado, '2026-12-07'), true);
+  assert.equal(puedeMarcarPasado(hoy, '2026-12-07'), false);
+  assert.equal(puedeMarcarPasado(cancelado, '2026-12-07'), false);
+});
+
+test('puedeModificarTurno solo para turnos vigentes de hoy en adelante', () => {
+  const futuro = { fecha: '2026-12-08', estado: ESTADO_TURNO.CONFIRMADO };
+  const pasado = { fecha: '2026-12-01', estado: ESTADO_TURNO.PROGRAMADO };
+  assert.equal(puedeModificarTurno(futuro, '2026-12-07'), true);
+  assert.equal(puedeModificarTurno(pasado, '2026-12-07'), false);
 });
