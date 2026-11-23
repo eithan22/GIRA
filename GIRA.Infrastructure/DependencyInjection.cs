@@ -59,7 +59,8 @@ public static class DependencyInjection
         services.AddScoped<IMarcacionTurnoRepository, MarcacionTurnoRepository>();
         services.AddScoped<IKpisRepository, KpisRepository>();
         services.AddScoped<IPrediccionAfluenciaRepository, PrediccionAfluenciaRepository>();
-        services.AddScoped<IGeneracionPrediccionRepository, GeneracionPrediccionRepository>();
+        services.AddScoped<IGeneracionPrediccionRepository>(sp =>
+            new GeneracionPrediccionRepository(sp.GetRequiredService<GiraDbContext>(), configuration));
         services.AddScoped<IModelosAfluenciaRepository, ModelosAfluenciaRepository>();
         services.AddScoped<IModelosActivosRepository>(sp =>
             sp.GetRequiredService<IModelosAfluenciaRepository>());
@@ -74,7 +75,10 @@ public static class DependencyInjection
         if (configuration.GetValue<bool?>("Analitica:Recomendaciones:Habilitada") != false)
             services.AddHostedService<RecomendacionesBackgroundService>();
         if (configuration.GetValue<bool>("Analitica:Generacion:Habilitada"))
+        {
+            _ = GeneracionPrediccionRepository.ObtenerRestauranteId(configuration);
             services.AddHostedService<GeneracionPrediccionBackgroundService>();
+        }
         if (configuration.GetValue<bool?>("Analitica:Capacidad:Habilitada") != false)
             services.AddHostedService<CapacidadOperativaBackgroundService>();
         if (configuration.GetValue<bool?>("Analitica:Entrenamiento:Habilitada") != false)
