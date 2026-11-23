@@ -73,6 +73,7 @@ public static class PersonalRepositoriesExtensions
         services.AddScoped<IAusenciaRepository, AusenciaRepository>();
         services.AddScoped<IRequerimientoPersonalRepository, RequerimientoPersonalRepository>();
         services.AddScoped<ISugerenciaTurnoRepository, SugerenciaTurnoRepository>();
+        services.AddScoped<IEventoPrediccionDescartadoRepository, EventoPrediccionDescartadoRepository>();
         services.AddScoped<GIRA.Application.Interfaces.Services.Personal.IRestauranteConfigurado, GIRA.Infrastructure.Services.Personal.RestauranteConfiguradoPersonal>();
         return services;
     }

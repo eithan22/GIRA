@@ -31,9 +31,10 @@ public class GeneracionSugerenciasService : IGeneracionSugerenciasService
     private readonly TimeProvider _reloj;
     private readonly IPublicadorEventosSeguro _publicador;
     private readonly IRestauranteConfigurado _restaurante;
+    private readonly IEventoPrediccionDescartadoRepository _descartados;
     private readonly ILogger<GeneracionSugerenciasService> _logger;
 
-    /// <summary>Crea el servicio con sus repositorios, las franjas de Reservas, el reloj, el publicador, el restaurante y el registro.</summary>
+    /// <summary>Crea el servicio con sus repositorios, las franjas de Reservas, el reloj, el publicador, el restaurante, el registro de descartes y el registro.</summary>
     public GeneracionSugerenciasService(
         ISugerenciaTurnoRepository sugerencias,
         ITurnoRepository turnos,
@@ -42,6 +43,7 @@ public class GeneracionSugerenciasService : IGeneracionSugerenciasService
         TimeProvider reloj,
         IPublicadorEventosSeguro publicador,
         IRestauranteConfigurado restaurante,
+        IEventoPrediccionDescartadoRepository descartados,
         ILogger<GeneracionSugerenciasService> logger)
     {
         _sugerencias = sugerencias;
@@ -51,16 +53,27 @@ public class GeneracionSugerenciasService : IGeneracionSugerenciasService
         _reloj = reloj;
         _publicador = publicador;
         _restaurante = restaurante;
+        _descartados = descartados;
         _logger = logger;
     }
 
     /// <inheritdoc />
     public async Task GenerarDesdePrediccionAsync(PrediccionAfluenciaGeneradaEvent evento, CancellationToken cancellationToken)
     {
-        if (!ContratoValido(evento))
+        var motivoDescarte = MotivoDescarte(evento);
+        if (motivoDescarte is not null)
         {
-            // Según la documentación de Analítica, un consumidor no actúa sobre eventos de otra versión, sin identificador o de otro restaurante.
-            _logger.LogWarning("Evento de predicción descartado: versión de contrato, identificador o restaurante no válidos.");
+            // GI-303: el evento no modifica sugerencias, pero queda guardado para revisión.
+            _logger.LogWarning("Evento de predicción descartado: {Motivo}", motivoDescarte);
+            _descartados.Agregar(new EventoPrediccionDescartado
+            {
+                EventoId = evento.EventoId,
+                VersionContrato = evento.VersionContrato,
+                RestauranteRecibidoId = evento.RestauranteId,
+                Motivo = motivoDescarte,
+                FechaRecepcion = _reloj.GetUtcNow().UtcDateTime,
+            });
+            await _descartados.GuardarCambiosAsync(cancellationToken);
             return;
         }
 
@@ -144,15 +157,33 @@ public class GeneracionSugerenciasService : IGeneracionSugerenciasService
     }
 
     /// <summary>
-    /// El evento se acepta solo si trae identificador, tiene la versión que entendemos y es del restaurante configurado.
-    /// Si el restaurante no está configurado, no se acepta ningún evento.
+    /// Devuelve el motivo por el que el evento no se acepta, o null si cumple el contrato: trae identificador,
+    /// tiene la versión que entendemos y es del restaurante configurado. Si el restaurante no está configurado,
+    /// no se acepta ningún evento.
     /// </summary>
-    private bool ContratoValido(PrediccionAfluenciaGeneradaEvent evento)
+    private string? MotivoDescarte(PrediccionAfluenciaGeneradaEvent evento)
     {
         var configurado = _restaurante.RestauranteId;
-        return evento.EventoId is not null
-            && evento.VersionContrato == VersionContratoSoportada
-            && configurado is not null
-            && evento.RestauranteId == configurado;
+        if (evento.EventoId is null)
+        {
+            return "falta el identificador del evento.";
+        }
+
+        if (evento.VersionContrato != VersionContratoSoportada)
+        {
+            return $"versión de contrato no soportada ({evento.VersionContrato}).";
+        }
+
+        if (configurado is null)
+        {
+            return "no hay restaurante configurado.";
+        }
+
+        if (evento.RestauranteId != configurado)
+        {
+            return "el evento es de otro restaurante.";
+        }
+
+        return null;
     }
 }
