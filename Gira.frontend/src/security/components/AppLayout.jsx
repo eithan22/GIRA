@@ -13,6 +13,8 @@ const menuItems = [
   { label: 'Inventario', to: '/inventario', icon: 'box', roles: ['Administrador', 'Gerente', 'Supervisor', 'Cocina'] },
   { label: 'Dashboard', to: '/analitica/dashboard', icon: 'grid', roles: ['Administrador', 'Gerente'] },
   { label: 'Mi turno', to: '/personal/marcaciones', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
+  { label: 'Mis turnos', to: '/personal/mis-turnos', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
+  { label: 'Mi disponibilidad', to: '/personal/mi-disponibilidad', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
   { label: 'Usuarios', to: '/seguridad/usuarios', icon: 'users', roles: ['Administrador'], badge: true },
 ];
 

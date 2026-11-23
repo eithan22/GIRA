@@ -91,6 +91,26 @@ export const personalService = {
     return response.data;
   },
 
+  // Disponibilidad y turnos propios del empleado que inició sesión (GI-321, GI-300). El API toma el empleado del usuario.
+  async listarMiDisponibilidad() {
+    const response = await api.get('/api/mi/disponibilidad');
+    return response.data;
+  },
+
+  async agregarMiDisponibilidad(datos) {
+    const response = await api.post('/api/mi/disponibilidad', datos);
+    return response.data;
+  },
+
+  async eliminarMiDisponibilidad(id) {
+    await api.delete(`/api/mi/disponibilidad/${id}`);
+  },
+
+  async listarMisTurnos({ desde, hasta } = {}) {
+    const response = await api.get('/api/mi/turnos', { params: { desde, hasta } });
+    return response.data;
+  },
+
   // Sugerencias de personal (GI-304, GI-365). Solo cambian el estado de la sugerencia, nunca los turnos.
   async listarSugerencias({ estado } = {}) {
     const response = await api.get('/api/turnos/sugerencias', { params: { estado: estado ?? undefined } });
