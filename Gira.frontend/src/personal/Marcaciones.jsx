@@ -69,14 +69,15 @@ export default function Marcaciones() {
           <p>Registra tu hora real de entrada y salida para el cálculo de horas trabajadas.</p></div>
       </div>
       {error && <p className="notice-error" role="alert">{error}</p>}
-      {exito && <p role="status">{exito}</p>}
+      {exito && <p className="form-success" role="status">{exito}</p>}
       {cargando ? <p role="status">Consultando tu turno…</p>
         : turno ? (
           <section className="panel marcacion-panel" aria-labelledby="turno-abierto">
             <h2 id="turno-abierto">Tienes un turno abierto</h2>
             <p>Entrada registrada: <time dateTime={turno.inicioEn}>{new Date(turno.inicioEn).toLocaleString()}</time></p>
             <form onSubmit={marcarSalida}>
-              <label>Minutos de pausa
+              <label className="form-field">
+                <span>Minutos de pausa</span>
                 <input type="number" min="0" max="720" step="1" value={pausa}
                   onChange={(evento) => setPausa(evento.target.value)} />
               </label>
