@@ -2862,6 +2862,14 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("GIRA.Infrastructure.Identity.Usuario", b =>
+                {
+                    b.HasOne("GIRA.Domain.Entities.Personal.Empleado", null)
+                        .WithMany()
+                        .HasForeignKey("EmpleadoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.HasOne("GIRA.Infrastructure.Identity.Rol", null)
