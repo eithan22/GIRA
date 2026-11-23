@@ -7,7 +7,7 @@ import Icon from './Icon.jsx';
 const menuItems = [
   { label: 'Inicio', to: '/inicio', icon: 'grid', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
   { label: 'Reservas', to: '/reservas', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero'] },
-  { label: 'Personal', to: '/personal', icon: 'users', roles: ['Administrador', 'Gerente'] },
+  { label: 'Personal', to: '/personal/empleados', icon: 'users', roles: ['Administrador', 'Gerente'] },
   { label: 'Cargos', to: '/personal/cargos', icon: 'users', roles: ['Administrador', 'Gerente'] },
   { label: 'Requerimientos', to: '/personal/requerimientos', icon: 'grid', roles: ['Administrador', 'Gerente'] },
   { label: 'Ausencias', to: '/personal/ausencias', icon: 'calendar', roles: ['Administrador', 'Gerente'] },
