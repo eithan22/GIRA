@@ -9,6 +9,8 @@ const menuItems = [
   { label: 'Reservas', to: '/reservas', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero'] },
   { label: 'Personal', to: '/personal', icon: 'users', roles: ['Administrador', 'Gerente'] },
   { label: 'Cargos', to: '/personal/cargos', icon: 'users', roles: ['Administrador', 'Gerente'] },
+  { label: 'Requerimientos', to: '/personal/requerimientos', icon: 'grid', roles: ['Administrador', 'Gerente'] },
+  { label: 'Ausencias', to: '/personal/ausencias', icon: 'calendar', roles: ['Administrador', 'Gerente'] },
   { label: 'Planificador', to: '/personal/planificador', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor'] },
   { label: 'Sugerencias', to: '/personal/sugerencias', icon: 'grid', roles: ['Administrador', 'Gerente', 'Supervisor'] },
   { label: 'Inventario', to: '/inventario', icon: 'box', roles: ['Administrador', 'Gerente', 'Supervisor', 'Cocina'] },
