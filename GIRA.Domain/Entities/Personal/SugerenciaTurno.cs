@@ -27,11 +27,11 @@ public class SugerenciaTurno : BaseEntity
     /// <summary>Requerido menos planificado. Positivo: faltan personas. Negativo: sobran.</summary>
     public int Diferencia { get; set; }
 
-    /// <summary>
-    /// Predicción que originó la sugerencia. Null mientras el evento de Analítica no incluya su identificador
-    /// (pendiente de acordar con Isaac).
-    /// </summary>
+    /// <summary>Identificador de la predicción de esa fecha y franja (PrediccionId del evento de Analítica, versión 1).</summary>
     public Guid? PrediccionId { get; set; }
+
+    /// <summary>Identificador del evento de Analítica que la generó (EventoId). Sirve para no procesar dos veces el mismo evento.</summary>
+    public Guid? EventoId { get; set; }
 
     /// <summary>Estado de la sugerencia.</summary>
     public EstadoSugerencia Estado { get; set; } = EstadoSugerencia.Pendiente;

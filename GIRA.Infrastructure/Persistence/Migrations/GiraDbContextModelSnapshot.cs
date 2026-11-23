@@ -1799,6 +1799,9 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<Guid?>("EventoId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateOnly>("Fecha")
                         .HasColumnType("date");
 
@@ -1835,6 +1838,9 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EventoId")
+                        .HasDatabaseName("IX_SugerenciaTurno_EventoId");
 
                     b.HasIndex("Estado", "Fecha")
                         .HasDatabaseName("IX_SugerenciaTurno_Estado_Fecha");

@@ -12,8 +12,8 @@ public interface ISugerenciaTurnoRepository
     /// <summary>Lista las sugerencias, opcionalmente filtradas por estado, sin seguimiento de cambios.</summary>
     Task<IReadOnlyList<SugerenciaTurno>> ListarAsync(EstadoSugerencia? estado, CancellationToken cancellationToken);
 
-    /// <summary>Indica si ya hay sugerencias generadas por una predicción con ese identificador (GI-303, deduplicación).</summary>
-    Task<bool> ExistePrediccionAsync(Guid prediccionId, CancellationToken cancellationToken);
+    /// <summary>Indica si ya hay sugerencias generadas por un evento de predicción con ese EventoId (GI-303, deduplicación).</summary>
+    Task<bool> ExisteEventoAsync(Guid eventoId, CancellationToken cancellationToken);
 
     /// <summary>Lista las sugerencias pendientes entre dos fechas (inclusive), con seguimiento de cambios para poder vencerlas.</summary>
     Task<IReadOnlyList<SugerenciaTurno>> ListarPendientesEntreAsync(DateOnly desde, DateOnly hasta, CancellationToken cancellationToken);
