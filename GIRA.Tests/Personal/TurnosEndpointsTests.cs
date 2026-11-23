@@ -117,6 +117,69 @@ public class TurnosEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Mesero_SinEmpleadoVinculado_NoPuedeVerSusTurnos()
+    {
+        // Un usuario real sin empleado vinculado recibe 404 con un mensaje claro (GI-300).
+        await ComoUsuarioSinEmpleadoAsync(Roles.Mesero);
+
+        var respuesta = await _cliente.GetAsync($"/api/mi/turnos?desde=2026-12-07&hasta=2026-12-13");
+
+        Assert.Equal(HttpStatusCode.NotFound, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task Mesero_SinEmpleadoVinculado_NoPuedeVerSuDisponibilidad()
+    {
+        await ComoUsuarioSinEmpleadoAsync(Roles.Mesero);
+
+        var respuesta = await _cliente.GetAsync("/api/mi/disponibilidad");
+
+        Assert.Equal(HttpStatusCode.NotFound, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task Mesero_VinculadoAUnEmpleado_VeSusTurnos()
+    {
+        // Camino completo de GI-133 y GI-300: usuario vinculado a empleado, que consulta sus turnos.
+        var usuarioId = await _factory.CrearUsuarioAsync($"{Guid.NewGuid():N}@gira.test", "Temporal#2026abc", true, Roles.Mesero);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<GIRA.Infrastructure.Persistence.Context.GiraDbContext>();
+            var empleado = new GIRA.Domain.Entities.Personal.Empleado
+            {
+                Nombre = "Luis", Apellido = "Mora", Cedula = Guid.NewGuid().ToString("N")[..11],
+                CargoId = Guid.NewGuid(), FechaIngreso = new DateOnly(2026, 1, 1), HorasMaximasSemana = 40, Activo = true,
+            };
+            db.Empleados.Add(empleado);
+            await db.SaveChangesAsync();
+            var usuario = await db.Users.FindAsync(usuarioId);
+            usuario!.EmpleadoId = empleado.Id;
+            await db.SaveChangesAsync();
+        }
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var tokens = scope.ServiceProvider.GetRequiredService<ITokenService>();
+            _cliente.UsarToken(tokens.GenerarAccessToken(usuarioId, "vinculado@gira.test", "Vinculado", [Roles.Mesero]).Token);
+        }
+
+        var respuesta = await _cliente.GetAsync("/api/mi/turnos?desde=2026-12-07&hasta=2026-12-13");
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task UsuarioInexistente_RecibeNoAutorizado()
+    {
+        // Un token de un usuario que ya no existe no puede consultar nada (la autenticación lo rechaza).
+        Como(Roles.Mesero);
+
+        var respuesta = await _cliente.GetAsync("/api/mi/turnos?desde=2026-12-07&hasta=2026-12-13");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
+    }
+
+    [Fact]
     public async Task TurnoSolapado_RecibeConflict()
     {
         var empleadoId = await PrepararEmpleadoAsync();
@@ -200,6 +263,16 @@ public class TurnosEndpointsTests : IAsyncLifetime
             new DisponibilidadRequest(DayOfWeek.Monday, new TimeOnly(8, 0), new TimeOnly(18, 0)));
 
         return empleado.Id;
+    }
+
+    // Crea un usuario real sin empleado vinculado y usa su token (GI-300, GI-321).
+    private async Task ComoUsuarioSinEmpleadoAsync(string rol)
+    {
+        var usuarioId = await _factory.CrearUsuarioAsync($"{Guid.NewGuid():N}@gira.test", "Temporal#2026abc", true, rol);
+        using var scope = _factory.Services.CreateScope();
+        var tokens = scope.ServiceProvider.GetRequiredService<ITokenService>();
+        var token = tokens.GenerarAccessToken(usuarioId, "sin-empleado@gira.test", "Sin empleado", [rol]).Token;
+        _cliente.UsarToken(token);
     }
 
     private void Como(string rol)

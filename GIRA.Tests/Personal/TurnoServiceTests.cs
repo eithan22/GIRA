@@ -178,6 +178,24 @@ public class TurnoServiceTests
     }
 
     [Fact]
+    public async Task ListarDeEmpleado_SoloDevuelveLosTurnosDeEseEmpleado()
+    {
+        // GI-300 y RN-PER-09: un empleado ve solo sus turnos.
+        var turnos = new RepositorioTurnosEnMemoria();
+        turnos.Turnos.Add(Turno(Lunes, "09:00", "13:00"));
+        var ajeno = Turno(Lunes, "14:00", "18:00");
+        ajeno.EmpleadoId = Guid.NewGuid();
+        turnos.Turnos.Add(ajeno);
+        var servicio = Crear(turnos);
+
+        var resultado = await servicio.ListarDeEmpleadoAsync(Empleado, Lunes, Lunes.AddDays(6), default);
+
+        Assert.True(resultado.IsSuccess);
+        var turno = Assert.Single(resultado.Value!);
+        Assert.Equal(Empleado, turno.EmpleadoId);
+    }
+
+    [Fact]
     public async Task Actualizar_TurnoPasado_NoSeModifica()
     {
         var turnos = new RepositorioTurnosEnMemoria();

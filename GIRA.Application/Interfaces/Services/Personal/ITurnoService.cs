@@ -21,4 +21,10 @@ public interface ITurnoService
     /// Rango máximo de 31 días. Devuelve 404 si el cargo indicado no existe.
     /// </summary>
     Task<OperationResult<IReadOnlyList<TurnoDto>>> ListarAsync(DateOnly desde, DateOnly hasta, Guid? cargoId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lista solo los turnos de un empleado entre dos fechas (GI-300, RF-PER-06, RN-PER-09). Rango máximo de 31 días.
+    /// El empleado lo decide quien llama: nunca viene de un parámetro del cliente.
+    /// </summary>
+    Task<OperationResult<IReadOnlyList<TurnoDto>>> ListarDeEmpleadoAsync(Guid empleadoId, DateOnly desde, DateOnly hasta, CancellationToken cancellationToken);
 }

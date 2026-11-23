@@ -18,8 +18,9 @@ public class TurnoService : ITurnoService
 {
     /// <summary>
     /// Descanso mínimo por defecto entre el fin de un turno y el inicio del siguiente del mismo empleado.
-    /// Valor provisional tomado de la Directiva 2003/88/CE (11 horas); el equipo debe confirmar la cifra
-    /// que aplica al restaurante. Se puede cambiar pasando otro valor al constructor.
+    /// Es una política interna del restaurante (11 horas), no un requisito legal verificado: la búsqueda de la
+    /// normativa dominicana no encontró una regla de descanso entre jornadas. La cifra de referencia es la
+    /// Directiva 2003/88/CE. Se puede cambiar pasando otro valor al constructor.
     /// </summary>
     public static readonly TimeSpan DescansoMinimoPorDefecto = TimeSpan.FromHours(11);
 
@@ -204,6 +205,29 @@ public class TurnoService : ITurnoService
         var turnos = await _turnos.ListarEntreAsync(desde, hasta, cancellationToken);
         var filtrados = cargoId is null ? turnos : turnos.Where(t => t.CargoId == cargoId.Value);
         var dtos = filtrados
+            .OrderBy(t => t.Fecha)
+            .ThenBy(t => t.HoraInicio)
+            .Select(ToDto)
+            .ToList();
+
+        return OperationResult.Success<IReadOnlyList<TurnoDto>>(dtos);
+    }
+
+    /// <inheritdoc />
+    public async Task<OperationResult<IReadOnlyList<TurnoDto>>> ListarDeEmpleadoAsync(Guid empleadoId, DateOnly desde, DateOnly hasta, CancellationToken cancellationToken)
+    {
+        if (desde > hasta)
+        {
+            return OperationResult.Failure<IReadOnlyList<TurnoDto>>(ErrorType.Validation, RangoInvertido);
+        }
+
+        if (hasta.DayNumber - desde.DayNumber + 1 > PlanificacionService.MaximoDias)
+        {
+            return OperationResult.Failure<IReadOnlyList<TurnoDto>>(ErrorType.Validation, RangoMuyGrande);
+        }
+
+        var turnos = await _turnos.ListarPorEmpleadoEntreAsync(empleadoId, desde, hasta, cancellationToken);
+        var dtos = turnos
             .OrderBy(t => t.Fecha)
             .ThenBy(t => t.HoraInicio)
             .Select(ToDto)
