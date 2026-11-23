@@ -36,6 +36,16 @@ internal sealed class RepositorioSugerenciasFalso : ISugerenciaTurnoRepository
     public Task GuardarCambiosAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }
 
+/// <summary>Registro en memoria de los eventos de predicción descartados (GI-303).</summary>
+internal sealed class RepositorioEventosDescartadosFalso : IEventoPrediccionDescartadoRepository
+{
+    public List<EventoPrediccionDescartado> Eventos { get; } = [];
+
+    public void Agregar(EventoPrediccionDescartado evento) => Eventos.Add(evento);
+
+    public Task GuardarCambiosAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+}
+
 /// <summary>Repositorio de turnos en memoria con solo lo que usan la cobertura y las sugerencias.</summary>
 internal sealed class RepositorioTurnosPrueba : ITurnoRepository
 {

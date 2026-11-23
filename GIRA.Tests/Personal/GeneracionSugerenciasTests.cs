@@ -228,13 +228,78 @@ public class GeneracionSugerenciasTests
         Assert.Empty(sugerencias.Sugerencias);
     }
 
+    [Fact]
+    public async Task EventoSinIdentificador_SeRegistraParaRevision()
+    {
+        var sugerencias = new RepositorioSugerenciasFalso();
+        var descartados = new RepositorioEventosDescartadosFalso();
+        var servicio = Crear(sugerencias, minimo: 2, comensales: 20, descartados: descartados);
+        var evento = Evento(Lunes, Lunes, (Manana, 45)) with { EventoId = null };
+
+        await servicio.GenerarDesdePrediccionAsync(evento, default);
+
+        Assert.Empty(sugerencias.Sugerencias);
+        var registrado = Assert.Single(descartados.Eventos);
+        Assert.Null(registrado.EventoId);
+        Assert.Equal(1, registrado.VersionContrato);
+        Assert.Contains("identificador", registrado.Motivo);
+    }
+
+    [Fact]
+    public async Task EventoConOtraVersion_SeRegistraConSuVersion()
+    {
+        var sugerencias = new RepositorioSugerenciasFalso();
+        var descartados = new RepositorioEventosDescartadosFalso();
+        var servicio = Crear(sugerencias, minimo: 2, comensales: 20, descartados: descartados);
+        var evento = Evento(Lunes, Lunes, (Manana, 45)) with { VersionContrato = 2 };
+
+        await servicio.GenerarDesdePrediccionAsync(evento, default);
+
+        Assert.Empty(sugerencias.Sugerencias);
+        var registrado = Assert.Single(descartados.Eventos);
+        Assert.Equal(evento.EventoId, registrado.EventoId);
+        Assert.Equal(2, registrado.VersionContrato);
+        Assert.Contains("versión", registrado.Motivo);
+    }
+
+    [Fact]
+    public async Task EventoDeOtroRestaurante_SeRegistraConElRestauranteRecibido()
+    {
+        var sugerencias = new RepositorioSugerenciasFalso();
+        var descartados = new RepositorioEventosDescartadosFalso();
+        var servicio = Crear(sugerencias, minimo: 2, comensales: 20, descartados: descartados);
+        var otro = Guid.NewGuid();
+        var evento = Evento(Lunes, Lunes, (Manana, 45)) with { RestauranteId = otro };
+
+        await servicio.GenerarDesdePrediccionAsync(evento, default);
+
+        Assert.Empty(sugerencias.Sugerencias);
+        var registrado = Assert.Single(descartados.Eventos);
+        Assert.Equal(otro, registrado.RestauranteRecibidoId);
+        Assert.Contains("otro restaurante", registrado.Motivo);
+    }
+
+    [Fact]
+    public async Task EventoValido_NoSeRegistraComoDescartado()
+    {
+        var sugerencias = new RepositorioSugerenciasFalso();
+        var descartados = new RepositorioEventosDescartadosFalso();
+        var servicio = Crear(sugerencias, minimo: 2, comensales: 20, descartados: descartados);
+
+        await servicio.GenerarDesdePrediccionAsync(Evento(Lunes, Lunes, (Manana, 45)), default);
+
+        Assert.NotEmpty(sugerencias.Sugerencias);
+        Assert.Empty(descartados.Eventos);
+    }
+
     private static GeneracionSugerenciasService Crear(
         RepositorioSugerenciasFalso sugerencias,
         int minimo,
         int comensales,
         RepositorioTurnosPrueba? turnos = null,
         PublicadorPrueba? publicador = null,
-        bool restauranteConfigurado = true)
+        bool restauranteConfigurado = true,
+        RepositorioEventosDescartadosFalso? descartados = null)
     {
         var requerimientos = new RepositorioRequerimientosFalso();
         requerimientos.Requerimientos.Add(new RequerimientoPersonal { CargoId = Mesero, MinimoPorFranja = minimo, ComensalesPorEmpleado = comensales });
@@ -252,6 +317,7 @@ public class GeneracionSugerenciasTests
             new RelojPrueba(new DateTimeOffset(2026, 11, 22, 14, 0, 0, TimeSpan.Zero)),
             publicador ?? new PublicadorPrueba(),
             new RestauranteConfiguradoPrueba(restauranteConfigurado ? Restaurante : null),
+            descartados ?? new RepositorioEventosDescartadosFalso(),
             NullLogger<GeneracionSugerenciasService>.Instance);
     }
 

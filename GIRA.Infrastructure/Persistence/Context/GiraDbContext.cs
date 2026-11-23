@@ -53,6 +53,9 @@ public class GiraDbContext : IdentityDbContext<Usuario, Rol, Guid>
     /// <summary>Sugerencias de personal generadas por las predicciones de afluencia (GI-303, RF-PER-09).</summary>
     public DbSet<SugerenciaTurno> Sugerencias => Set<SugerenciaTurno>();
 
+    /// <summary>Eventos de predicción rechazados por Personal, para revisión (GI-303).</summary>
+    public DbSet<EventoPrediccionDescartado> EventosPrediccionDescartados => Set<EventoPrediccionDescartado>();
+
     /// <summary>Solicitudes de recuperación de contraseña pendientes de atender por un Administrador.</summary>
     public DbSet<SolicitudRecuperacionPassword> SolicitudesRecuperacionPassword => Set<SolicitudRecuperacionPassword>();
 
