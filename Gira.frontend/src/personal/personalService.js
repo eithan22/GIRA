@@ -111,6 +111,17 @@ export const personalService = {
     return response.data;
   },
 
+  // Ausencias propias del empleado que inició sesión (GI-367). El API toma el empleado del usuario.
+  async listarMisAusencias() {
+    const response = await api.get('/api/mi/ausencias');
+    return response.data;
+  },
+
+  async solicitarMiAusencia(datos) {
+    const response = await api.post('/api/mi/ausencias', datos);
+    return response.data;
+  },
+
   // Sugerencias de personal (GI-304, GI-365). Solo cambian el estado de la sugerencia, nunca los turnos.
   async listarSugerencias({ estado } = {}) {
     const response = await api.get('/api/turnos/sugerencias', { params: { estado: estado ?? undefined } });

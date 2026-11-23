@@ -24,13 +24,44 @@ public class MiPersonalController : ControllerBase
     private readonly IDisponibilidadService _disponibilidad;
     private readonly ITurnoService _turnos;
     private readonly IUsuarioService _usuarios;
+    private readonly IAusenciaService _ausencias;
 
-    /// <summary>Crea el controlador con los servicios de disponibilidad, turnos y usuarios.</summary>
-    public MiPersonalController(IDisponibilidadService disponibilidad, ITurnoService turnos, IUsuarioService usuarios)
+    /// <summary>Crea el controlador con los servicios de disponibilidad, turnos, ausencias y usuarios.</summary>
+    public MiPersonalController(IDisponibilidadService disponibilidad, ITurnoService turnos, IUsuarioService usuarios, IAusenciaService ausencias)
     {
         _disponibilidad = disponibilidad;
         _turnos = turnos;
         _usuarios = usuarios;
+        _ausencias = ausencias;
+    }
+
+    /// <summary>Lista mis ausencias (solicitadas, aprobadas y rechazadas) (GI-367).</summary>
+    [HttpGet("ausencias")]
+    [ProducesResponseType<IReadOnlyList<AusenciaDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ListarAusencias(CancellationToken cancellationToken)
+    {
+        var (empleadoId, error) = await ObtenerEmpleadoAsync(cancellationToken);
+        if (error is not null) return error;
+        return (await _ausencias.ListarAsync(empleadoId!.Value, cancellationToken)).ToActionResult();
+    }
+
+    /// <summary>Solicita una ausencia para mí. Queda en estado Solicitada hasta que la aprueba el gerente (GI-367, RF-PER-11).</summary>
+    [HttpPost("ausencias")]
+    [ProducesResponseType<AusenciaDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SolicitarAusencia([FromBody] SolicitarAusenciaPropiaRequest request, CancellationToken cancellationToken)
+    {
+        var (empleadoId, error) = await ObtenerEmpleadoAsync(cancellationToken);
+        if (error is not null) return error;
+
+        var resultado = await _ausencias.CrearAsync(
+            new AusenciaRequest(empleadoId!.Value, request.FechaDesde, request.FechaHasta, request.Tipo, request.Motivo),
+            cancellationToken);
+        return resultado.IsSuccess
+            ? StatusCode(StatusCodes.Status201Created, resultado.Value)
+            : resultado.ToActionResult();
     }
 
     /// <summary>Lista mi disponibilidad semanal (GI-321).</summary>
