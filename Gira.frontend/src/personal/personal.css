@@ -98,3 +98,43 @@
   opacity: 1;
   background: #f3f1ff;
 }
+
+/* Menús desplegables de Personal: mismo marco que los campos de hora. */
+.personal-form .select-wrap select {
+  height: 40px;
+  color: #293448;
+  border: 1px solid #c3cad9;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.personal-form .select-wrap select:hover {
+  border-color: #8f85e6;
+}
+
+.personal-form .select-wrap select:focus {
+  border-color: #7b6bd2;
+  box-shadow: 0 0 0 3px #8371ed22;
+}
+
+.personal-form .select-wrap::after {
+  top: 17px;
+}
+
+/* Hora con listas de hora y minutos (componente SelectorHora). */
+.selector-hora {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selector-hora .select-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.selector-hora-separador {
+  color: #293448;
+  font-weight: 700;
+}

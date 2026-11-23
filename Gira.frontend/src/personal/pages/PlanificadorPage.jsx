@@ -13,6 +13,7 @@ import {
   validarTurno,
 } from '../planificacionFormato.js';
 import '../personal.css';
+import SelectorHora from '../components/SelectorHora.jsx';
 import '../planificacion.css';
 
 const FORM_VACIO = { empleadoId: '', cargoId: '', fecha: '', horaInicio: '', horaFin: '', notas: '' };
@@ -259,14 +260,8 @@ export default function PlanificadorPage() {
               <span>Notas</span>
               <input value={form.notas} onChange={(e) => setForm({ ...form, notas: e.target.value })} maxLength={250} />
             </label>
-            <label className="form-field">
-              <span>Hora de inicio <i>*</i></span>
-              <input type="time" value={form.horaInicio} onChange={(e) => setForm({ ...form, horaInicio: e.target.value })} />
-            </label>
-            <label className="form-field">
-              <span>Hora de fin <i>*</i></span>
-              <input type="time" value={form.horaFin} onChange={(e) => setForm({ ...form, horaFin: e.target.value })} />
-            </label>
+            <SelectorHora etiqueta="Hora de inicio" valor={form.horaInicio} onChange={(valor) => setForm({ ...form, horaInicio: valor })} />
+            <SelectorHora etiqueta="Hora de fin" valor={form.horaFin} onChange={(valor) => setForm({ ...form, horaFin: valor })} />
           </div>
           {Object.values(errores).map((texto) => <p key={texto} className="inline-error">{texto}</p>)}
           <div className="form-actions">
