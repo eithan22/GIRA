@@ -86,13 +86,23 @@ public class EmpleadosEndpointsTests : IAsyncLifetime
 
     [Theory]
     [InlineData(Roles.Mesero)]
-    [InlineData(Roles.Supervisor)]
     [InlineData(Roles.Cocina)]
     public async Task RolSinPermiso_RecibeForbidden(string rol)
     {
         Como(rol);
 
         Assert.Equal(HttpStatusCode.Forbidden, (await _cliente.GetAsync(Ruta)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await _cliente.PostAsJsonAsync(Ruta, Datos(Guid.NewGuid()))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await _cliente.PatchAsJsonAsync($"{Ruta}/{Guid.NewGuid()}/estado", new CambiarEstadoEmpleadoRequest(false))).StatusCode);
+    }
+
+    [Fact]
+    public async Task Supervisor_PuedeLeerEmpleadosPeroNoModificarlos()
+    {
+        // El Supervisor necesita la lista de empleados para planificar (LeerPersonal), pero no registrarlos ni desactivarlos.
+        Como(Roles.Supervisor);
+
+        Assert.Equal(HttpStatusCode.OK, (await _cliente.GetAsync(Ruta)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await _cliente.PostAsJsonAsync(Ruta, Datos(Guid.NewGuid()))).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await _cliente.PatchAsJsonAsync($"{Ruta}/{Guid.NewGuid()}/estado", new CambiarEstadoEmpleadoRequest(false))).StatusCode);
     }

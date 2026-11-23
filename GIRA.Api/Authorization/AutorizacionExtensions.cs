@@ -34,6 +34,7 @@ public static class AutorizacionExtensions
 
             // Personal
             Agregar(Politicas.GestionarPersonal, Roles.Administrador, Roles.Gerente);
+            Agregar(Politicas.LeerPersonal, Roles.Administrador, Roles.Gerente, Roles.Supervisor);
             Agregar(Politicas.AsignarTurnos, Roles.Administrador, Roles.Gerente, Roles.Supervisor);
             Agregar(Politicas.ConsultarMisTurnos, Roles.Todos);
 

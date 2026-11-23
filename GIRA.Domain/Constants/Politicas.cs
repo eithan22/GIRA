@@ -25,6 +25,8 @@ public static class Politicas
     // Personal
     /// <summary>Gestionar empleados, cargos y ausencias.</summary>
     public const string GestionarPersonal = nameof(GestionarPersonal);
+    /// <summary>Leer cargos y empleados (solo lectura): Administrador, Gerente y Supervisor. El Supervisor necesita la lista para planificar.</summary>
+    public const string LeerPersonal = nameof(LeerPersonal);
     /// <summary>Asignar turnos y resolver sugerencias.</summary>
     public const string AsignarTurnos = nameof(AsignarTurnos);
     /// <summary>Ver los turnos propios y registrar disponibilidad (todo el staff).</summary>
