@@ -1,16 +1,17 @@
-using GIRA.Application.Common.Personal;
 using GIRA.Application.DTOs.Reservas;
 using GIRA.Application.Events.Analitica;
 using GIRA.Application.Events.Personal;
 using GIRA.Application.Services.Personal;
 using GIRA.Domain.Entities.Personal;
 using GIRA.Domain.Enums.Personal;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace GIRA.Tests.Personal;
 
 /// <summary>
 /// Pruebas de la generación de sugerencias desde la predicción de afluencia (GI-303, RF-PER-09, RN-PER-06 y RN-PER-07).
 /// Franjas de prueba: Mañana 08–10 (activa), Mediodía 10–12 (activa) y Cerrada 22–23 (inactiva).
+/// El evento se valida contra el contrato de Analítica: VersionContrato 1, EventoId y restaurante configurado.
 /// </summary>
 public class GeneracionSugerenciasTests
 {
@@ -20,6 +21,7 @@ public class GeneracionSugerenciasTests
     private static readonly Guid Mediodia = Guid.NewGuid();
     private static readonly Guid Cerrada = Guid.NewGuid();
     private static readonly Guid Empleado = Guid.NewGuid();
+    private static readonly Guid Restaurante = Guid.NewGuid();
 
     [Fact]
     public async Task Prediccion_GeneraSugerenciaConRequeridoMayorEntreMinimoYComensales()
@@ -35,44 +37,21 @@ public class GeneracionSugerenciasTests
         Assert.Equal(0, sugerencia.PersonalPlanificado);
         Assert.Equal(3, sugerencia.Diferencia);
         Assert.Equal(EstadoSugerencia.Pendiente, sugerencia.Estado);
-        Assert.NotNull(sugerencia.PrediccionId);
     }
 
     [Fact]
-    public async Task EventoRepetido_NoGeneraSugerenciasDuplicadas()
+    public async Task Prediccion_GuardaElEventoYElIdentificadorDeLaPrediccion()
     {
-        // Mismo contenido dos veces: la segunda no hace nada, así que la cuenta no cambia.
         var sugerencias = new RepositorioSugerenciasFalso();
         var servicio = Crear(sugerencias, minimo: 2, comensales: 20);
         var evento = Evento(Lunes, Lunes, (Manana, 45));
+        var prediccionId = evento.Predicciones[0].PrediccionId;
 
         await servicio.GenerarDesdePrediccionAsync(evento, default);
-        await servicio.GenerarDesdePrediccionAsync(evento, default);
 
-        Assert.Single(sugerencias.Sugerencias);
-    }
-
-    [Fact]
-    public async Task EventoConOtraAfluencia_GeneraSugerenciasNuevasYVenceLasAnteriores()
-    {
-        // Contenido distinto: no es un duplicado, así que se procesa como una predicción nueva (RN-PER-07).
-        var sugerencias = new RepositorioSugerenciasFalso();
-        var servicio = Crear(sugerencias, minimo: 2, comensales: 20);
-
-        await servicio.GenerarDesdePrediccionAsync(Evento(Lunes, Lunes, (Manana, 45)), default);
-        await servicio.GenerarDesdePrediccionAsync(Evento(Lunes, Lunes, (Manana, 60)), default);
-
-        Assert.Equal(2, sugerencias.Sugerencias.Count);
-        Assert.Single(sugerencias.Sugerencias, s => s.Estado == EstadoSugerencia.Pendiente);
-    }
-
-    [Fact]
-    public void IdentificadorProvisional_NoDependeDelOrdenDeLasPredicciones()
-    {
-        var a = Evento(Lunes, Lunes, (Manana, 45), (Mediodia, 10));
-        var b = Evento(Lunes, Lunes, (Mediodia, 10), (Manana, 45));
-
-        Assert.Equal(IdentificadorPrediccionProvisional.Derivar(a), IdentificadorPrediccionProvisional.Derivar(b));
+        var sugerencia = Assert.Single(sugerencias.Sugerencias);
+        Assert.Equal(evento.EventoId, sugerencia.EventoId);
+        Assert.Equal(prediccionId, sugerencia.PrediccionId);
     }
 
     [Fact]
@@ -120,7 +99,7 @@ public class GeneracionSugerenciasTests
     [Fact]
     public async Task Prediccion_SoloCuentanLosTurnosQueCubrenLaFranja()
     {
-        // Un turno 09–10 no cubre la franja 08–10 completa y uno cancelado no cuenta: sobran 0 y faltan 2.
+        // Un turno 09–10 no cubre la franja 08–10 completa y uno cancelado no cuenta: planificado 0 y faltan 2.
         var turnos = new RepositorioTurnosPrueba();
         turnos.Turnos.Add(Turno(Lunes, "09:00", "10:00", EstadoTurno.Programado));
         turnos.Turnos.Add(Turno(Lunes, "08:00", "10:00", EstadoTurno.Cancelado));
@@ -174,12 +153,88 @@ public class GeneracionSugerenciasTests
         Assert.Empty(sugerencias.Sugerencias);
     }
 
+    [Fact]
+    public async Task EventoRepetido_NoGeneraSugerenciasDuplicadas()
+    {
+        // Mismo EventoId dos veces: la segunda no hace nada, así que la cuenta no cambia.
+        var sugerencias = new RepositorioSugerenciasFalso();
+        var servicio = Crear(sugerencias, minimo: 2, comensales: 20);
+        var evento = Evento(Lunes, Lunes, (Manana, 45));
+
+        await servicio.GenerarDesdePrediccionAsync(evento, default);
+        await servicio.GenerarDesdePrediccionAsync(evento, default);
+
+        Assert.Single(sugerencias.Sugerencias);
+    }
+
+    [Fact]
+    public async Task EventoConOtroIdentificador_GeneraSugerenciasNuevasYVenceLasAnteriores()
+    {
+        // Otro EventoId: no es un duplicado, así que se procesa como una predicción nueva (RN-PER-07).
+        var sugerencias = new RepositorioSugerenciasFalso();
+        var servicio = Crear(sugerencias, minimo: 2, comensales: 20);
+
+        await servicio.GenerarDesdePrediccionAsync(Evento(Lunes, Lunes, (Manana, 45)), default);
+        await servicio.GenerarDesdePrediccionAsync(Evento(Lunes, Lunes, (Manana, 60)), default);
+
+        Assert.Equal(2, sugerencias.Sugerencias.Count);
+        Assert.Single(sugerencias.Sugerencias, s => s.Estado == EstadoSugerencia.Pendiente);
+    }
+
+    [Fact]
+    public async Task EventoConOtraVersionDeContrato_NoHaceNada()
+    {
+        var sugerencias = new RepositorioSugerenciasFalso();
+        var servicio = Crear(sugerencias, minimo: 2, comensales: 20);
+        var evento = Evento(Lunes, Lunes, (Manana, 45)) with { VersionContrato = 2 };
+
+        await servicio.GenerarDesdePrediccionAsync(evento, default);
+
+        Assert.Empty(sugerencias.Sugerencias);
+    }
+
+    [Fact]
+    public async Task EventoDeOtroRestaurante_NoHaceNada()
+    {
+        var sugerencias = new RepositorioSugerenciasFalso();
+        var servicio = Crear(sugerencias, minimo: 2, comensales: 20);
+        var evento = Evento(Lunes, Lunes, (Manana, 45)) with { RestauranteId = Guid.NewGuid() };
+
+        await servicio.GenerarDesdePrediccionAsync(evento, default);
+
+        Assert.Empty(sugerencias.Sugerencias);
+    }
+
+    [Fact]
+    public async Task EventoSinIdentificador_NoHaceNada()
+    {
+        var sugerencias = new RepositorioSugerenciasFalso();
+        var servicio = Crear(sugerencias, minimo: 2, comensales: 20);
+        var evento = Evento(Lunes, Lunes, (Manana, 45)) with { EventoId = null };
+
+        await servicio.GenerarDesdePrediccionAsync(evento, default);
+
+        Assert.Empty(sugerencias.Sugerencias);
+    }
+
+    [Fact]
+    public async Task RestauranteNoConfigurado_NoAceptaEventos()
+    {
+        var sugerencias = new RepositorioSugerenciasFalso();
+        var servicio = Crear(sugerencias, minimo: 2, comensales: 20, restauranteConfigurado: false);
+
+        await servicio.GenerarDesdePrediccionAsync(Evento(Lunes, Lunes, (Manana, 45)), default);
+
+        Assert.Empty(sugerencias.Sugerencias);
+    }
+
     private static GeneracionSugerenciasService Crear(
         RepositorioSugerenciasFalso sugerencias,
         int minimo,
         int comensales,
         RepositorioTurnosPrueba? turnos = null,
-        PublicadorPrueba? publicador = null)
+        PublicadorPrueba? publicador = null,
+        bool restauranteConfigurado = true)
     {
         var requerimientos = new RepositorioRequerimientosFalso();
         requerimientos.Requerimientos.Add(new RequerimientoPersonal { CargoId = Mesero, MinimoPorFranja = minimo, ComensalesPorEmpleado = comensales });
@@ -195,13 +250,20 @@ public class GeneracionSugerenciasTests
             requerimientos,
             franjas,
             new RelojPrueba(new DateTimeOffset(2026, 11, 22, 14, 0, 0, TimeSpan.Zero)),
-            publicador ?? new PublicadorPrueba());
+            publicador ?? new PublicadorPrueba(),
+            new RestauranteConfiguradoPrueba(restauranteConfigurado ? Restaurante : null),
+            NullLogger<GeneracionSugerenciasService>.Instance);
     }
 
+    /// <summary>Evento que cumple el contrato: versión 1, EventoId y el restaurante configurado.</summary>
     private static PrediccionAfluenciaGeneradaEvent Evento(DateOnly desde, DateOnly hasta, params (Guid Franja, int Afluencia)[] predicciones) =>
-        new(desde, hasta, predicciones
-            .Select(p => new AfluenciaEstimadaFranja(desde, p.Franja, p.Afluencia))
-            .ToList());
+        new(
+            desde,
+            hasta,
+            predicciones.Select(p => new AfluenciaEstimadaFranja(desde, p.Franja, p.Afluencia, Guid.NewGuid(), "v1")).ToList(),
+            EventoId: Guid.NewGuid(),
+            VersionContrato: 1,
+            RestauranteId: Restaurante);
 
     private static Turno Turno(DateOnly fecha, string inicio, string fin, EstadoTurno estado) =>
         new()

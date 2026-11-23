@@ -20,8 +20,8 @@ internal sealed class RepositorioSugerenciasFalso : ISugerenciaTurnoRepository
         Task.FromResult<IReadOnlyList<SugerenciaTurno>>(
             Sugerencias.Where(s => estado is null || s.Estado == estado).ToList());
 
-    public Task<bool> ExistePrediccionAsync(Guid prediccionId, CancellationToken cancellationToken) =>
-        Task.FromResult(Sugerencias.Any(s => s.PrediccionId == prediccionId));
+    public Task<bool> ExisteEventoAsync(Guid eventoId, CancellationToken cancellationToken) =>
+        Task.FromResult(Sugerencias.Any(s => s.EventoId == eventoId));
 
     public Task<IReadOnlyList<SugerenciaTurno>> ListarPendientesEntreAsync(DateOnly desde, DateOnly hasta, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<SugerenciaTurno>>(
@@ -127,4 +127,10 @@ internal sealed class PublicadorPrueba : IPublicadorEventosSeguro
 internal sealed class RelojPrueba(DateTimeOffset ahora) : TimeProvider
 {
     public override DateTimeOffset GetUtcNow() => ahora;
+}
+
+/// <summary>Restaurante configurado falso para las pruebas de generación de sugerencias (GI-303).</summary>
+internal sealed class RestauranteConfiguradoPrueba(Guid? restauranteId) : GIRA.Application.Interfaces.Services.Personal.IRestauranteConfigurado
+{
+    public Guid? RestauranteId { get; } = restauranteId;
 }

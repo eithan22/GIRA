@@ -38,8 +38,8 @@ public class SugerenciaTurnoRepository : ISugerenciaTurnoRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> ExistePrediccionAsync(Guid prediccionId, CancellationToken cancellationToken) =>
-        await _contexto.Sugerencias.AnyAsync(s => s.PrediccionId == prediccionId, cancellationToken);
+    public async Task<bool> ExisteEventoAsync(Guid eventoId, CancellationToken cancellationToken) =>
+        await _contexto.Sugerencias.AnyAsync(s => s.EventoId == eventoId, cancellationToken);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<SugerenciaTurno>> ListarPendientesEntreAsync(DateOnly desde, DateOnly hasta, CancellationToken cancellationToken) =>

@@ -28,5 +28,8 @@ public class SugerenciaTurnoConfiguration : IEntityTypeConfiguration<SugerenciaT
 
         builder.HasIndex(s => new { s.Estado, s.Fecha })
             .HasDatabaseName(IndiceEstadoFecha);
+
+        builder.HasIndex(s => s.EventoId)
+            .HasDatabaseName("IX_SugerenciaTurno_EventoId");
     }
 }

@@ -1,22 +1,28 @@
-using GIRA.Application.Common.Personal;
 using GIRA.Application.Events.Analitica;
-using GIRA.Application.Interfaces.Repository.Personal;
 using GIRA.Application.Events.Personal;
+using GIRA.Application.Interfaces.Repository.Personal;
 using GIRA.Application.Interfaces.Services.Personal;
 using GIRA.Application.Interfaces.Services.Reservas;
+using GIRA.Application.Common.Personal;
 using GIRA.Domain.Entities.Personal;
 using GIRA.Domain.Enums.Personal;
+using GIRA.Application.DTOs.Reservas;
+using Microsoft.Extensions.Logging;
 
 namespace GIRA.Application.Services.Personal;
 
 /// <summary>
 /// Implementación de <see cref="IGeneracionSugerenciasService"/> (GI-303, RF-PER-09). Requerido = mayor entre el mínimo
 /// del cargo y la afluencia ÷ comensales por empleado, redondeado hacia arriba (SRS 5.4).
+/// Valida el contrato de Analítica antes de actuar: versión 1, EventoId presente y restaurante configurado.
 /// </summary>
 public class GeneracionSugerenciasService : IGeneracionSugerenciasService
 {
     /// <summary>Diferencia mínima, en personas, para generar una sugerencia (1 por defecto en el SRS).</summary>
     public const int UmbralDiferencia = 1;
+
+    /// <summary>Versión del contrato de evento que este consumidor entiende (VersionContrato = 1 en Analítica).</summary>
+    public const int VersionContratoSoportada = 1;
 
     private readonly ISugerenciaTurnoRepository _sugerencias;
     private readonly ITurnoRepository _turnos;
@@ -24,15 +30,19 @@ public class GeneracionSugerenciasService : IGeneracionSugerenciasService
     private readonly IFranjaService _franjas;
     private readonly TimeProvider _reloj;
     private readonly IPublicadorEventosSeguro _publicador;
+    private readonly IRestauranteConfigurado _restaurante;
+    private readonly ILogger<GeneracionSugerenciasService> _logger;
 
-    /// <summary>Crea el servicio con sus repositorios, las franjas de Reservas, el reloj y el publicador de eventos.</summary>
+    /// <summary>Crea el servicio con sus repositorios, las franjas de Reservas, el reloj, el publicador, el restaurante y el registro.</summary>
     public GeneracionSugerenciasService(
         ISugerenciaTurnoRepository sugerencias,
         ITurnoRepository turnos,
         IRequerimientoPersonalRepository requerimientos,
         IFranjaService franjas,
         TimeProvider reloj,
-        IPublicadorEventosSeguro publicador)
+        IPublicadorEventosSeguro publicador,
+        IRestauranteConfigurado restaurante,
+        ILogger<GeneracionSugerenciasService> logger)
     {
         _sugerencias = sugerencias;
         _turnos = turnos;
@@ -40,15 +50,24 @@ public class GeneracionSugerenciasService : IGeneracionSugerenciasService
         _franjas = franjas;
         _reloj = reloj;
         _publicador = publicador;
+        _restaurante = restaurante;
+        _logger = logger;
     }
 
     /// <inheritdoc />
     public async Task GenerarDesdePrediccionAsync(PrediccionAfluenciaGeneradaEvent evento, CancellationToken cancellationToken)
     {
-        // GI-303 (provisional): un evento con el mismo contenido que ya generó sugerencias no vuelve a generarlas.
-        var prediccionId = IdentificadorPrediccionProvisional.Derivar(evento);
-        if (await _sugerencias.ExistePrediccionAsync(prediccionId, cancellationToken))
+        if (!ContratoValido(evento))
         {
+            // Según la documentación de Analítica, un consumidor no actúa sobre eventos de otra versión, sin identificador o de otro restaurante.
+            _logger.LogWarning("Evento de predicción descartado: versión de contrato, identificador o restaurante no válidos.");
+            return;
+        }
+
+        // Un evento repetido (mismo EventoId) no genera sugerencias otra vez.
+        if (await _sugerencias.ExisteEventoAsync(evento.EventoId!.Value, cancellationToken))
+        {
+            _logger.LogInformation("Evento de predicción ya procesado; no se generan sugerencias duplicadas.");
             return;
         }
 
@@ -102,8 +121,8 @@ public class GeneracionSugerenciasService : IGeneracionSugerenciasService
                     PersonalPlanificado = planificado,
                     PersonalRequerido = requerido,
                     Diferencia = diferencia,
-                    // Provisional: identificador derivado del contenido hasta acordar el real con Isaac.
-                    PrediccionId = prediccionId,
+                    EventoId = evento.EventoId,
+                    PrediccionId = prediccion.PrediccionId,
                     Estado = EstadoSugerencia.Pendiente,
                     FechaGeneracion = ahora,
                 };
@@ -122,5 +141,18 @@ public class GeneracionSugerenciasService : IGeneracionSugerenciasService
                 $"SugerenciaId={generada.Id}",
                 cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// El evento se acepta solo si trae identificador, tiene la versión que entendemos y es del restaurante configurado.
+    /// Si el restaurante no está configurado, no se acepta ningún evento.
+    /// </summary>
+    private bool ContratoValido(PrediccionAfluenciaGeneradaEvent evento)
+    {
+        var configurado = _restaurante.RestauranteId;
+        return evento.EventoId is not null
+            && evento.VersionContrato == VersionContratoSoportada
+            && configurado is not null
+            && evento.RestauranteId == configurado;
     }
 }
