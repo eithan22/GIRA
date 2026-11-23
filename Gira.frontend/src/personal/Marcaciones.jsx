@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../security/authService.js';
+import './personal.css';
 
 const ruta = '/api/personal/marcaciones';
 
@@ -62,7 +63,7 @@ export default function Marcaciones() {
   }
 
   return (
-    <section className="page-section">
+    <section className="page-section enter personal-page">
       <div className="page-heading-row">
         <div><span className="eyebrow">PERSONAL · GIRA</span><h1>Marcación de turno</h1>
           <p>Registra tu hora real de entrada y salida para el cálculo de horas trabajadas.</p></div>
@@ -71,7 +72,7 @@ export default function Marcaciones() {
       {exito && <p role="status">{exito}</p>}
       {cargando ? <p role="status">Consultando tu turno…</p>
         : turno ? (
-          <section className="panel" aria-labelledby="turno-abierto">
+          <section className="panel marcacion-panel" aria-labelledby="turno-abierto">
             <h2 id="turno-abierto">Tienes un turno abierto</h2>
             <p>Entrada registrada: <time dateTime={turno.inicioEn}>{new Date(turno.inicioEn).toLocaleString()}</time></p>
             <form onSubmit={marcarSalida}>
@@ -85,7 +86,7 @@ export default function Marcaciones() {
             </form>
           </section>
         ) : (
-          <section className="panel">
+          <section className="panel marcacion-panel">
             <h2>No tienes un turno abierto</h2>
             <button type="button" className="button button-primary" disabled={guardando}
               onClick={marcarEntrada}>
