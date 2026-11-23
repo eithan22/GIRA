@@ -227,7 +227,10 @@ export default function PlanificadorPage() {
       <div className="panel">
         <div className="panel-heading">
           <div>
-            <h2>{editandoId ? 'Modificar turno' : 'Asignar turno'}</h2>
+            <h2>
+              {editandoId ? 'Modificar turno' : 'Asignar turno'}
+              {editandoId && <span className="etiqueta-edicion" role="status">Editando</span>}
+            </h2>
             <p>El API rechaza el turno si cae fuera de la disponibilidad, se solapa, choca con una ausencia o supera las horas de la semana.</p>
           </div>
         </div>
