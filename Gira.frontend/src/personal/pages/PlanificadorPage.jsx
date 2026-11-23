@@ -38,6 +38,8 @@ export default function PlanificadorPage() {
   const [editandoId, setEditandoId] = useState(null);
   const [errores, setErrores] = useState({});
   const [mensaje, setMensaje] = useState('');
+  const [error, setError] = useState('');
+  const [errorFormulario, setErrorFormulario] = useState('');
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
 
@@ -58,7 +60,7 @@ export default function PlanificadorPage() {
       setEmpleados(emps);
       setCargos(cgs);
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo cargar la planificación.'));
+      setError(mensajeDeError(error, 'No se pudo cargar la planificación.'));
     } finally {
       setCargando(false);
     }
@@ -113,6 +115,7 @@ export default function PlanificadorPage() {
     if (Object.keys(erroresForm).length > 0) return;
 
     setGuardando(true);
+    setErrorFormulario('');
     try {
       const datos = aEnvioTurno(form);
       if (editandoId) await personalService.actualizarTurno(editandoId, datos);
@@ -121,7 +124,7 @@ export default function PlanificadorPage() {
       limpiar();
       await cargar();
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo guardar el turno.'));
+      setErrorFormulario(mensajeDeError(error, 'No se pudo guardar el turno.'));
     } finally {
       setGuardando(false);
     }
@@ -130,20 +133,24 @@ export default function PlanificadorPage() {
   async function marcarPasado(turno, estado) {
     try {
       await personalService.cambiarEstadoTurno(turno.id, estado);
+      setError('');
       setMensaje(estado === ESTADO_TURNO.COMPLETADO ? 'Turno marcado como completado.' : 'Turno marcado como ausente.');
       await cargar();
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo actualizar el turno.'));
+      setMensaje('');
+      setError(mensajeDeError(error, 'No se pudo actualizar el turno.'));
     }
   }
 
   async function cancelar(turno) {
     try {
       await personalService.cambiarEstadoTurno(turno.id, ESTADO_TURNO.CANCELADO);
+      setError('');
       setMensaje('Turno cancelado.');
       await cargar();
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo cancelar el turno.'));
+      setMensaje('');
+      setError(mensajeDeError(error, 'No se pudo cancelar el turno.'));
     }
   }
 
@@ -158,6 +165,7 @@ export default function PlanificadorPage() {
       </div>
 
       {mensaje && <p className="form-success" role="status">{mensaje}</p>}
+      {error && <p className="notice-error" role="alert">{error}</p>}
 
       <div className="panel">
         <div className="panel-heading">
@@ -223,6 +231,7 @@ export default function PlanificadorPage() {
           </div>
         </div>
         <form className="personal-form" onSubmit={guardar} noValidate>
+          {errorFormulario && <p className="notice-error" role="alert">{errorFormulario}</p>}
           <div className="form-grid">
             <div className="form-field">
               <span>Empleado <i>*</i></span>
@@ -247,16 +256,16 @@ export default function PlanificadorPage() {
               <input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} />
             </label>
             <label className="form-field">
+              <span>Notas</span>
+              <input value={form.notas} onChange={(e) => setForm({ ...form, notas: e.target.value })} maxLength={250} />
+            </label>
+            <label className="form-field">
               <span>Inicio <i>*</i></span>
               <input type="time" value={form.horaInicio} onChange={(e) => setForm({ ...form, horaInicio: e.target.value })} />
             </label>
             <label className="form-field">
               <span>Fin <i>*</i></span>
               <input type="time" value={form.horaFin} onChange={(e) => setForm({ ...form, horaFin: e.target.value })} />
-            </label>
-            <label className="form-field">
-              <span>Notas</span>
-              <input value={form.notas} onChange={(e) => setForm({ ...form, notas: e.target.value })} maxLength={250} />
             </label>
           </div>
           {Object.values(errores).map((texto) => <p key={texto} className="inline-error">{texto}</p>)}

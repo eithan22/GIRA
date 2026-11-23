@@ -41,6 +41,17 @@
   margin-bottom: 6px;
 }
 
+/* Día, Desde y Hasta en una sola fila en pantallas anchas; en celular vuelven a apilarse. */
+.personal-form .form-grid.form-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 720px) {
+  .personal-form .form-grid.form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
 .personal-form .form-actions {
   margin-top: 16px;
 }

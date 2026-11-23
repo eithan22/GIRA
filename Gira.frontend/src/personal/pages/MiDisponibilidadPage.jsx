@@ -20,6 +20,8 @@ export default function MiDisponibilidadPage() {
   const [form, setForm] = useState(FORM_VACIO);
   const [errores, setErrores] = useState({});
   const [mensaje, setMensaje] = useState('');
+  const [error, setError] = useState('');
+  const [errorFormulario, setErrorFormulario] = useState('');
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
 
@@ -28,7 +30,7 @@ export default function MiDisponibilidadPage() {
     try {
       setBloques(await personalService.listarMiDisponibilidad());
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo cargar tu disponibilidad.'));
+      setError(mensajeDeError(error, 'No se pudo cargar tu disponibilidad.'));
     } finally {
       setCargando(false);
     }
@@ -43,13 +45,14 @@ export default function MiDisponibilidadPage() {
     if (Object.keys(erroresForm).length > 0) return;
 
     setGuardando(true);
+    setErrorFormulario('');
     try {
       await personalService.agregarMiDisponibilidad(aEnvioDisponibilidad(form));
       setMensaje('Bloque registrado.');
       setForm(FORM_VACIO);
       await cargar();
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo registrar el bloque.'));
+      setErrorFormulario(mensajeDeError(error, 'No se pudo registrar el bloque.'));
     } finally {
       setGuardando(false);
     }
@@ -58,10 +61,12 @@ export default function MiDisponibilidadPage() {
   async function quitar(bloque) {
     try {
       await personalService.eliminarMiDisponibilidad(bloque.id);
+      setError('');
       setMensaje('Bloque quitado.');
       await cargar();
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo quitar el bloque.'));
+      setMensaje('');
+      setError(mensajeDeError(error, 'No se pudo quitar el bloque.'));
     }
   }
 
@@ -78,6 +83,7 @@ export default function MiDisponibilidadPage() {
       </div>
 
       {mensaje && <p className="form-success" role="status">{mensaje}</p>}
+      {error && <p className="notice-error" role="alert">{error}</p>}
 
       <div className="panel">
         <div className="panel-heading">
@@ -87,7 +93,8 @@ export default function MiDisponibilidadPage() {
           </div>
         </div>
         <form className="personal-form" onSubmit={agregar} noValidate>
-          <div className="form-grid">
+          {errorFormulario && <p className="notice-error" role="alert">{errorFormulario}</p>}
+          <div className="form-grid form-grid-3">
             <div className="form-field">
               <span>Día <i>*</i></span>
               <div className="select-wrap">
