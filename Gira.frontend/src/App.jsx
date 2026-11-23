@@ -21,6 +21,8 @@ import RequerimientosPage from './personal/pages/RequerimientosPage.jsx';
 import AusenciasPage from './personal/pages/AusenciasPage.jsx';
 import PlanificadorPage from './personal/pages/PlanificadorPage.jsx';
 import SugerenciasPage from './personal/pages/SugerenciasPage.jsx';
+import MiDisponibilidadPage from './personal/pages/MiDisponibilidadPage.jsx';
+import MisTurnosPage from './personal/pages/MisTurnosPage.jsx';
 import Insumos from './inventario/pages/Insumos.jsx';
 import Platos from './inventario/pages/Platos.jsx';
 import Movimientos from './inventario/pages/Movimientos.jsx';
@@ -103,6 +105,10 @@ function AuthenticatedApp() {
           <Route element={<RequireRole roles={['Administrador', 'Gerente', 'Supervisor']} />}>
             <Route path="personal/planificador" element={<PlanificadorPage />} />
             <Route path="personal/sugerencias" element={<SugerenciasPage />} />
+          </Route>
+          <Route element={<RequireRole roles={['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina']} />}>
+            <Route path="personal/mi-disponibilidad" element={<MiDisponibilidadPage />} />
+            <Route path="personal/mis-turnos" element={<MisTurnosPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
