@@ -37,3 +37,26 @@ export function aEnvioDisponibilidad({ diaSemana, horaInicio, horaFin }) {
     horaFin: `${horaFin}:00`,
   };
 }
+
+/** Errores de una solicitud de ausencia propia (GI-367): { campo: mensaje }. Vacío si es válida. */
+export function validarSolicitudPropia({ fechaDesde, fechaHasta, motivo }) {
+  const errores = {};
+  if (!fechaDesde) errores.fechaDesde = 'La fecha de inicio es obligatoria.';
+  if (!fechaHasta) errores.fechaHasta = 'La fecha de fin es obligatoria.';
+  if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
+    errores.fechaHasta = 'La fecha de fin no puede ser anterior a la de inicio.';
+  }
+  if ((motivo ?? '').trim().length > 250) errores.motivo = 'El motivo no puede superar 250 caracteres.';
+  return errores;
+}
+
+/** Cuerpo que espera la API para solicitar una ausencia propia: el tipo como número y el motivo vacío como null. */
+export function aEnvioSolicitudPropia({ fechaDesde, fechaHasta, tipo, motivo }) {
+  const texto = (motivo ?? '').trim();
+  return {
+    fechaDesde,
+    fechaHasta,
+    tipo: Number(tipo),
+    motivo: texto || null,
+  };
+}

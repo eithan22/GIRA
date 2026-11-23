@@ -15,6 +15,7 @@ const menuItems = [
   { label: 'Mi turno', to: '/personal/marcaciones', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
   { label: 'Mis turnos', to: '/personal/mis-turnos', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
   { label: 'Mi disponibilidad', to: '/personal/mi-disponibilidad', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
+  { label: 'Mis ausencias', to: '/personal/mis-ausencias', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
   { label: 'Usuarios', to: '/seguridad/usuarios', icon: 'users', roles: ['Administrador'], badge: true },
 ];
 

@@ -6,6 +6,8 @@ import {
   nombreDia,
   ordenarDisponibilidad,
   validarDisponibilidad,
+  validarSolicitudPropia,
+  aEnvioSolicitudPropia,
 } from './miPersonalFormato.js';
 
 test('nombreDia usa 0 como domingo, según DayOfWeek de la API', () => {
@@ -38,4 +40,22 @@ test('aEnvioDisponibilidad manda el día como número y las horas como HH:mm:00'
   assert.deepEqual(
     aEnvioDisponibilidad({ diaSemana: '3', horaInicio: '06:00', horaFin: '14:00' }),
     { diaSemana: 3, horaInicio: '06:00:00', horaFin: '14:00:00' });
+});
+
+test('validarSolicitudPropia exige fechas en orden y limita el motivo', () => {
+  assert.deepEqual(validarSolicitudPropia({ fechaDesde: '2026-12-07', fechaHasta: '2026-12-08', motivo: 'Viaje' }), {});
+
+  const errores = validarSolicitudPropia({ fechaDesde: '2026-12-10', fechaHasta: '2026-12-08', motivo: '' });
+  assert.match(errores.fechaHasta, /anterior/);
+
+  const sinFechas = validarSolicitudPropia({ fechaDesde: '', fechaHasta: '', motivo: 'x' });
+  assert.ok(sinFechas.fechaDesde);
+  assert.ok(sinFechas.fechaHasta);
+  assert.ok(validarSolicitudPropia({ fechaDesde: '2026-12-07', fechaHasta: '2026-12-07', motivo: 'x'.repeat(251) }).motivo);
+});
+
+test('aEnvioSolicitudPropia manda el tipo como número y el motivo vacío como null', () => {
+  assert.deepEqual(
+    aEnvioSolicitudPropia({ fechaDesde: '2026-12-07', fechaHasta: '2026-12-08', tipo: '1', motivo: '  ' }),
+    { fechaDesde: '2026-12-07', fechaHasta: '2026-12-08', tipo: 1, motivo: null });
 });

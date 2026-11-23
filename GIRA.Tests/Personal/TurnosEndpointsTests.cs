@@ -169,6 +169,52 @@ public class TurnosEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task EmpleadoVinculado_SolicitaYVeSusAusencias()
+    {
+        // GI-367: el empleado pide una ausencia para sí mismo y la ve en su lista, en estado Solicitada.
+        var usuarioId = await _factory.CrearUsuarioAsync($"{Guid.NewGuid():N}@gira.test", "Temporal#2026abc", true, Roles.Mesero);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<GIRA.Infrastructure.Persistence.Context.GiraDbContext>();
+            var empleado = new GIRA.Domain.Entities.Personal.Empleado
+            {
+                Nombre = "Marta", Apellido = "Díaz", Cedula = Guid.NewGuid().ToString("N")[..11],
+                CargoId = Guid.NewGuid(), FechaIngreso = new DateOnly(2026, 1, 1), HorasMaximasSemana = 40, Activo = true,
+            };
+            db.Empleados.Add(empleado);
+            await db.SaveChangesAsync();
+            var usuario = await db.Users.FindAsync(usuarioId);
+            usuario!.EmpleadoId = empleado.Id;
+            await db.SaveChangesAsync();
+        }
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var tokens = scope.ServiceProvider.GetRequiredService<ITokenService>();
+            _cliente.UsarToken(tokens.GenerarAccessToken(usuarioId, "ausencia@gira.test", "Ausencia", [Roles.Mesero]).Token);
+        }
+
+        var solicitud = await _cliente.PostAsJsonAsync("/api/mi/ausencias",
+            new { fechaDesde = "2026-12-07", fechaHasta = "2026-12-08", tipo = 0, motivo = "Viaje" });
+        var lista = await _cliente.GetAsync("/api/mi/ausencias");
+
+        Assert.Equal(HttpStatusCode.Created, solicitud.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, lista.StatusCode);
+        var texto = await lista.Content.ReadAsStringAsync();
+        Assert.Contains("Viaje", texto);
+    }
+
+    [Fact]
+    public async Task Mesero_SinEmpleadoVinculado_NoPuedeSolicitarAusencias()
+    {
+        await ComoUsuarioSinEmpleadoAsync(Roles.Mesero);
+
+        var respuesta = await _cliente.PostAsJsonAsync("/api/mi/ausencias",
+            new { fechaDesde = "2026-12-07", fechaHasta = "2026-12-08", tipo = 0, motivo = "Viaje" });
+
+        Assert.Equal(HttpStatusCode.NotFound, respuesta.StatusCode);
+    }
+
+    [Fact]
     public async Task UsuarioInexistente_RecibeNoAutorizado()
     {
         // Un token de un usuario que ya no existe no puede consultar nada (la autenticación lo rechaza).

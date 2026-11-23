@@ -23,6 +23,7 @@ import PlanificadorPage from './personal/pages/PlanificadorPage.jsx';
 import SugerenciasPage from './personal/pages/SugerenciasPage.jsx';
 import MiDisponibilidadPage from './personal/pages/MiDisponibilidadPage.jsx';
 import MisTurnosPage from './personal/pages/MisTurnosPage.jsx';
+import MisAusenciasPage from './personal/pages/MisAusenciasPage.jsx';
 import Insumos from './inventario/pages/Insumos.jsx';
 import Platos from './inventario/pages/Platos.jsx';
 import Movimientos from './inventario/pages/Movimientos.jsx';
@@ -109,6 +110,7 @@ function AuthenticatedApp() {
           <Route element={<RequireRole roles={['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina']} />}>
             <Route path="personal/mi-disponibilidad" element={<MiDisponibilidadPage />} />
             <Route path="personal/mis-turnos" element={<MisTurnosPage />} />
+            <Route path="personal/mis-ausencias" element={<MisAusenciasPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
