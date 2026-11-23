@@ -130,3 +130,13 @@ export function aEnvioRequerimiento({ cargoId, comensalesPorEmpleado, minimoPorF
     minimoPorFranja: Number(minimoPorFranja),
   };
 }
+
+/** Horas decimales que devuelve la API, en texto legible: "5 min", "1 h 30 min" o "2 h". */
+export function formatearHoras(horas) {
+  if (horas === null || horas === undefined || Number.isNaN(Number(horas))) return '—';
+  const minutos = Math.round(Number(horas) * 60);
+  const h = Math.floor(minutos / 60);
+  const m = minutos % 60;
+  if (h === 0) return `${m} min`;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  formatearHoras,
   aEnvioAusencia,
   aEnvioCargo,
   aEnvioEmpleado,
@@ -112,4 +113,11 @@ test('el envío de un requerimiento convierte los valores a número', () => {
     aEnvioRequerimiento({ cargoId: 'c-1', comensalesPorEmpleado: '20', minimoPorFranja: '2' }),
     { cargoId: 'c-1', comensalesPorEmpleado: 20, minimoPorFranja: 2 },
   );
+});
+
+test('formatearHoras muestra horas decimales en texto legible', () => {
+  assert.equal(formatearHoras(0.0900312825555555), '5 min');
+  assert.equal(formatearHoras(1.5), '1 h 30 min');
+  assert.equal(formatearHoras(2), '2 h');
+  assert.equal(formatearHoras(null), '—');
 });

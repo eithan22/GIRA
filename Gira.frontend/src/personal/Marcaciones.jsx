@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../security/authService.js';
 import './personal.css';
+import { formatearHoras } from './personalFormato.js';
 
 const ruta = '/api/personal/marcaciones';
 
@@ -54,7 +55,7 @@ export default function Marcaciones() {
       const respuesta = await api.post(`${ruta}/salida`, { minutosPausa: Number(pausa) });
       setTurno(null);
       setPausa('0');
-      setExito(`Turno completado: ${respuesta.data.horasTrabajadas} horas registradas.`);
+      setExito(`Turno completado: ${formatearHoras(respuesta.data.horasTrabajadas)} trabajadas.`);
     } catch (fallo) {
       setError(mensaje(fallo, 'No se pudo registrar la salida.'));
     } finally {
