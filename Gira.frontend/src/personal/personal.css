@@ -63,3 +63,38 @@
   color: #788397;
   font-size: 11px;
 }
+
+/* Campos de hora: bordes visibles para que se vea que son selectores. */
+.personal-form input[type="time"] {
+  height: 40px;
+  padding: 0 11px;
+  color: #293448;
+  background: #fff;
+  border: 1px solid #c3cad9;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.personal-form input[type="time"]:hover {
+  border-color: #8f85e6;
+}
+
+.personal-form input[type="time"]:focus {
+  outline: none;
+  border-color: #7b6bd2;
+  box-shadow: 0 0 0 3px #8371ed22;
+}
+
+.personal-form input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: .7;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.personal-form input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background: #f3f1ff;
+}
