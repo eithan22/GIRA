@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using GIRA.Application.Common;
 using GIRA.Application.DTOs.Seguridad.Usuarios;
+using GIRA.Application.Interfaces.Repository.Personal;
 using GIRA.Application.Interfaces.Services.Seguridad.Usuarios;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
@@ -20,6 +21,7 @@ public class UsuarioService : IUsuarioService
     private readonly IValidator<ActualizarUsuarioRequest> _actualizarValidator;
     private readonly IValidator<UsuarioFiltroRequest> _filtroValidator;
     private readonly IValidator<AsignarRolesRequest> _asignarRolesValidator;
+    private readonly IEmpleadoRepository _empleados;
 
     public UsuarioService(
         UserManager<Usuario> userManager,
@@ -27,8 +29,10 @@ public class UsuarioService : IUsuarioService
         IValidator<CrearUsuarioRequest> crearValidator,
         IValidator<ActualizarUsuarioRequest> actualizarValidator,
         IValidator<UsuarioFiltroRequest> filtroValidator,
-        IValidator<AsignarRolesRequest> asignarRolesValidator)
+        IValidator<AsignarRolesRequest> asignarRolesValidator,
+        IEmpleadoRepository empleados)
     {
+        _empleados = empleados;
         _userManager = userManager;
         _db = db;
         _crearValidator = crearValidator;
@@ -104,6 +108,10 @@ public class UsuarioService : IUsuarioService
         if (await _userManager.FindByEmailAsync(email) is not null)
             return OperationResult.Failure<UsuarioCreadoDto>(ErrorType.Conflict, "Ya existe un usuario con ese correo.");
 
+        var errorEmpleado = await ValidarEmpleadoAsync(request.EmpleadoId, ct);
+        if (errorEmpleado is not null)
+            return OperationResult.Failure<UsuarioCreadoDto>(ErrorType.Validation, errorEmpleado);
+
         if (request.EmpleadoId.HasValue &&
             await EmpleadoYaVinculadoAsync(request.EmpleadoId.Value, excluirUsuarioId: null, ct))
             return OperationResult.Failure<UsuarioCreadoDto>(ErrorType.Conflict,
@@ -146,6 +154,10 @@ public class UsuarioService : IUsuarioService
         var otro = await _userManager.FindByEmailAsync(email);
         if (otro is not null && otro.Id != usuario.Id)
             return OperationResult.Failure<UsuarioDto>(ErrorType.Conflict, "Ya existe un usuario con ese correo.");
+
+        var errorEmpleado = await ValidarEmpleadoAsync(request.EmpleadoId, ct);
+        if (errorEmpleado is not null)
+            return OperationResult.Failure<UsuarioDto>(ErrorType.Validation, errorEmpleado);
 
         if (request.EmpleadoId.HasValue &&
             await EmpleadoYaVinculadoAsync(request.EmpleadoId.Value, excluirUsuarioId: id, ct))
@@ -380,6 +392,23 @@ public class UsuarioService : IUsuarioService
         new(u.Id, u.Email ?? string.Empty, u.NombreCompleto, u.Activo, u.EmpleadoId, u.UltimoAcceso, roles);
 
     /// <summary>Indica si el empleado ya está vinculado a otro usuario distinto de <paramref name="excluirUsuarioId"/>.</summary>
+    /// <summary>
+    /// Un usuario solo se puede vincular a un empleado que exista y esté activo (GI-133).
+    /// Devuelve el mensaje de error, o null si el vínculo es válido o no hay empleado.
+    /// </summary>
+    private async Task<string?> ValidarEmpleadoAsync(Guid? empleadoId, CancellationToken ct)
+    {
+        if (!empleadoId.HasValue)
+            return null;
+
+        var empleado = await _empleados.BuscarAsync(empleadoId.Value, ct);
+        if (empleado is null)
+            return "El empleado no existe.";
+        if (!empleado.Activo)
+            return "El empleado está inactivo y no se puede vincular a un usuario.";
+        return null;
+    }
+
     private async Task<bool> EmpleadoYaVinculadoAsync(Guid empleadoId, Guid? excluirUsuarioId, CancellationToken ct) =>
         await _db.Users.AnyAsync(u => u.EmpleadoId == empleadoId && u.Id != excluirUsuarioId, ct);
 

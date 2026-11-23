@@ -1,3 +1,4 @@
+using GIRA.Domain.Entities.Personal;
 using GIRA.Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -25,6 +26,12 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
         builder.HasIndex(u => u.EmpleadoId)
             .IsUnique()
             .HasFilter("[EmpleadoId] IS NOT NULL");
+
+        // Clave foránea a personal.Empleado (GI-133). Si el empleado se borra, el usuario queda sin vínculo.
+        builder.HasOne<Empleado>()
+            .WithMany()
+            .HasForeignKey(u => u.EmpleadoId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         // Identity crea "EmailIndex" sobre NormalizedEmail sin unicidad, aunque las
         // opciones de Identity exijan RequireUniqueEmail = true. Sin esto, la unicidad
