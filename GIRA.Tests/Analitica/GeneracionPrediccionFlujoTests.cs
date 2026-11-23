@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using GIRA.Application.DTOs.Analitica;
+using GIRA.Application.Events.Analitica;
 using GIRA.Application.Interfaces.Services.Analitica;
 using GIRA.Application.Interfaces.Services.Seguridad.Auth;
 using GIRA.Domain.Constants;
@@ -7,6 +8,7 @@ using GIRA.Domain.Entities.Analitica;
 using GIRA.Domain.Entities.Reservas;
 using GIRA.Infrastructure.Persistence.Context;
 using GIRA.Tests.Api;
+using MediatR;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
@@ -54,18 +56,46 @@ public sealed class GeneracionPrediccionFlujoTests
         var recibida = await contexto.AfluenciasPredichas.SingleAsync(p => p.Fecha == hoy.AddDays(1));
         Assert.Equal(8, recibida.Comensales);
         Assert.All(await contexto.Set<PublicacionPrediccion>().ToListAsync(), p => Assert.NotNull(p.PublicadaEn));
+        var evento = fabrica.Eventos.Eventos.Single(e => e.Desde == hoy.AddDays(1));
+        var almacenada = await contexto.Set<PrediccionAfluencia>()
+            .SingleAsync(p => p.Fecha == hoy.AddDays(1) && p.FranjaHorariaId == franja);
+        var publicacion = await contexto.Set<PublicacionPrediccion>()
+            .SingleAsync(p => p.Fecha == hoy.AddDays(1));
+        var generacion = await contexto.Set<GeneracionPrediccion>()
+            .SingleAsync(g => g.Id == publicacion.GeneracionId);
+        Assert.Equal(almacenada.Id, Assert.Single(evento.Predicciones).PrediccionId);
+        Assert.Equal(almacenada.VersionModelo, Assert.Single(evento.Predicciones).VersionModelo);
+        Assert.Equal(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), evento.RestauranteId);
+        Assert.Equal(publicacion.Id, evento.EventoId);
+        Assert.Equal(1, evento.VersionContrato);
+        Assert.Equal(generacion.GeneradaEn.ToUniversalTime(), evento.OcurridoEnUtc);
+        Assert.Equal(nameof(PrediccionAfluenciaGeneradaEvent), evento.TipoEvento);
     }
 
     private sealed class Fabrica : GiraApiFactory
     {
+        public Captura Eventos { get; } = new();
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             base.ConfigureWebHost(builder);
+            builder.UseSetting("Analitica:RestauranteId", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<TimeProvider>();
                 services.AddSingleton<TimeProvider>(new Reloj());
+                services.AddSingleton<INotificationHandler<PrediccionAfluenciaGeneradaEvent>>(Eventos);
             });
+        }
+    }
+
+    private sealed class Captura : INotificationHandler<PrediccionAfluenciaGeneradaEvent>
+    {
+        public List<PrediccionAfluenciaGeneradaEvent> Eventos { get; } = [];
+        public Task Handle(PrediccionAfluenciaGeneradaEvent notification, CancellationToken cancellationToken)
+        {
+            Eventos.Add(notification);
+            return Task.CompletedTask;
         }
     }
 
