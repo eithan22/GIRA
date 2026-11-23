@@ -127,6 +127,16 @@ export default function PlanificadorPage() {
     }
   }
 
+  async function marcarPasado(turno, estado) {
+    try {
+      await personalService.cambiarEstadoTurno(turno.id, estado);
+      setMensaje(estado === ESTADO_TURNO.COMPLETADO ? 'Turno marcado como completado.' : 'Turno marcado como ausente.');
+      await cargar();
+    } catch (error) {
+      setMensaje(mensajeDeError(error, 'No se pudo actualizar el turno.'));
+    }
+  }
+
   async function cancelar(turno) {
     try {
       await personalService.cambiarEstadoTurno(turno.id, ESTADO_TURNO.CANCELADO);
@@ -281,12 +291,17 @@ export default function PlanificadorPage() {
                     <td>{horaCorta(t.horaInicio)}–{horaCorta(t.horaFin)}</td>
                     <td><span className={`status-pill ${vigente ? 'active' : 'inactive'}`}><span className="status-dot" />{etiquetaEstadoTurno(t.estado)}</span></td>
                     <td>
-                      {vigente && (
+                      {vigente && (t.fecha >= hoyLocal() ? (
                         <div className="row-actions">
                           <button type="button" className="button button-secondary button-small" onClick={() => editar(t)}>Modificar</button>
                           <button type="button" className="button button-secondary button-small" onClick={() => cancelar(t)}>Cancelar</button>
                         </div>
-                      )}
+                      ) : (
+                        <div className="row-actions">
+                          <button type="button" className="button button-secondary button-small" onClick={() => marcarPasado(t, ESTADO_TURNO.COMPLETADO)}>Completado</button>
+                          <button type="button" className="button button-secondary button-small" onClick={() => marcarPasado(t, ESTADO_TURNO.AUSENTE)}>Ausente</button>
+                        </div>
+                      ))}
                     </td>
                   </tr>
                 );

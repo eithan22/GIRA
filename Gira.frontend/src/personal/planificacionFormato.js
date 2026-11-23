@@ -109,3 +109,13 @@ export const FILTRO_SUGERENCIAS = [
   { valor: ESTADO_SUGERENCIA.RECHAZADA, etiqueta: 'Rechazadas' },
   { valor: ESTADO_SUGERENCIA.VENCIDA, etiqueta: 'Vencidas' },
 ];
+
+/** Un turno ya pasado (fecha anterior a hoy) que todavía está vigente: se puede marcar como Completado o Ausente (GI-380, RN-PER-10). */
+export function puedeMarcarPasado(turno, hoyIso) {
+  return (turno.estado === ESTADO_TURNO.PROGRAMADO || turno.estado === ESTADO_TURNO.CONFIRMADO) && turno.fecha < hoyIso;
+}
+
+/** Un turno vigente de hoy en adelante se puede modificar o cancelar (RN-PER-10). */
+export function puedeModificarTurno(turno, hoyIso) {
+  return (turno.estado === ESTADO_TURNO.PROGRAMADO || turno.estado === ESTADO_TURNO.CONFIRMADO) && turno.fecha >= hoyIso;
+}
