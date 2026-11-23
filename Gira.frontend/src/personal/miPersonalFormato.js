@@ -60,3 +60,11 @@ export function aEnvioSolicitudPropia({ fechaDesde, fechaHasta, tipo, motivo }) 
     motivo: texto || null,
   };
 }
+
+/** Valor del selector de día que significa "todos los días" (GI-363). */
+export const TODOS_LOS_DIAS = 'todos';
+
+/** Días a los que se aplica un bloque: el día elegido, o los siete si se eligió "Todos los días". */
+export function diasDelBloque(diaSemana) {
+  return diaSemana === TODOS_LOS_DIAS ? [0, 1, 2, 3, 4, 5, 6] : [Number(diaSemana)];
+}

@@ -6,6 +6,8 @@ import {
   aEnvioDisponibilidad,
   nombreDia,
   ordenarDisponibilidad,
+  TODOS_LOS_DIAS,
+  diasDelBloque,
   validarDisponibilidad,
 } from '../miPersonalFormato.js';
 import { horaCorta } from '../planificacionFormato.js';
@@ -47,16 +49,25 @@ export default function MiDisponibilidadPage() {
 
     setGuardando(true);
     setErrorFormulario('');
-    try {
-      await personalService.agregarMiDisponibilidad(aEnvioDisponibilidad(form));
-      setMensaje('Bloque registrado.');
-      setForm(FORM_VACIO);
-      await cargar();
-    } catch (error) {
-      setErrorFormulario(mensajeDeError(error, 'No se pudo registrar el bloque.'));
-    } finally {
-      setGuardando(false);
+    const fallos = [];
+    let registrados = 0;
+    for (const dia of diasDelBloque(form.diaSemana)) {
+      try {
+        await personalService.agregarMiDisponibilidad(aEnvioDisponibilidad({ ...form, diaSemana: dia }));
+        registrados += 1;
+      } catch (error) {
+        fallos.push(`${nombreDia(dia)} (${mensajeDeError(error, 'no se pudo registrar')})`);
+      }
     }
+    if (fallos.length === 0) {
+      setMensaje(registrados === 1 ? 'Bloque registrado.' : `Bloque registrado en ${registrados} días.`);
+      setForm(FORM_VACIO);
+    } else {
+      setMensaje(registrados > 0 ? `Se registró en ${registrados} día(s).` : '');
+      setErrorFormulario(`No se pudo registrar en: ${fallos.join('; ')}.`);
+    }
+    await cargar();
+    setGuardando(false);
   }
 
   async function quitar(bloque) {
@@ -101,6 +112,7 @@ export default function MiDisponibilidadPage() {
               <div className="select-wrap">
                 <select value={form.diaSemana} onChange={(e) => setForm({ ...form, diaSemana: e.target.value })}>
                   <option value="">Elige un día</option>
+                  <option value={TODOS_LOS_DIAS}>Todos los días</option>
                   {DIAS_EN_ORDEN.map((d) => <option key={d} value={d}>{nombreDia(d)}</option>)}
                 </select>
               </div>
