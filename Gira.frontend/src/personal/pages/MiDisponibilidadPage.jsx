@@ -105,11 +105,11 @@ export default function MiDisponibilidadPage() {
               </div>
             </div>
             <label className="form-field">
-              <span>Desde <i>*</i></span>
+              <span>Hora de inicio <i>*</i></span>
               <input type="time" value={form.horaInicio} onChange={(e) => setForm({ ...form, horaInicio: e.target.value })} />
             </label>
             <label className="form-field">
-              <span>Hasta <i>*</i></span>
+              <span>Hora de fin <i>*</i></span>
               <input type="time" value={form.horaFin} onChange={(e) => setForm({ ...form, horaFin: e.target.value })} />
             </label>
           </div>
