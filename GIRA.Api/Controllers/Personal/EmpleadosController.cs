@@ -13,7 +13,6 @@ namespace GIRA.Api.Controllers.Personal;
 /// </summary>
 [ApiController]
 [Route("api/empleados")]
-[Authorize(Policy = Politicas.GestionarPersonal)]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
 public class EmpleadosController : ControllerBase
@@ -28,12 +27,14 @@ public class EmpleadosController : ControllerBase
 
     /// <summary>Lista los empleados. Con <c>soloActivos=true</c> excluye los inactivos.</summary>
     [HttpGet]
+    [Authorize(Policy = Politicas.LeerPersonal)]
     [ProducesResponseType<IReadOnlyList<EmpleadoDto>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> Listar([FromQuery] bool soloActivos, CancellationToken cancellationToken) =>
         (await _servicio.ListarAsync(soloActivos, cancellationToken)).ToActionResult();
 
     /// <summary>Registra un empleado. Responde 409 si la cédula ya existe y 400 si el cargo no existe.</summary>
     [HttpPost]
+    [Authorize(Policy = Politicas.GestionarPersonal)]
     [ProducesResponseType<EmpleadoDto>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
@@ -47,6 +48,7 @@ public class EmpleadosController : ControllerBase
 
     /// <summary>Edita un empleado por su identificador.</summary>
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = Politicas.GestionarPersonal)]
     [ProducesResponseType<EmpleadoDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -56,6 +58,7 @@ public class EmpleadosController : ControllerBase
 
     /// <summary>Activa o desactiva un empleado. No lo elimina.</summary>
     [HttpPatch("{id:guid}/estado")]
+    [Authorize(Policy = Politicas.GestionarPersonal)]
     [ProducesResponseType<EmpleadoDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CambiarEstado(Guid id, [FromBody] CambiarEstadoEmpleadoRequest request, CancellationToken cancellationToken) =>

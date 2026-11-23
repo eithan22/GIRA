@@ -13,7 +13,6 @@ namespace GIRA.Api.Controllers.Personal;
 /// </summary>
 [ApiController]
 [Route("api/cargos")]
-[Authorize(Policy = Politicas.GestionarPersonal)]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
 public class CargosController : ControllerBase
@@ -28,12 +27,14 @@ public class CargosController : ControllerBase
 
     /// <summary>Lista los cargos ordenados por nombre.</summary>
     [HttpGet]
+    [Authorize(Policy = Politicas.LeerPersonal)]
     [ProducesResponseType<IReadOnlyList<CargoDto>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> Listar(CancellationToken cancellationToken) =>
         (await _servicio.ListarAsync(cancellationToken)).ToActionResult();
 
     /// <summary>Crea un cargo. Responde 409 si el nombre ya existe.</summary>
     [HttpPost]
+    [Authorize(Policy = Politicas.GestionarPersonal)]
     [ProducesResponseType<CargoDto>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
@@ -47,6 +48,7 @@ public class CargosController : ControllerBase
 
     /// <summary>Edita un cargo por su identificador. Responde 404 si no existe y 409 si el nombre ya lo usa otro.</summary>
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = Politicas.GestionarPersonal)]
     [ProducesResponseType<CargoDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

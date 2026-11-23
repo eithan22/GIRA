@@ -60,13 +60,23 @@ public class CargosEndpointsTests : IAsyncLifetime
 
     [Theory]
     [InlineData(Roles.Mesero)]
-    [InlineData(Roles.Supervisor)]
     [InlineData(Roles.Cocina)]
     public async Task RolSinPermiso_RecibeForbidden(string rol)
     {
         Como(rol);
 
         Assert.Equal(HttpStatusCode.Forbidden, (await _cliente.GetAsync(Ruta)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await _cliente.PostAsJsonAsync(Ruta, new CargoRequest("Anfitrión", null))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await _cliente.PutAsJsonAsync($"{Ruta}/{Guid.NewGuid()}", new CargoRequest("Anfitrión", null))).StatusCode);
+    }
+
+    [Fact]
+    public async Task Supervisor_PuedeLeerCargosPeroNoModificarlos()
+    {
+        // El Supervisor necesita la lista de cargos para planificar (LeerPersonal), pero no crearlos ni editarlos.
+        Como(Roles.Supervisor);
+
+        Assert.Equal(HttpStatusCode.OK, (await _cliente.GetAsync(Ruta)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await _cliente.PostAsJsonAsync(Ruta, new CargoRequest("Anfitrión", null))).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await _cliente.PutAsJsonAsync($"{Ruta}/{Guid.NewGuid()}", new CargoRequest("Anfitrión", null))).StatusCode);
     }
