@@ -4,10 +4,11 @@ using GIRA.Application.Services.Analitica;
 using GIRA.Domain.Entities.Analitica;
 using GIRA.Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace GIRA.Infrastructure.Persistence.Repositories.Analitica;
 
-public sealed class GeneracionPrediccionRepository(GiraDbContext contexto) : IGeneracionPrediccionRepository
+public sealed class GeneracionPrediccionRepository(GiraDbContext contexto, IConfiguration configuracion) : IGeneracionPrediccionRepository
 {
     public async Task<IReadOnlyList<Guid>> ObtenerFranjasActivasAsync(CancellationToken cancellationToken) =>
         await contexto.FranjasHorarias.AsNoTracking().Where(f => f.Activa)
@@ -44,18 +45,39 @@ public sealed class GeneracionPrediccionRepository(GiraDbContext contexto) : IGe
         var pendientes = await contexto.Set<PublicacionPrediccion>().AsNoTracking()
             .Where(p => p.PublicadaEn == null).OrderBy(p => p.Fecha).ToListAsync(cancellationToken);
         var resultado = new List<PublicacionPendiente>(pendientes.Count);
+        if (pendientes.Count == 0) return resultado;
+        var restauranteId = ObtenerRestauranteId(configuracion);
         foreach (var pendiente in pendientes)
         {
+            var generadaEn = await contexto.Set<GeneracionPrediccion>().AsNoTracking()
+                .Where(g => g.Id == pendiente.GeneracionId)
+                .Select(g => g.GeneradaEn)
+                .SingleAsync(cancellationToken);
             var franjas = await contexto.Set<PrediccionAfluencia>().AsNoTracking()
                 .Where(p => p.GeneracionId == pendiente.GeneracionId && p.Fecha == pendiente.Fecha)
-                .Select(p => new AfluenciaEstimadaFranja(p.Fecha, p.FranjaHorariaId, p.AfluenciaEstimada))
+                .Select(p => new AfluenciaEstimadaFranja(
+                    p.Fecha, p.FranjaHorariaId, p.AfluenciaEstimada, p.Id, p.VersionModelo))
                 .ToListAsync(cancellationToken);
             if (franjas.Count == 0)
                 throw new InvalidOperationException($"La publicación de predicción {pendiente.Id} no tiene franjas.");
+            if (franjas.Any(f => f.PrediccionId is null || f.PrediccionId == Guid.Empty ||
+                string.IsNullOrWhiteSpace(f.VersionModelo)))
+                throw new InvalidOperationException($"La publicación de predicción {pendiente.Id} contiene metadatos inválidos.");
             resultado.Add(new PublicacionPendiente(pendiente.Id,
-                new PrediccionAfluenciaGeneradaEvent(pendiente.Fecha, pendiente.Fecha, franjas)));
+                new PrediccionAfluenciaGeneradaEvent(pendiente.Fecha, pendiente.Fecha, franjas,
+                    pendiente.Id, 1, restauranteId, generadaEn.ToUniversalTime(),
+                    nameof(PrediccionAfluenciaGeneradaEvent))));
         }
+
         return resultado;
+    }
+
+    public static Guid ObtenerRestauranteId(IConfiguration configuracion)
+    {
+        if (!Guid.TryParse(configuracion["Analitica:RestauranteId"], out var id) || id == Guid.Empty)
+            throw new InvalidOperationException(
+                "Analitica:RestauranteId debe contener el GUID real del restaurante para publicar predicciones.");
+        return id;
     }
 
     public async Task MarcarPublicadaAsync(Guid id, DateTimeOffset fecha, CancellationToken cancellationToken)

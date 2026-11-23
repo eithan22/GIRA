@@ -82,6 +82,32 @@ y [repositorio de afluencia](../GIRA.Infrastructure/Persistence/Repositories/Ana
   publicación hacia Inventario se guarda para reintento y solo se prepara
   para fechas con predicción de todas las franjas activas.
 
+#### Contrato para Inventario y Personal
+
+`PrediccionAfluenciaGeneradaEvent` mantiene `Desde`, `Hasta` y `Predicciones`.
+Analítica agrega al final los siguientes campos:
+
+- `EventoId`: GUID persistido de la publicación de un día; permanece igual
+  al reintentar esa publicación. Es el identificador para deduplicar eventos.
+- `VersionContrato`: `1`; identifica la estructura del evento, no el modelo.
+- `RestauranteId`: GUID real configurado en `Analitica:RestauranteId`.
+- `OcurridoEnUtc`: fecha y hora UTC de la generación persistida.
+- `TipoEvento`: `PrediccionAfluenciaGeneradaEvent`.
+
+Cada elemento de `Predicciones` añade `PrediccionId` y `VersionModelo`: son el
+ID persistido y la versión real de esa fecha y franja. Un mismo evento puede
+contener versiones de modelo diferentes. No confundir el ID del evento con los
+IDs de sus predicciones.
+
+Los campos nuevos son opcionales en los constructores para mantener el código
+existente compatible; los eventos antiguos o construidos sin ellos contienen
+`null`. Los consumidores que los necesiten deben validar su presencia, versión
+y restaurante antes de actuar. Los eventos producidos por Analítica incluyen
+los metadatos; falta coordinar y probar el consumidor de Personal con Jean.
+El restaurante es único y se configura externamente, no se inventa ni se valida
+contra un catálogo de restaurantes. El equipo debe mantener el mismo ID para
+las publicaciones pendientes, incluidos los reintentos.
+
 Código: [entrenamiento](../GIRA.Application/Services/Analitica/EntrenamientoModeloService.cs),
 [generación](../GIRA.Application/Services/Analitica/GeneracionPrediccionService.cs)
 y [modelo SSA](../GIRA.Infrastructure/Services/Analitica/ModeloSsaService.cs).
@@ -237,8 +263,10 @@ observaciones, un modelo entrenado ni una ejecución exitosa.
 | Recomendaciones | Al iniciar y cada 5 minutos | Guarda o actualiza recomendaciones y publica eventos de las nuevas. |
 
 La generación, cuando se habilita, revisa cada cinco minutos la generación
-posterior al cierre y las publicaciones pendientes hacia Inventario. No habilitarla
-sin validación coordinada con ese módulo.
+posterior al cierre y las publicaciones pendientes hacia Inventario. Antes de
+habilitarla, coordinar con Inventario y Personal y configurar
+`Analitica:RestauranteId` (o `Analitica__RestauranteId`) con un GUID real no
+vacío. Si falta o es inválido, la API no inicia con generación habilitada.
 
 ## 5. Validaciones realizadas
 
