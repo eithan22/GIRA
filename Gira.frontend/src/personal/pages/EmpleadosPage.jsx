@@ -123,7 +123,7 @@ export default function EmpleadosPage() {
             </label>
             <label className="form-field">
               <span>Cédula <i>*</i></span>
-              <input value={form.cedula} onChange={(e) => setForm({ ...form, cedula: e.target.value })} maxLength={20} />
+              <input value={form.cedula} onChange={(e) => setForm({ ...form, cedula: e.target.value.replace(/\D/g, '').slice(0, 11) })} inputMode="numeric" maxLength={11} />
             </label>
             <label className="form-field">
               <span>Teléfono</span>
