@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { personalService } from '../personalService.js';
 import { mensajeDeError } from '../personalFormato.js';
 import {
+  explicarErrorTurno,
   ESTADO_TURNO,
   aEnvioTurno,
   diasDeSemana,
@@ -235,7 +236,7 @@ export default function PlanificadorPage() {
           </div>
         </div>
         <form className="personal-form" onSubmit={guardar} noValidate>
-          {errorFormulario && <p className="notice-error" role="alert">{errorFormulario}</p>}
+          {errorFormulario && <ErrorTurno mensaje={errorFormulario} />}
           <div className="form-grid">
             <div className="form-field">
               <span>Empleado <i>*</i></span>
@@ -320,5 +321,23 @@ export default function PlanificadorPage() {
         </div>
       </div>
     </section>
+  );
+}
+
+/** Error al guardar un turno: el mensaje de la API y, si se reconoce, qué pasó y cómo corregirlo. */
+function ErrorTurno({ mensaje }) {
+  const explicacion = explicarErrorTurno(mensaje);
+  return (
+    <div className="notice-error" role="alert">
+      <div>
+        <strong>{mensaje}</strong>
+        {explicacion && (
+          <>
+            <p><b>Qué pasó:</b> {explicacion.que}</p>
+            <p><b>Cómo corregirlo:</b> {explicacion.como}</p>
+          </>
+        )}
+      </div>
+    </div>
   );
 }

@@ -119,3 +119,49 @@ export function puedeMarcarPasado(turno, hoyIso) {
 export function puedeModificarTurno(turno, hoyIso) {
   return (turno.estado === ESTADO_TURNO.PROGRAMADO || turno.estado === ESTADO_TURNO.CONFIRMADO) && turno.fecha >= hoyIso;
 }
+
+/**
+ * Explica un error de asignar o modificar un turno: qué pasó y cómo corregirlo.
+ * Distingue la ausencia aprobada (el empleado no trabaja ese día) del solapamiento
+ * (otro turno del mismo empleado a esa hora). Devuelve null si no reconoce el mensaje.
+ */
+export function explicarErrorTurno(mensaje) {
+  const texto = String(mensaje ?? '').toLowerCase();
+  if (texto.includes('ausencia aprobada')) {
+    return {
+      que: 'El empleado tiene una ausencia aprobada que cubre esa fecha, así que no se le pueden asignar turnos ese día. No es un choque con otro turno.',
+      como: 'Elige otra fecha. Si la ausencia no debería estar aprobada, revísala en Ausencias.',
+    };
+  }
+  if (texto.includes('se solapa')) {
+    return {
+      que: 'El empleado ya tiene otro turno que se cruza con este horario el mismo día.',
+      como: 'Cambia la hora de inicio o de fin, o modifica el turno que ya existe en la tabla de la semana.',
+    };
+  }
+  if (texto.includes('disponibilidad')) {
+    return {
+      que: 'El horario no cabe dentro de la disponibilidad del empleado para ese día de la semana.',
+      como: 'Cambia la hora para que quede dentro de su disponibilidad, o pídele que la amplíe en Mi disponibilidad.',
+    };
+  }
+  if (texto.includes('descanso mínimo')) {
+    return {
+      que: 'Este turno deja menos de 11 horas de descanso respecto al turno anterior o siguiente del empleado.',
+      como: 'Mueve la hora de inicio o de fin para dejar al menos 11 horas entre turnos.',
+    };
+  }
+  if (texto.includes('horas máximas')) {
+    return {
+      que: 'Con este turno, el empleado supera el límite de horas de la semana.',
+      como: 'Acorta el turno o asígnalo a otro empleado.',
+    };
+  }
+  if (texto.includes('inactivo')) {
+    return {
+      que: 'El empleado está inactivo y no puede recibir turnos.',
+      como: 'Actívalo en Empleados, o elige a otro empleado.',
+    };
+  }
+  return null;
+}

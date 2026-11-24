@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  explicarErrorTurno,
   ESTADO_SUGERENCIA,
   ESTADO_TURNO,
   aEnvioTurno,
@@ -94,4 +95,12 @@ test('puedeModificarTurno solo para turnos vigentes de hoy en adelante', () => {
   const pasado = { fecha: '2026-12-01', estado: ESTADO_TURNO.PROGRAMADO };
   assert.equal(puedeModificarTurno(futuro, '2026-12-07'), true);
   assert.equal(puedeModificarTurno(pasado, '2026-12-07'), false);
+});
+
+test('explicarErrorTurno distingue la ausencia del solapamiento y de la disponibilidad', () => {
+  assert.match(explicarErrorTurno('El empleado tiene una ausencia aprobada en esa fecha.').que, /No es un choque/);
+  assert.match(explicarErrorTurno('El horario se solapa con otro turno del mismo empleado.').que, /otro turno/);
+  assert.match(explicarErrorTurno('El horario queda fuera de la disponibilidad del empleado para ese día.').como, /Mi disponibilidad/);
+  assert.match(explicarErrorTurno('No se respeta el descanso mínimo entre turnos del empleado.').como, /11 horas/);
+  assert.equal(explicarErrorTurno('Mensaje que no conozco.'), null);
 });

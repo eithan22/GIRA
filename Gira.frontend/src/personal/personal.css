@@ -205,3 +205,9 @@
   font-size: 13px;
   text-transform: capitalize;
 }
+
+/* Explicación debajo del mensaje de error del planificador. */
+.notice-error > div p {
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
