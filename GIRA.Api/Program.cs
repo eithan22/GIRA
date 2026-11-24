@@ -3,6 +3,7 @@ using GIRA.Api.Common;
 using GIRA.Api.Common.Reservas;
 using GIRA.Api.Common.Seguridad;
 using GIRA.Application;
+using GIRA.Application.Services.Personal;
 using GIRA.Infrastructure;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
@@ -27,6 +28,9 @@ builder.Services.AddGiraCors(builder.Configuration);
 // Servicios de Application e Infrastructure.
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// Módulo de Personal y Turnos (GI-308).
+builder.Services.AddPersonal();
 
 // Autenticación JWT y límite de intentos del login (GI-95).
 builder.Services.AddAutenticacionJwt(builder.Configuration);

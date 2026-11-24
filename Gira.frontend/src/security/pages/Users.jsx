@@ -176,7 +176,7 @@ export default function Users() {
           <label className="select-wrap"><span className="sr-only">Filtrar por estado</span><select value={status} onChange={(event) => updateFilter(setStatus, event.target.value)}><option value="">Todos los estados</option><option value="active">Activo</option><option value="inactive">Inactivo</option></select></label>
         </div>
         <div className="table-scroll">
-          <table className="data-table">
+          <table className="data-table users-table">
             <thead><tr><th>USUARIO</th><th>ROL</th><th>ESTADO</th><th>ÚLTIMO ACCESO</th><th><span className="sr-only">Acciones</span></th></tr></thead>
             <tbody>{loading ? <tr><td colSpan="5" className="table-message"><span className="button-spinner" /> Cargando usuarios…</td></tr> : users.length ? users.map((user, index) => (
               <tr key={user.id} className="user-row" style={{ animationDelay: `${index * 35}ms` }}>

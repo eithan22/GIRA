@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { authService } from '../authService.js';
+import { personalService } from '../../personal/personalService.js';
 import Icon from '../components/Icon.jsx';
 import Modal from '../components/Modal.jsx';
 import RoleSelector from '../components/RoleSelector.jsx';
@@ -9,7 +10,8 @@ export default function UserForm() {
   const { userId } = useParams();
   const navigate = useNavigate();
   const editing = Boolean(userId);
-  const [form, setForm] = useState({ nombre: '', email: '', roles: [] });
+  const [form, setForm] = useState({ nombre: '', email: '', roles: [], empleadoId: '' });
+  const [empleados, setEmpleados] = useState([]);
   const [loading, setLoading] = useState(editing);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -17,11 +19,19 @@ export default function UserForm() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    let active = true;
+    personalService.listarEmpleados({ soloActivos: true })
+      .then((lista) => { if (active) setEmpleados(lista); })
+      .catch(() => { if (active) setEmpleados([]); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
     if (!editing) return undefined;
     let active = true;
     authService.getUser(userId).then((user) => {
       if (!user) throw new Error('No se encontró la cuenta solicitada.');
-      if (active) setForm({ nombre: user.nombre, email: user.email, roles: user.roles || [] });
+      if (active) setForm({ nombre: user.nombre, email: user.email, roles: user.roles || [], empleadoId: user.empleadoId ?? '' });
     }).catch((requestError) => { if (active) setError(requestError.response?.data?.detail || requestError.message || 'No se pudo cargar el usuario.'); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [editing, userId]);
@@ -31,7 +41,7 @@ export default function UserForm() {
     setError('');
     setSaving(true);
     try {
-      const result = await authService.saveUser(form, userId);
+      const result = await authService.saveUser({ ...form, empleadoId: form.empleadoId || null }, userId);
       if (!editing && result.temporaryPassword) setCreated(result);
       else navigate('/seguridad/usuarios', { replace: true });
     } catch (requestError) {
@@ -53,7 +63,7 @@ export default function UserForm() {
       {error && <div className="notice-error" role="alert"><span>!</span>{error}</div>}
       <form className="panel user-form" onSubmit={submit}>
         <div className="form-section"><div className="form-section-title"><span className="form-step">01</span><div><h2>Información personal</h2><p>Datos de identificación para la cuenta.</p></div></div>
-          <div className="form-grid"><label className="form-field"><span>Nombre completo <i>*</i></span><input autoComplete="name" value={form.nombre} onChange={(event) => setForm({ ...form, nombre: event.target.value })} placeholder="Ej. Ana Rodríguez" required minLength={2} maxLength={120} /></label><label className="form-field"><span>Correo electrónico <i>*</i></span><input type="email" autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="nombre@empresa.com" required maxLength={254} /></label></div>
+          <div className="form-grid"><label className="form-field"><span>Nombre completo <i>*</i></span><input autoComplete="name" value={form.nombre} onChange={(event) => setForm({ ...form, nombre: event.target.value })} placeholder="Ej. Ana Rodríguez" required minLength={2} maxLength={120} /></label><label className="form-field"><span>Correo electrónico <i>*</i></span><input type="email" autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="nombre@empresa.com" required maxLength={254} /></label><label className="form-field"><span>Empleado vinculado</span><div className="select-wrap"><select value={form.empleadoId} onChange={(event) => setForm({ ...form, empleadoId: event.target.value })}><option value="">Sin empleado</option>{empleados.map((e) => <option key={e.id} value={e.id}>{e.nombre} {e.apellido}</option>)}</select></div><span className="field-hint">Vincula la cuenta con su registro de empleado para ver sus turnos y disponibilidad.</span></label></div>
         </div>
         <div className="form-section"><div className="form-section-title"><span className="form-step">02</span><div><h2>Roles y permisos</h2><p>Selecciona uno o más roles; sus descripciones te ayudan a elegir.</p></div></div><RoleSelector selected={form.roles} onChange={(roles) => setForm({ ...form, roles })} />{!form.roles.length && <span className="field-hint role-validation">Selecciona al menos un rol.</span>}</div>
         {!editing && <div className="form-tip"><span className="tip-icon"><Icon name="key" size={16} /></span><span><strong>Contraseña temporal</strong><small>Se generará al guardar y solo se mostrará una vez.</small></span></div>}

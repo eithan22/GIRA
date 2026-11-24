@@ -1,5 +1,6 @@
 using GIRA.Domain.Base;
 using GIRA.Domain.Entities.Configuracion;
+using GIRA.Domain.Entities.Personal;
 using GIRA.Domain.Entities.Analitica;
 using GIRA.Domain.Entities.Inventario;
 using GIRA.Domain.Entities.Personal;
@@ -30,6 +31,30 @@ public class GiraDbContext : IdentityDbContext<Usuario, Rol, Guid>
 
     /// <summary>Historial de intentos de inicio de sesión, exitosos o no.</summary>
     public DbSet<RegistroAcceso> RegistrosAcceso => Set<RegistroAcceso>();
+
+    /// <summary>Cargos del personal (mesero, cocinero, etc.), módulo Personal y Turnos (GI-309).</summary>
+    public DbSet<Cargo> Cargos => Set<Cargo>();
+
+    /// <summary>Empleados del restaurante, módulo Personal y Turnos (GI-295).</summary>
+    public DbSet<Empleado> Empleados => Set<Empleado>();
+
+    /// <summary>Bloques de disponibilidad semanal de los empleados (GI-297).</summary>
+    public DbSet<Disponibilidad> Disponibilidades => Set<Disponibilidad>();
+
+    /// <summary>Turnos asignados a los empleados (GI-298).</summary>
+    public DbSet<Turno> Turnos => Set<Turno>();
+
+    /// <summary>Solicitudes de ausencia de los empleados (GI-298, RN-PER-03).</summary>
+    public DbSet<Ausencia> Ausencias => Set<Ausencia>();
+
+    /// <summary>Requerimiento de personal por cargo: comensales por empleado y mínimo por franja (GI-302).</summary>
+    public DbSet<RequerimientoPersonal> RequerimientosPersonal => Set<RequerimientoPersonal>();
+
+    /// <summary>Sugerencias de personal generadas por las predicciones de afluencia (GI-303, RF-PER-09).</summary>
+    public DbSet<SugerenciaTurno> Sugerencias => Set<SugerenciaTurno>();
+
+    /// <summary>Eventos de predicción rechazados por Personal, para revisión (GI-303).</summary>
+    public DbSet<EventoPrediccionDescartado> EventosPrediccionDescartados => Set<EventoPrediccionDescartado>();
 
     /// <summary>Solicitudes de recuperación de contraseña pendientes de atender por un Administrador.</summary>
     public DbSet<SolicitudRecuperacionPassword> SolicitudesRecuperacionPassword => Set<SolicitudRecuperacionPassword>();

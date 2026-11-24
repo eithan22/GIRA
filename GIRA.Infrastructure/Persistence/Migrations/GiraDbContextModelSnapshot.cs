@@ -1440,6 +1440,310 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.ToTable("UnidadMedida", "inventario");
                 });
 
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.Ausencia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AprobadaPor")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("EmpleadoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateOnly>("FechaDesde")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("FechaHasta")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpleadoId");
+
+                    b.ToTable("Ausencia", "personal");
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.Cargo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Cargo_Nombre")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("Cargo", "personal");
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.Disponibilidad", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DiaSemana")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("EmpleadoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<TimeOnly>("HoraFin")
+                        .HasColumnType("time");
+
+                    b.Property<TimeOnly>("HoraInicio")
+                        .HasColumnType("time");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpleadoId", "DiaSemana")
+                        .HasDatabaseName("IX_Disponibilidad_EmpleadoId_DiaSemana");
+
+                    b.ToTable("Disponibilidad", "personal");
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.Empleado", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Apellido")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("CargoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Cedula")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateOnly>("FechaIngreso")
+                        .HasColumnType("date");
+
+                    b.Property<int>("HorasMaximasSemana")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Telefono")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CargoId");
+
+                    b.HasIndex("Cedula")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Empleado_Cedula")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("Empleado", "personal");
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.EventoPrediccionDescartado", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("EventoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("FechaRecepcion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<Guid?>("RestauranteRecibidoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("VersionContrato")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventoId")
+                        .HasDatabaseName("IX_EventoPrediccionDescartado_EventoId");
+
+                    b.ToTable("EventoPrediccionDescartado", "personal");
+                });
+
             modelBuilder.Entity("GIRA.Domain.Entities.Personal.MarcacionTurno", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1470,6 +1774,201 @@ namespace GIRA.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_MarcacionTurno_Rango", "[FinEn] IS NULL OR [FinEn] > [InicioEn]");
                         });
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.RequerimientoPersonal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CargoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ComensalesPorEmpleado")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MinimoPorFranja")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CargoId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_RequerimientoPersonal_CargoId")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("RequerimientoPersonal", "personal");
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.SugerenciaTurno", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CargoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Diferencia")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("EventoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("FechaGeneracion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("FranjaHorariaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("PersonalPlanificado")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PersonalRequerido")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("PrediccionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ResueltaPor")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventoId")
+                        .HasDatabaseName("IX_SugerenciaTurno_EventoId");
+
+                    b.HasIndex("Estado", "Fecha")
+                        .HasDatabaseName("IX_SugerenciaTurno_Estado_Fecha");
+
+                    b.ToTable("SugerenciaTurno", "personal");
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.Turno", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CargoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("EmpleadoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date");
+
+                    b.Property<TimeOnly>("HoraFin")
+                        .HasColumnType("time");
+
+                    b.Property<TimeOnly>("HoraInicio")
+                        .HasColumnType("time");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Notas")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CargoId");
+
+                    b.HasIndex("EmpleadoId", "Fecha")
+                        .HasDatabaseName("IX_Turno_EmpleadoId_Fecha");
+
+                    b.ToTable("Turno", "personal");
                 });
 
             modelBuilder.Entity("GIRA.Domain.Entities.Reservas.Cliente", b =>
@@ -2322,11 +2821,62 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                     b.Navigation("Insumo");
                 });
 
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.Ausencia", b =>
+                {
+                    b.HasOne("GIRA.Domain.Entities.Personal.Empleado", null)
+                        .WithMany()
+                        .HasForeignKey("EmpleadoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.Disponibilidad", b =>
+                {
+                    b.HasOne("GIRA.Domain.Entities.Personal.Empleado", null)
+                        .WithMany()
+                        .HasForeignKey("EmpleadoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.Empleado", b =>
+                {
+                    b.HasOne("GIRA.Domain.Entities.Personal.Cargo", null)
+                        .WithMany()
+                        .HasForeignKey("CargoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("GIRA.Domain.Entities.Personal.MarcacionTurno", b =>
                 {
                     b.HasOne("GIRA.Infrastructure.Identity.Usuario", null)
                         .WithMany()
                         .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.RequerimientoPersonal", b =>
+                {
+                    b.HasOne("GIRA.Domain.Entities.Personal.Cargo", null)
+                        .WithMany()
+                        .HasForeignKey("CargoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("GIRA.Domain.Entities.Personal.Turno", b =>
+                {
+                    b.HasOne("GIRA.Domain.Entities.Personal.Cargo", null)
+                        .WithMany()
+                        .HasForeignKey("CargoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GIRA.Domain.Entities.Personal.Empleado", null)
+                        .WithMany()
+                        .HasForeignKey("EmpleadoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
@@ -2373,6 +2923,14 @@ namespace GIRA.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("MesaId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("GIRA.Infrastructure.Identity.Usuario", b =>
+                {
+                    b.HasOne("GIRA.Domain.Entities.Personal.Empleado", null)
+                        .WithMany()
+                        .HasForeignKey("EmpleadoId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
