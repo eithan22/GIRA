@@ -61,10 +61,10 @@ export function aEnvioSolicitudPropia({ fechaDesde, fechaHasta, tipo, motivo }) 
   };
 }
 
-/** Valor del selector de día que significa "todos los días" (GI-363). */
-export const TODOS_LOS_DIAS = 'todos';
+/** Valor del selector de día que significa de lunes a viernes (GI-363). */
+export const DIAS_LABORABLES = 'laborables';
 
-/** Días a los que se aplica un bloque: el día elegido, o los siete si se eligió "Todos los días". */
+/** Días a los que se aplica un bloque: el día elegido, o los cinco días laborables si se eligió "De lunes a viernes". */
 export function diasDelBloque(diaSemana) {
-  return diaSemana === TODOS_LOS_DIAS ? [0, 1, 2, 3, 4, 5, 6] : [Number(diaSemana)];
+  return diaSemana === DIAS_LABORABLES ? [1, 2, 3, 4, 5] : [Number(diaSemana)];
 }

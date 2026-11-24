@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  TODOS_LOS_DIAS,
+  DIAS_LABORABLES,
   diasDelBloque,
   DIAS_EN_ORDEN,
   aEnvioDisponibilidad,
@@ -62,7 +62,7 @@ test('aEnvioSolicitudPropia manda el tipo como número y el motivo vacío como n
     { fechaDesde: '2026-12-07', fechaHasta: '2026-12-08', tipo: 1, motivo: null });
 });
 
-test('diasDelBloque aplica el bloque a todos los días o solo al elegido', () => {
-  assert.deepEqual(diasDelBloque(TODOS_LOS_DIAS), [0, 1, 2, 3, 4, 5, 6]);
+test('diasDelBloque aplica el bloque a los días laborables o solo al elegido', () => {
+  assert.deepEqual(diasDelBloque(DIAS_LABORABLES), [1, 2, 3, 4, 5]);
   assert.deepEqual(diasDelBloque('3'), [3]);
 });

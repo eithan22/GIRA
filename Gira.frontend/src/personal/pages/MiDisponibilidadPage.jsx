@@ -6,7 +6,7 @@ import {
   aEnvioDisponibilidad,
   nombreDia,
   ordenarDisponibilidad,
-  TODOS_LOS_DIAS,
+  DIAS_LABORABLES,
   diasDelBloque,
   validarDisponibilidad,
 } from '../miPersonalFormato.js';
@@ -117,7 +117,7 @@ export default function MiDisponibilidadPage() {
               <div className="select-wrap">
                 <select value={form.diaSemana} onChange={(e) => setForm({ ...form, diaSemana: e.target.value })}>
                   <option value="">Elige un día</option>
-                  <option value={TODOS_LOS_DIAS}>Todos los días</option>
+                  <option value={DIAS_LABORABLES}>De lunes a viernes</option>
                   {DIAS_EN_ORDEN.map((d) => <option key={d} value={d}>{nombreDia(d)}</option>)}
                 </select>
               </div>
