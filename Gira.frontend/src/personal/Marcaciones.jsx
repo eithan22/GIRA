@@ -23,6 +23,13 @@ export default function Marcaciones() {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
   const [exito, setExito] = useState('');
+  const [ahora, setAhora] = useState(() => new Date());
+
+  // Reloj en vivo, como el de un ponche.
+  useEffect(() => {
+    const intervalo = setInterval(() => setAhora(new Date()), 1000);
+    return () => clearInterval(intervalo);
+  }, []);
 
   useEffect(() => {
     let activo = true;
@@ -43,9 +50,9 @@ export default function Marcaciones() {
     try {
       const respuesta = await api.post(`${ruta}/entrada`);
       setTurno(respuesta.data);
-      setExito('Entrada registrada. Que tengas buen turno.');
+      setExito('Entrada ponchada. Que tengas buen turno.');
     } catch (fallo) {
-      setError(mensaje(fallo, 'No se pudo registrar la entrada.'));
+      setError(mensaje(fallo, 'No se pudo ponchar la entrada.'));
     } finally {
       setGuardando(false);
     }
@@ -61,22 +68,30 @@ export default function Marcaciones() {
       const respuesta = await api.post(`${ruta}/salida`, { minutosPausa: Number(pausa || 0) });
       setTurno(null);
       setPausa('');
-      setExito(`Salida registrada. Trabajaste ${formatearHoras(respuesta.data.horasTrabajadas)}.`);
+      setExito(`Salida ponchada. Trabajaste ${formatearHoras(respuesta.data.horasTrabajadas)}.`);
     } catch (fallo) {
-      setError(mensaje(fallo, 'No se pudo registrar la salida.'));
+      setError(mensaje(fallo, 'No se pudo ponchar la salida.'));
     } finally {
       setGuardando(false);
     }
   }
+
+  const horaActual = ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const fechaActual = ahora.toLocaleDateString('es-DO', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
     <section className="page-section enter personal-page">
       <div className="page-heading-row">
         <div>
           <span className="eyebrow">PERSONAL · GIRA</span>
-          <h1>Marcación de turno</h1>
-          <p>Marca tu entrada al llegar y tu salida al terminar.</p>
+          <h1>Ponche de turno</h1>
+          <p>Marca tu entrada al llegar y tu salida al terminar, como en el ponche.</p>
         </div>
+      </div>
+
+      <div className="ponche-reloj" aria-label="Hora actual">
+        <span className="ponche-hora">{horaActual}</span>
+        <span className="ponche-fecha">{fechaActual}</span>
       </div>
 
       {error && <p className="notice-error" role="alert">{error}</p>}
@@ -98,7 +113,7 @@ export default function Marcaciones() {
                   <span className="field-hint">Tiempo que no trabajaste, por ejemplo el almuerzo. Déjalo vacío si no tuviste pausa.</span>
                 </label>
                 <button type="submit" className="button button-primary" disabled={guardando}>
-                  {guardando ? 'Registrando…' : 'Registrar salida'}
+                  {guardando ? 'Ponchando…' : 'Ponchar salida'}
                 </button>
               </form>
             </>
@@ -109,7 +124,7 @@ export default function Marcaciones() {
                 Sin turno abierto
               </p>
               <button type="button" className="button button-primary" disabled={guardando} onClick={marcarEntrada}>
-                {guardando ? 'Registrando…' : 'Registrar entrada'}
+                {guardando ? 'Ponchando…' : 'Ponchar entrada'}
               </button>
             </>
           )}

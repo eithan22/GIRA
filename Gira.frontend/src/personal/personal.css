@@ -183,3 +183,25 @@
   width: 100%;
   max-width: 360px;
 }
+
+/* Reloj del ponche: hora grande y fecha del día. */
+.ponche-reloj {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+
+.ponche-hora {
+  color: #293448;
+  font-size: 40px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.ponche-fecha {
+  color: #788397;
+  font-size: 13px;
+  text-transform: capitalize;
+}
