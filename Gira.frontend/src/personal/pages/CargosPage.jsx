@@ -76,7 +76,10 @@ export default function CargosPage() {
       <div className="panel">
         <div className="panel-heading">
           <div>
-            <h2>{editandoId ? 'Editar cargo' : 'Nuevo cargo'}</h2>
+            <h2>
+              {editandoId ? 'Editar cargo' : 'Nuevo cargo'}
+              {editandoId && <span className="etiqueta-edicion" role="status">Editando</span>}
+            </h2>
             <p>Los nombres de cargo no se pueden repetir.</p>
           </div>
         </div>

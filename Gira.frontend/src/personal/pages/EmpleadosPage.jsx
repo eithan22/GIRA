@@ -107,7 +107,10 @@ export default function EmpleadosPage() {
       <div className="panel">
         <div className="panel-heading">
           <div>
-            <h2>{editandoId ? 'Editar empleado' : 'Nuevo empleado'}</h2>
+            <h2>
+              {editandoId ? 'Editar empleado' : 'Nuevo empleado'}
+              {editandoId && <span className="etiqueta-edicion" role="status">Editando</span>}
+            </h2>
             <p>La cédula debe ser única entre los empleados vigentes.</p>
           </div>
         </div>
