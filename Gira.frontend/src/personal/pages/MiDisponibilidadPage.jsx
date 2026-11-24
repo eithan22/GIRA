@@ -56,7 +56,7 @@ export default function MiDisponibilidadPage() {
         await personalService.agregarMiDisponibilidad(aEnvioDisponibilidad({ ...form, diaSemana: dia }));
         registrados += 1;
       } catch (error) {
-        fallos.push(`${nombreDia(dia)} (${mensajeDeError(error, 'no se pudo registrar')})`);
+        fallos.push({ dia: nombreDia(dia), motivo: mensajeDeError(error, 'no se pudo registrar') });
       }
     }
     if (fallos.length === 0) {
@@ -64,7 +64,12 @@ export default function MiDisponibilidadPage() {
       setForm(FORM_VACIO);
     } else {
       setMensaje(registrados > 0 ? `Se registró en ${registrados} día(s).` : '');
-      setErrorFormulario(`No se pudo registrar en: ${fallos.join('; ')}.`);
+      // Un solo motivo y la lista de días, para no repetir el mismo texto en cada día.
+      const motivos = [...new Set(fallos.map((f) => f.motivo))];
+      const dias = fallos.map((f) => f.dia).join(', ');
+      setErrorFormulario(motivos.length === 1
+        ? `No se pudo registrar en ${dias}: ${motivos[0]}`
+        : `No se pudo registrar en ${dias}.`);
     }
     await cargar();
     setGuardando(false);
