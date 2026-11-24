@@ -1,0 +1,213 @@
+/* Espaciado de las pantallas de Personal y Turnos. Los colores, botones y tablas
+   vienen de styles.css para que se vean igual que el resto de la aplicación. */
+
+.personal-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.personal-page > .page-heading-row {
+  margin-bottom: 4px;
+}
+
+/* Paneles de la marcación de turno: mismo relleno y títulos que los paneles de Personal. */
+.marcacion-panel {
+  padding: 19px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.marcacion-panel h2 {
+  margin: 0;
+  color: #293448;
+  font: 700 14px Manrope, sans-serif;
+}
+
+.marcacion-panel form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.personal-form {
+  padding: 0 19px 19px;
+}
+
+.personal-form .form-grid {
+  margin-bottom: 6px;
+}
+
+/* Día, Desde y Hasta en una sola fila en pantallas anchas; en celular vuelven a apilarse. */
+.personal-form .form-grid.form-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 720px) {
+  .personal-form .form-grid.form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.personal-form .form-actions {
+  margin-top: 16px;
+}
+
+.personal-page .field-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #788397;
+  font-size: 11px;
+}
+
+/* Campos de hora: bordes visibles para que se vea que son selectores. */
+.personal-form input[type="time"] {
+  height: 40px;
+  padding: 0 11px;
+  color: #293448;
+  background: #fff;
+  border: 1px solid #c3cad9;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.personal-form input[type="time"]:hover {
+  border-color: #8f85e6;
+}
+
+.personal-form input[type="time"]:focus {
+  outline: none;
+  border-color: #7b6bd2;
+  box-shadow: 0 0 0 3px #8371ed22;
+}
+
+.personal-form input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: .7;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.personal-form input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background: #f3f1ff;
+}
+
+/* Menús desplegables de Personal: mismo marco que los campos de hora. */
+.personal-form .select-wrap select {
+  height: 40px;
+  color: #293448;
+  border: 1px solid #c3cad9;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.personal-form .select-wrap select:hover {
+  border-color: #8f85e6;
+}
+
+.personal-form .select-wrap select:focus {
+  border-color: #7b6bd2;
+  box-shadow: 0 0 0 3px #8371ed22;
+}
+
+.personal-form .select-wrap::after {
+  top: 17px;
+}
+
+/* Hora con listas de hora y minutos (componente SelectorHora). */
+.selector-hora {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selector-hora .select-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.selector-hora-separador {
+  color: #293448;
+  font-weight: 700;
+}
+
+/* Aviso de que el formulario está modificando un turno existente. */
+.etiqueta-edicion {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 3px 9px;
+  color: #a0671b;
+  background: #fff4e5;
+  border: 1px solid #f1d9a8;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+/* Pantalla de marcación: estado del turno y un solo botón de acción. */
+.marcacion-estado {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: #293448;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.marcacion-punto {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #c3cad9;
+}
+
+.marcacion-punto.activo {
+  background: #278361;
+}
+
+.marcacion-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  width: 100%;
+  max-width: 360px;
+}
+
+/* Reloj del ponche: hora grande y fecha del día. */
+.ponche-reloj {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+
+.ponche-hora {
+  color: #293448;
+  font-size: 40px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.ponche-fecha {
+  color: #788397;
+  font-size: 13px;
+  text-transform: capitalize;
+}
+
+/* Explicación debajo del mensaje de error del planificador. */
+.notice-error > div p {
+  margin: 6px 0 0;
+  line-height: 1.5;
+}

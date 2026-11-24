@@ -7,9 +7,18 @@ import Icon from './Icon.jsx';
 const menuItems = [
   { label: 'Inicio', to: '/inicio', icon: 'grid', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
   { label: 'Reservas', to: '/reservas', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero'] },
+  { label: 'Personal', to: '/personal/empleados', icon: 'users', roles: ['Administrador', 'Gerente'] },
+  { label: 'Cargos', to: '/personal/cargos', icon: 'users', roles: ['Administrador', 'Gerente'] },
+  { label: 'Requerimientos', to: '/personal/requerimientos', icon: 'grid', roles: ['Administrador', 'Gerente'] },
+  { label: 'Ausencias', to: '/personal/ausencias', icon: 'calendar', roles: ['Administrador', 'Gerente'] },
+  { label: 'Planificador', to: '/personal/planificador', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor'] },
+  { label: 'Sugerencias', to: '/personal/sugerencias', icon: 'grid', roles: ['Administrador', 'Gerente', 'Supervisor'] },
   { label: 'Inventario', to: '/inventario', icon: 'box', roles: ['Administrador', 'Gerente', 'Supervisor', 'Cocina'] },
   { label: 'Dashboard', to: '/analitica/dashboard', icon: 'grid', roles: ['Administrador', 'Gerente'] },
   { label: 'Mi turno', to: '/personal/marcaciones', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
+  { label: 'Mis turnos', to: '/personal/mis-turnos', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
+  { label: 'Mi disponibilidad', to: '/personal/mi-disponibilidad', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
+  { label: 'Mis ausencias', to: '/personal/mis-ausencias', icon: 'calendar', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
   { label: 'Usuarios', to: '/seguridad/usuarios', icon: 'users', roles: ['Administrador'], badge: true },
 ];
 
@@ -19,6 +28,7 @@ export default function AppLayout() {
   const allowedItems = menuItems.filter((item) => item.roles.some((role) => user?.roles?.includes(role)));
   const isAdmin = Boolean(user?.roles?.includes('Administrador'));
   const [pendingRequests, setPendingRequests] = useState(0);
+  const [menuAbierto, setMenuAbierto] = useState(false);
 
   useEffect(() => {
     if (!isAdmin) return undefined;
@@ -58,14 +68,18 @@ export default function AppLayout() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      {menuAbierto && <div className="menu-fondo" aria-hidden="true" onClick={() => setMenuAbierto(false)} />}
+      <aside className={`sidebar${menuAbierto ? ' sidebar-abierto' : ''}`}>
+        <button type="button" className="menu-tres-puntos" aria-expanded={menuAbierto} aria-controls="menu-principal" aria-label={menuAbierto ? 'Cerrar menú' : 'Abrir menú'} onClick={() => setMenuAbierto((abierto) => !abierto)}>
+          <Icon name="more" size={20} />
+        </button>
         <Link to="/inicio" className="brand"><span className="brand-mark">G</span><span className="brand-name">GIRA<span>.</span></span></Link>
         <div className="workspace-label">ESPACIO DE TRABAJO</div>
         <div className="restaurant-switcher"><span className="restaurant-avatar">S</span><span className="restaurant-name">Seguridad<small>Acceso y usuarios</small></span><Icon name="chevron" size={15} /></div>
-        <nav className="side-nav" aria-label="Menú principal">
+        <nav className="side-nav" id="menu-principal" aria-label="Menú principal">
           <div className="nav-heading">MENÚ PRINCIPAL</div>
           {allowedItems.map((item) => (
-            <NavLink to={item.to} key={item.to} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
+            <NavLink to={item.to} key={item.to} onClick={() => setMenuAbierto(false)} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
               <Icon name={item.icon} size={17} /><span>{item.label}</span>
               {item.badge && pendingRequests > 0 && <><span className="nav-badge" aria-hidden="true">{pendingRequests > 9 ? '9+' : pendingRequests}</span><span className="sr-only">{pendingRequests === 1 ? '1 solicitud de contraseña pendiente' : `${pendingRequests} solicitudes de contraseña pendientes`}</span></>}
             </NavLink>

@@ -2,6 +2,7 @@
 using GIRA.Application.Common;
 using GIRA.Application.Validations.Seguridad.Usuarios;
 using GIRA.Domain.Constants;
+using GIRA.Domain.Entities.Personal;
 using GIRA.Domain.Entities.Seguridad;
 using GIRA.Infrastructure.Identity;
 using GIRA.Infrastructure.Persistence.Context;
@@ -43,7 +44,8 @@ public class UsuarioServiceTests
             new CrearUsuarioRequestValidator(),
             new ActualizarUsuarioRequestValidator(),
             new UsuarioFiltroRequestValidator(),
-            new AsignarRolesRequestValidator());
+            new AsignarRolesRequestValidator(),
+            new GIRA.Infrastructure.Persistence.Repositories.Personal.EmpleadoRepository(db));
 
         return (servicio, db, um);
     }
@@ -172,11 +174,64 @@ public class UsuarioServiceTests
         Assert.True(r.IsSuccess);
     }
 
+    // Siembra un empleado en la base de la prueba y devuelve su identificador (GI-133).
+    private static async Task<Guid> SembrarEmpleadoAsync(GiraDbContext db, bool activo = true)
+    {
+        var empleado = new Empleado
+        {
+            Nombre = "Ana",
+            Apellido = "Pérez",
+            Cedula = Guid.NewGuid().ToString("N")[..11],
+            CargoId = Guid.NewGuid(),
+            FechaIngreso = new DateOnly(2026, 1, 1),
+            HorasMaximasSemana = 40,
+            Activo = activo,
+        };
+        db.Empleados.Add(empleado);
+        await db.SaveChangesAsync();
+        return empleado.Id;
+    }
+
+    [Fact]
+    public async Task Crear_ConEmpleadoInexistente_DevuelveValidacion()
+    {
+        var (servicio, _, _) = Crear();
+
+        var r = await servicio.CrearAsync(new CrearUsuarioRequest("nuevo@gira.com", "Nuevo", Guid.NewGuid()));
+
+        Assert.True(r.IsFailure);
+        Assert.Equal(ErrorType.Validation, r.Type);
+    }
+
+    [Fact]
+    public async Task Crear_ConEmpleadoInactivo_DevuelveValidacion()
+    {
+        var (servicio, db, _) = Crear();
+        var empleadoId = await SembrarEmpleadoAsync(db, activo: false);
+
+        var r = await servicio.CrearAsync(new CrearUsuarioRequest("nuevo@gira.com", "Nuevo", empleadoId));
+
+        Assert.True(r.IsFailure);
+        Assert.Equal(ErrorType.Validation, r.Type);
+    }
+
+    [Fact]
+    public async Task Crear_ConEmpleadoActivo_VinculaElUsuario()
+    {
+        var (servicio, db, _) = Crear();
+        var empleadoId = await SembrarEmpleadoAsync(db);
+
+        var r = await servicio.CrearAsync(new CrearUsuarioRequest("nuevo@gira.com", "Nuevo", empleadoId));
+
+        Assert.True(r.IsSuccess);
+        Assert.Equal(empleadoId, r.Value!.Usuario.EmpleadoId);
+    }
+
     [Fact]
     public async Task Crear_ConEmpleadoYaVinculado_DevuelveConflicto()
     {
-        var (servicio, _, _) = Crear();
-        var empleadoId = Guid.NewGuid();
+        var (servicio, db, _) = Crear();
+        var empleadoId = await SembrarEmpleadoAsync(db);
 
         await servicio.CrearAsync(new CrearUsuarioRequest("uno@gira.com", "Uno", empleadoId));
         var r = await servicio.CrearAsync(new CrearUsuarioRequest("dos@gira.com", "Dos", empleadoId));
@@ -189,8 +244,8 @@ public class UsuarioServiceTests
     [Fact]
     public async Task Actualizar_ConEmpleadoDeOtroUsuario_DevuelveConflicto()
     {
-        var (servicio, _, _) = Crear();
-        var empleadoId = Guid.NewGuid();
+        var (servicio, db, _) = Crear();
+        var empleadoId = await SembrarEmpleadoAsync(db);
 
         await servicio.CrearAsync(new CrearUsuarioRequest("uno@gira.com", "Uno", empleadoId));
         var segundo = await servicio.CrearAsync(new CrearUsuarioRequest("dos@gira.com", "Dos", null));
@@ -206,8 +261,8 @@ public class UsuarioServiceTests
     [Fact]
     public async Task Actualizar_ConservandoSuPropioEmpleado_Funciona()
     {
-        var (servicio, _, _) = Crear();
-        var empleadoId = Guid.NewGuid();
+        var (servicio, db, _) = Crear();
+        var empleadoId = await SembrarEmpleadoAsync(db);
 
         var creado = await servicio.CrearAsync(new CrearUsuarioRequest("uno@gira.com", "Uno", empleadoId));
 

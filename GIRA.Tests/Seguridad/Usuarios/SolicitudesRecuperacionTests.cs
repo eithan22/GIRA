@@ -55,7 +55,8 @@ public class SolicitudesRecuperacionTests
             new CrearUsuarioRequestValidator(),
             new ActualizarUsuarioRequestValidator(),
             new UsuarioFiltroRequestValidator(),
-            new AsignarRolesRequestValidator());
+            new AsignarRolesRequestValidator(),
+            new GIRA.Infrastructure.Persistence.Repositories.Personal.EmpleadoRepository(db));
 
         return (servicio, db, um);
     }

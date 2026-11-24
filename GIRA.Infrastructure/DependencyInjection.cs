@@ -1,6 +1,7 @@
 using GIRA.Infrastructure.Persistence.Context;
 using GIRA.Infrastructure.Persistence.Interceptors;
 using GIRA.Infrastructure.Persistence.Repositories.Configuracion;
+using GIRA.Infrastructure.Persistence.Repositories.Personal;
 using GIRA.Infrastructure.Persistence.Repositories.Analitica;
 using GIRA.Infrastructure.Persistence.Repositories.Inventario;
 using GIRA.Infrastructure.Persistence.Repositories.Reservas;
@@ -49,6 +50,7 @@ public static class DependencyInjection
         services.AddMemoryCache();
         services.AddConfiguracionRepositories();
         services.AddReservasRepositories();
+        services.AddPersonalRepositories();
         services.AddReservasServicios(configuration);
         services.AddInventarioRepositories();
         services.AddInventarioServicios(configuration);
@@ -57,7 +59,8 @@ public static class DependencyInjection
         services.AddScoped<IMarcacionTurnoRepository, MarcacionTurnoRepository>();
         services.AddScoped<IKpisRepository, KpisRepository>();
         services.AddScoped<IPrediccionAfluenciaRepository, PrediccionAfluenciaRepository>();
-        services.AddScoped<IGeneracionPrediccionRepository, GeneracionPrediccionRepository>();
+        services.AddScoped<IGeneracionPrediccionRepository>(sp =>
+            new GeneracionPrediccionRepository(sp.GetRequiredService<GiraDbContext>(), configuration));
         services.AddScoped<IModelosAfluenciaRepository, ModelosAfluenciaRepository>();
         services.AddScoped<IModelosActivosRepository>(sp =>
             sp.GetRequiredService<IModelosAfluenciaRepository>());
@@ -72,7 +75,10 @@ public static class DependencyInjection
         if (configuration.GetValue<bool?>("Analitica:Recomendaciones:Habilitada") != false)
             services.AddHostedService<RecomendacionesBackgroundService>();
         if (configuration.GetValue<bool>("Analitica:Generacion:Habilitada"))
+        {
+            _ = GeneracionPrediccionRepository.ObtenerRestauranteId(configuration);
             services.AddHostedService<GeneracionPrediccionBackgroundService>();
+        }
         if (configuration.GetValue<bool?>("Analitica:Capacidad:Habilitada") != false)
             services.AddHostedService<CapacidadOperativaBackgroundService>();
         if (configuration.GetValue<bool?>("Analitica:Entrenamiento:Habilitada") != false)

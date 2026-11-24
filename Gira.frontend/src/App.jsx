@@ -15,6 +15,15 @@ import MiReserva from './reservas/pages/MiReserva.jsx';
 import AgendaPersonal from './reservas/personal/pages/AgendaPersonal.jsx';
 import MapaPersonal from './reservas/personal/pages/MapaPersonal.jsx';
 import ConfiguracionPersonal from './reservas/personal/pages/ConfiguracionPersonal.jsx';
+import CargosPage from './personal/pages/CargosPage.jsx';
+import EmpleadosPage from './personal/pages/EmpleadosPage.jsx';
+import RequerimientosPage from './personal/pages/RequerimientosPage.jsx';
+import AusenciasPage from './personal/pages/AusenciasPage.jsx';
+import PlanificadorPage from './personal/pages/PlanificadorPage.jsx';
+import SugerenciasPage from './personal/pages/SugerenciasPage.jsx';
+import MiDisponibilidadPage from './personal/pages/MiDisponibilidadPage.jsx';
+import MisTurnosPage from './personal/pages/MisTurnosPage.jsx';
+import MisAusenciasPage from './personal/pages/MisAusenciasPage.jsx';
 import Insumos from './inventario/pages/Insumos.jsx';
 import Platos from './inventario/pages/Platos.jsx';
 import Movimientos from './inventario/pages/Movimientos.jsx';
@@ -76,6 +85,11 @@ function AuthenticatedApp() {
             <Route path="analitica/dashboard" element={<Dashboard />} />
             <Route path="gerencia/dashboard" element={<Navigate to="/analitica/dashboard" replace />} />
             <Route path="reservas/configuracion" element={<ConfiguracionPersonal />} />
+            <Route path="personal" element={<Navigate to="/personal/empleados" replace />} />
+            <Route path="personal/empleados" element={<EmpleadosPage />} />
+            <Route path="personal/cargos" element={<CargosPage />} />
+            <Route path="personal/requerimientos" element={<RequerimientosPage />} />
+            <Route path="personal/ausencias" element={<AusenciasPage />} />
             <Route path="inventario/catalogos" element={<Catalogos />} />
           </Route>
           <Route element={<RequireRole roles={['Administrador', 'Gerente', 'Supervisor', 'Cocina']} />}>
@@ -88,6 +102,15 @@ function AuthenticatedApp() {
             <Route path="inventario/kardex" element={<Kardex />} />
             <Route path="inventario/alertas" element={<Alertas />} />
             <Route path="inventario/proyeccion" element={<Proyeccion />} />
+          </Route>
+          <Route element={<RequireRole roles={['Administrador', 'Gerente', 'Supervisor']} />}>
+            <Route path="personal/planificador" element={<PlanificadorPage />} />
+            <Route path="personal/sugerencias" element={<SugerenciasPage />} />
+          </Route>
+          <Route element={<RequireRole roles={['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina']} />}>
+            <Route path="personal/mi-disponibilidad" element={<MiDisponibilidadPage />} />
+            <Route path="personal/mis-turnos" element={<MisTurnosPage />} />
+            <Route path="personal/mis-ausencias" element={<MisAusenciasPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

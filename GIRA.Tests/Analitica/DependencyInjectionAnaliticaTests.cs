@@ -46,6 +46,7 @@ public sealed class DependencyInjectionAnaliticaTests
             ["Reservas:ProcesoAutomatico:Habilitado"] = "false",
             ["Inventario:ProcesoVencimientos:Habilitado"] = "false",
             ["Analitica:Generacion:Habilitada"] = "true",
+            ["Analitica:RestauranteId"] = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
             ["Analitica:Entrenamiento:Habilitada"] = "true",
             ["Analitica:Recomendaciones:Habilitada"] = "true",
             ["Analitica:Recomendaciones:PorcentajeAumentoDemanda"] = "30",
@@ -96,6 +97,28 @@ public sealed class DependencyInjectionAnaliticaTests
         Assert.Single(procesos.OfType<CapacidadOperativaBackgroundService>());
         Assert.Single(procesos.OfType<EntrenamientoModeloBackgroundService>());
         Assert.Single(procesos.OfType<RecomendacionesBackgroundService>());
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("invalido")]
+    [InlineData("00000000-0000-0000-0000-000000000000")]
+    public void GeneracionHabilitada_ExigeRestauranteConfigurado(string? restauranteId)
+    {
+        var configuracion = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:GiraDb"] = "Server=no-se-usa",
+            ["Jwt:Key"] = "clave-de-pruebas-de-gira-con-mas-de-32-caracteres",
+            ["Jwt:Issuer"] = "GIRA.Api",
+            ["Jwt:Audience"] = "GIRA.Frontend",
+            ["Analitica:Generacion:Habilitada"] = "true",
+            ["Analitica:RestauranteId"] = restauranteId
+        }).Build();
+
+        var error = Assert.Throws<InvalidOperationException>(() =>
+            new ServiceCollection().AddInfrastructure(configuracion));
+
+        Assert.Contains("Analitica:RestauranteId", error.Message);
     }
 
     [Fact]
