@@ -2,10 +2,6 @@
 
 **Estado de referencia:** 21 de noviembre de 2026.
 
-Este documento describe la implementación realizada para la épica GI-8, sus
-dependencias y los pendientes para su puesta en operación. El estado de una
-historia en Jira no sustituye la validación técnica ni funcional.
-
 ## 1. Objetivo y alcance
 
 El módulo permite consultar la afluencia real, pronosticar demanda por fecha y
