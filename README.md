@@ -59,7 +59,7 @@ En Development, la API aplica migraciones y ejecuta el seeder (roles y administr
 
 ### Generación de predicciones de Analítica
 
-Para el alcance implementado, las fuentes, los permisos y los pendientes de entrega, consulta la [documentación de Analítica e IA](docs/analitica-ia-dashboard.md).
+Para el informe de avances, pantallas e integraciones, consulta el [README de Analítica e IA](docs/README-analitica-ia.md). Para fuentes, permisos y pendientes técnicos, consulta la [documentación de Analítica e IA](docs/analitica-ia-dashboard.md).
 
 La generación automática está desactivada por defecto. Tras validarla con Inventario y Personal, configurar `Analitica:RestauranteId` con el GUID real acordado y habilitar `Analitica:Generacion:Habilitada=true` (variables de entorno `Analitica__RestauranteId` y `Analitica__Generacion__Habilitada`). Si se habilita sin un GUID válido y no vacío, la API falla al iniciar. Cuando está habilitada, se revisa cada cinco minutos después del cierre configurado. Usa el modelo SSA activo cuando dispone de observaciones continuas; si no, utiliza un promedio semanal de baja confianza para las fechas con observaciones comparables. Sin datos suficientes no inventa pronósticos ni marca la generación diaria como completada. Inventario solo recibe días con predicciones para todas las franjas activas. El proceso requiere que la API permanezca en ejecución; la publicación se guarda para reintentar fallos, pero todavía no está validada para varias instancias concurrentes.
 
