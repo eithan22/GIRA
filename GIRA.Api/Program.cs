@@ -1,5 +1,6 @@
 using GIRA.Api.Authorization;
 using GIRA.Api.Common;
+using GIRA.Api.Common.Configuracion;
 using GIRA.Api.Common.Reservas;
 using GIRA.Api.Common.Seguridad;
 using GIRA.Application;
@@ -35,6 +36,9 @@ builder.Services.AddPersonal();
 // Autenticación JWT y límite de intentos del login (GI-95).
 builder.Services.AddAutenticacionJwt(builder.Configuration);
 builder.Services.AddLimiteLogin();
+
+// Notificaciones in-app en tiempo real con SignalR (RF-CFG-06). Va después de AddAutenticacionJwt.
+builder.Services.AddNotificacionesTiempoReal();
 
 // Límite de solicitudes de recuperación de contraseña (GI-215).
 builder.Services.AddLimiteOlvidePassword();
@@ -84,5 +88,6 @@ app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<NotificacionesHub>(NotificacionesHub.Ruta);
 
 app.Run();

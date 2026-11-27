@@ -12,6 +12,7 @@
     "test:dashboard": "node --test tests/dashboard.integration.mjs"
   },
   "dependencies": {
+    "@microsoft/signalr": "^10.0.11",
     "axios": "^1.8.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

@@ -1,6 +1,7 @@
 using GIRA.Application.Interfaces.Services.Configuracion;
 using GIRA.Application.Interfaces.Services.Reservas;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace GIRA.Application.Services.Configuracion;
 
@@ -16,6 +17,8 @@ public static class ConfiguracionServiceExtensions
         services.AddScoped<IParametrosReservaService, ParametrosReservaDbService>();
         services.AddScoped<IConfiguracionReservasService, ConfiguracionReservasService>();
         services.AddScoped<IParametrosInventarioService, ParametrosInventarioService>();
+        services.AddScoped<INotificacionService, NotificacionService>();
+        services.TryAddSingleton(TimeProvider.System);
         return services;
     }
 }

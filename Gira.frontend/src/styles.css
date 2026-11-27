@@ -77,6 +77,22 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .demo-indicator { color: #8b74cf; }
 .status-dot { display: inline-block; width: 7px; height: 7px; background: #21ab81; border-radius: 50%; box-shadow: 0 0 0 3px #21ab8117; }
 .topbar-avatar { width: 27px; height: 27px; display: grid; place-items: center; color: white; background: #6657c9; border-radius: 50%; font-size: 10px; font-weight: 700; }
+.campana { position: relative; }
+.campana-boton { position: relative; width: 32px; height: 32px; display: grid; place-items: center; color: #5b6578; background: none; border: 0; border-radius: 8px; cursor: pointer; }
+.campana-boton:hover, .campana-boton[aria-expanded="true"] { color: #6657c9; background: #f3f1fc; }
+.campana-boton:focus-visible, .campana-item:focus-visible { outline: 2px solid #6657c9; outline-offset: 2px; }
+.campana-contador { position: absolute; top: 2px; right: 1px; min-width: 16px; height: 16px; padding: 0 4px; display: grid; place-items: center; color: #fff; background: #d6455d; border-radius: 8px; font: 800 9px Manrope, sans-serif; }
+.campana-bandeja { position: absolute; top: calc(100% + 8px); right: 0; z-index: 20; width: min(360px, calc(100vw - 32px)); max-height: 70vh; overflow: auto; background: #fff; border: 1px solid #eceef4; border-radius: 12px; box-shadow: 0 12px 32px #1d22371f; }
+.campana-titulo { position: sticky; top: 0; display: flex; align-items: baseline; justify-content: space-between; padding: 12px 14px; background: #fff; border-bottom: 1px solid #eceef4; font-size: 12px; }
+.campana-titulo span { color: #788397; font-size: 10px; }
+.campana-vacia { margin: 0; padding: 18px 14px; color: #788397; font-size: 11px; }
+.campana-lista { margin: 0; padding: 0; list-style: none; }
+.campana-item { width: 100%; display: grid; gap: 3px; padding: 10px 14px; text-align: left; background: none; border: 0; border-bottom: 1px solid #f2f3f7; cursor: pointer; font: inherit; }
+.campana-item:hover { background: #f8f8fc; }
+.campana-item-nueva { background: #f6f4fe; box-shadow: inset 3px 0 #6657c9; }
+.campana-item-titulo { color: #26303f; font-size: 11px; font-weight: 700; }
+.campana-item-mensaje { color: #566173; font-size: 11px; line-height: 1.4; }
+.campana-item-fecha { color: #a2aab8; font-size: 9px; }
 .page-content { max-width: 1500px; min-height: calc(100vh - 60px); margin: auto; padding: 28px 30px 45px; }
 .page-section { width: 100%; }
 .page-heading-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
@@ -396,6 +412,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 520px) {
   .topbar-secure { display: none; }
   .topbar-right { gap: 9px; }
+  .campana-bandeja { position: fixed; top: 64px; left: 16px; right: 16px; width: auto; }
   .page-content { padding-right: 12px; padding-left: 12px; }
   .page-heading-row { flex-direction: column; gap: 13px; }
   .page-heading-row > .button { align-self: stretch; }

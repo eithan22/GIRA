@@ -86,6 +86,9 @@ public class GiraDbContext : IdentityDbContext<Usuario, Rol, Guid>
     /// <summary>Fechas concretas en las que el restaurante está cerrado.</summary>
     public DbSet<DiaCerrado> DiasCerrados => Set<DiaCerrado>();
 
+    /// <summary>Notificaciones in-app del personal.</summary>
+    public DbSet<Notificacion> Notificaciones => Set<Notificacion>();
+
     /// <summary>Unidades de medida de los insumos.</summary>
     public DbSet<UnidadMedida> UnidadesMedida => Set<UnidadMedida>();
 

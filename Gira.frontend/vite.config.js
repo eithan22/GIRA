@@ -9,6 +9,12 @@ export default defineConfig({
         target: 'http://localhost:5253',
         changeOrigin: true,
       },
+      // Canal SignalR de notificaciones (WebSocket).
+      '/hubs': {
+        target: 'http://localhost:5253',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 });
