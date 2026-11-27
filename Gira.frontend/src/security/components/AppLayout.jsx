@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { authService } from '../authService.js';
 import { useAuth } from '../AuthContext.jsx';
 import Icon from './Icon.jsx';
+import CampanaNotificaciones from '../../configuracion/CampanaNotificaciones.jsx';
 
 const menuItems = [
   { label: 'Inicio', to: '/inicio', icon: 'grid', roles: ['Administrador', 'Gerente', 'Supervisor', 'Mesero', 'Cocina'] },
@@ -96,7 +97,7 @@ export default function AppLayout() {
       <main className="main-area">
         <header className="topbar">
           <div className="breadcrumbs"><span>GIRA</span><Icon name="chevron" size={14} /><strong>{locationLabel()}</strong></div>
-          <div className="topbar-right"><span className="topbar-secure"><span className="status-dot" /> Sesión segura</span><span className="topbar-avatar">{user?.nombre?.charAt(0)}</span></div>
+          <div className="topbar-right"><span className="topbar-secure"><span className="status-dot" /> Sesión segura</span><CampanaNotificaciones /><span className="topbar-avatar">{user?.nombre?.charAt(0)}</span></div>
         </header>
         <div className="page-content"><Outlet /></div>
       </main>

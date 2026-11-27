@@ -95,6 +95,9 @@ public static class ConfiguracionRepositoriesExtensions
     public static IServiceCollection AddConfiguracionRepositories(this IServiceCollection services)
     {
         services.AddScoped<IConfiguracionRepository, ConfiguracionRepository>();
+        services.AddScoped<INotificacionRepository, NotificacionRepository>();
+        services.AddScoped<global::GIRA.Application.Interfaces.Services.Configuracion.IConsultaNotificaciones,
+            global::GIRA.Infrastructure.Services.Configuracion.ConsultaNotificaciones>();
         return services;
     }
 }
